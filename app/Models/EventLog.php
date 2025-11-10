@@ -5,26 +5,32 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class AdminAuthenticateLog extends Model
+class EventLog extends Model
 {
     use HasFactory;
 
-    protected $table = 'admin_authenticate_logs';
+    protected $table = 'event_logs';
     protected $primaryKey = 'log_id';
     public $incrementing = true;
-    public $timestamps = false; // Using manual timestamp column
+    public $timestamps = false;
 
     protected $fillable = [
+        'event_id',
         'admin_id',
-        'login_time',
-        'ip_address',
-        'status',
-        'reason',
+        'action',
+        'details',
+        'timestamp',
     ];
 
     protected $casts = [
-        'login_time' => 'datetime',
+        'timestamp' => 'datetime',
     ];
+
+    // Relation: Belongs to Event
+    public function event()
+    {
+        return $this->belongsTo(Event::class, 'event_id', 'event_id');
+    }
 
     // Relation: Belongs to AdminAccount
     public function admin()

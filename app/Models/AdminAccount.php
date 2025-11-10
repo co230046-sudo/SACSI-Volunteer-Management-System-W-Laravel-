@@ -24,13 +24,31 @@ class AdminAccount extends Authenticatable
         'status',
     ];
 
-    protected $hidden = [
-        'password',
-    ];
+    protected $hidden = ['password'];
 
-    // Relationship: logs
-    public function logs()
+    // Relationships
+    public function authenticateLogs()
     {
         return $this->hasMany(AdminAuthenticateLog::class, 'admin_id', 'admin_id');
+    }
+
+    public function importLogs()
+    {
+        return $this->hasMany(ImportLog::class, 'admin_id', 'admin_id');
+    }
+
+    public function eventLogs()
+    {
+        return $this->hasMany(EventLog::class, 'admin_id', 'admin_id');
+    }
+
+    public function attendanceImportLogs()
+    {
+        return $this->hasMany(AttendanceImportLog::class, 'admin_id', 'admin_id');
+    }
+
+    public function factLogs()
+    {
+        return $this->hasMany(FactLog::class, 'admin_id', 'admin_id');
     }
 }

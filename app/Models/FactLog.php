@@ -10,27 +10,23 @@ class FactLog extends Model
     use HasFactory;
 
     protected $table = 'fact_logs';
-    protected $primaryKey = 'fact_id';
-    public $timestamps = true;
+    protected $primaryKey = 'fact_log_id';
+    public $timestamps = false;
 
     protected $fillable = [
         'fact_type_id',
         'admin_id',
-        'import_id',
         'entity_type',
         'entity_id',
         'action',
-        'details', // long text, nullable
-        'logged_at',
+        'details',
+        'timestamp',
     ];
 
     protected $casts = [
-        'logged_at' => 'datetime',
+        'timestamp' => 'datetime',
     ];
 
-    /**
-     * Relations
-     */
     public function factType()
     {
         return $this->belongsTo(FactType::class, 'fact_type_id', 'fact_type_id');
@@ -39,23 +35,5 @@ class FactLog extends Model
     public function admin()
     {
         return $this->belongsTo(AdminAccount::class, 'admin_id', 'admin_id');
-    }
-
-    public function importLog()
-    {
-        return $this->belongsTo(ImportLog::class, 'import_id', 'import_id');
-    }
-
-    /**
-     * Helper method to safely log facts
-     */
-    public static function logFact(array $data)
-    {
-        // Ensure details is always a string or null
-        if (!isset($data['details']) || $data['details'] === '') {
-            $data['details'] = null;
-        }
-
-        return self::create($data);
     }
 }

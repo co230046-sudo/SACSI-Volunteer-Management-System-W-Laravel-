@@ -1,4 +1,4 @@
-
+//File Import Handling
 document.addEventListener('DOMContentLoaded', () => {
  
  (function fileUploadSetup() {
@@ -105,13 +105,8 @@ document.addEventListener('DOMContentLoaded', () => {
         messageModalButtons.appendChild(cancelBtn);
         messageModal.style.display = 'flex';
     }
-})();
-
-
-
-
-    
-  });
+  })();    
+});
 
 //Move Invalid to Valid Entries
 function submitMoveToValid(button) {
@@ -129,7 +124,8 @@ function submitMoveToValid(button) {
 }
 
 //Move Valid to Invalid Entries
+// Move Valid to Invalid Entries
 function moveToInvalid(index) {
-    const url = `/volunteer-import/move-valid-to-invalid/${index}`;
+    const url = `/volunteer-import/move-valid-to-invalid/${index}#invalid-entries-table`;
     window.location.href = url;
 }

@@ -11,8 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // jobs table
         Schema::create('jobs', function (Blueprint $table) {
-            $table->id();
+            $table->increments('id'); // <- must provide a column name
             $table->string('queue')->index();
             $table->longText('payload');
             $table->unsignedTinyInteger('attempts');
@@ -21,6 +22,7 @@ return new class extends Migration
             $table->unsignedInteger('created_at');
         });
 
+        // job_batches table
         Schema::create('job_batches', function (Blueprint $table) {
             $table->string('id')->primary();
             $table->string('name');
@@ -34,8 +36,9 @@ return new class extends Migration
             $table->integer('finished_at')->nullable();
         });
 
+        // failed_jobs table
         Schema::create('failed_jobs', function (Blueprint $table) {
-            $table->id();
+            $table->increments('id'); // <- must provide a column name
             $table->string('uuid')->unique();
             $table->text('connection');
             $table->text('queue');

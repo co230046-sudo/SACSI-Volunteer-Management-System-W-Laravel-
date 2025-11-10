@@ -21,11 +21,10 @@ class AuthController extends Controller
     }
 
     /* ===========================
-       HANDLE LOGIN (ADMIN GUARD)
+       HANDLE LOGIN
     ============================ */
     public function login(Request $request)
     {
-        // Validate input
         $request->validate([
             'username' => 'required|email',
             'password' => 'required|string',
@@ -46,20 +45,20 @@ class AuthController extends Controller
         if (Auth::guard('admin')->attempt($credentials)) {
             $request->session()->regenerate();
 
-            // Log successful login
+            // Successful login log
             AdminAuthenticateLog::create([
-                'admin_id' => $admin ? $admin->admin_id : null,
+                'admin_id' => $admin?->admin_id,
                 'ip_address' => $ip,
                 'status' => 'success',
-                'failure_reason' => null,
+                'reason' => null,
+                'login_time' => now(),
             ]);
 
-            // Log to fact_logs
             $this->logFact(
                 'authentication',
-                $admin ? $admin->admin_id : null,
+                $admin?->admin_id,
                 'admin_accounts',
-                $admin ? $admin->admin_id : null,
+                $admin?->admin_id,
                 'login',
                 'Admin logged in successfully'
             );
@@ -67,20 +66,20 @@ class AuthController extends Controller
             return redirect()->route('home')->with('success', 'Welcome back, Admin!');
         }
 
-        // Failed login
+        // Failed login log
         AdminAuthenticateLog::create([
-            'admin_id' => $admin ? $admin->admin_id : null,
+            'admin_id' => $admin?->admin_id,
             'ip_address' => $ip,
             'status' => 'failed',
-            'failure_reason' => 'Incorrect email or password',
+            'reason' => 'Incorrect email or password',
+            'login_time' => now(),
         ]);
 
-        // Log failed login to fact_logs
         $this->logFact(
             'authentication',
-            $admin ? $admin->admin_id : null,
+            $admin?->admin_id,
             'admin_accounts',
-            $admin ? $admin->admin_id : null,
+            $admin?->admin_id,
             'failed_login',
             'Incorrect email or password'
         );
@@ -107,13 +106,7 @@ class AuthController extends Controller
         $request->validate([
             'username' => 'required|string|max:100|unique:admin_accounts,username',
             'email' => 'required|email|unique:admin_accounts,email',
-            'password' => [
-                'required',
-                'confirmed',
-                'min:8',
-                'regex:/[A-Z]/',
-                'regex:/[0-9]/',
-            ],
+            'password' => ['required', 'confirmed', 'min:8', 'regex:/[A-Z]/', 'regex:/[0-9]/'],
             'profile_picture' => 'required|image|mimes:jpg,jpeg,png|max:2048',
             'role' => 'required|in:super_admin,admin',
         ], [
@@ -128,16 +121,17 @@ class AuthController extends Controller
             'role.in' => 'Selected role is invalid.',
         ]);
 
-        // Create admin account
+        $profilePath = $request->file('profile_picture')->store('profile_pictures', 'public');
+
         $admin = AdminAccount::create([
             'username' => $request->username,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'profile_picture' => $request->file('profile_picture')->store('profile_pictures', 'public'),
+            'profile_picture' => $profilePath,
             'role' => $request->role,
+            'status' => 'active',
         ]);
 
-        // Auto-login after registration
         Auth::guard('admin')->login($admin);
 
         // Log registration
@@ -145,10 +139,10 @@ class AuthController extends Controller
             'admin_id' => $admin->admin_id,
             'ip_address' => $request->ip(),
             'status' => 'success',
-            'failure_reason' => 'Registration and auto-login',
+            'reason' => 'Registration and auto-login',
+            'login_time' => now(),
         ]);
 
-        // Log to fact_logs
         $this->logFact(
             'authentication',
             $admin->admin_id,
@@ -174,10 +168,10 @@ class AuthController extends Controller
             'admin_id' => $adminId,
             'ip_address' => $ip,
             'status' => 'success',
-            'failure_reason' => 'Logged out',
+            'reason' => 'Logged out',
+            'login_time' => now(),
         ]);
 
-        // Log to fact_logs
         $this->logFact(
             'authentication',
             $adminId,
@@ -191,11 +185,13 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
+        session()->forget(['invalidEntries', 'validEntries', 'last_deleted_entries']);
+
         return redirect()->route('auth.login')->with('success', 'You have been logged out.');
     }
 
     /* ===========================
-       HELPER FUNCTION TO LOG TO FACT_LOGS
+       HELPER: LOG TO FACT_LOGS
     ============================ */
     private function logFact($factTypeName, $adminId, $entityType, $entityId, $action, $details = null)
     {

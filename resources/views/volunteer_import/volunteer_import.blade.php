@@ -33,61 +33,59 @@
                     <div class="import-section">
 
                         {{-- Header --}}
-                                <div class="import-controls">
-                                    <h2 class="section-title"><i class="fas fa-tasks"></i> Import & Validation</h2>
-                                    <div class="action-buttons">
-                                        <button class="btn btn-outline-secondary import-btn" onclick="openModal('importHandlingModal1')">
-                                            <i class="fas fa-book fa-xl"></i> Import & Validation Guide
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                {{-- File Upload + Reset on same row --}}
-                                <div class="import-controls d-flex align-items-center gap-2">
-                                    {{-- CSV Upload Form --}}
-                                    <form action="{{ route('volunteer.import.preview') }}" method="POST" enctype="multipart/form-data">
-                                        @csrf
-                                        <div class="import-controls">
-                                                <div class="file-upload">
-                                                <div class="input-group">
-                                                    <input type="file" name="csv_file" class="form-control d-none" id="file-upload" accept=".csv" required>
-                                                    <button class="btn btn-outline-secondary rounded-1" type="button" id="file-upload-button">
-                                                        <i class="fa-solid fa-file-csv me-2"></i> Choose File
-                                                    </button>
-                                                    <span class="file-path" id="file-path">
-                                                        {{ session('uploaded_file_name', 'No file chosen') }}
-                                                    </span>
-
-                                                </div>
-                                            </div>
-                                            <div class="uploader-info">
-                                                <input type="text" class="form-control" value="Uploading as {{ Auth::guard('admin')->user()->username ?? 'Guest' }}" readonly>
-                                                @if(!session('csv_imported'))
-                                                    <button type="submit" class="btn btn-outline-secondary import-btn">
-                                                        <i class="fa-solid fa-upload"></i> Import
-                                                    </button>
-                                                @endif
-                                            </div>
-                                        </div>
-                                    </form>
-
-                                    {{-- Reset / Clear All Import Previews Button --}}
-                                    @if(session()->has('validEntries') || session()->has('invalidEntries'))
-                                        <button type="button" 
-                                                class="btn btn-outline-warning import-btn" 
-                                                id="openResetModal"
-                                                title="Clear all imported entries from preview">
-                                            <i class="fa-solid fa-rotate-left me-1"></i> Clear Imports
-                                        </button>
-                                    @endif
-                                </div>
+                        <div class="import-controls">
+                            <h2 class="section-title"><i class="fas fa-tasks"></i> Import & Validation</h2>
+                            <div class="action-buttons">
+                                <button class="btn btn-outline-secondary import-btn" onclick="openModal('importHandlingModal1')">
+                                    <i class="fas fa-book fa-xl"></i> Import & Validation Guide
+                                </button>
+                            </div>
+                        </div>
+                        
+                        {{-- File Upload + Reset on same row --}}
+                        <div class="import-controls d-flex align-items-center gap-2">
+                           {{-- CSV Upload Form --}}
+                           <form action="{{ route('volunteer.import.preview') }}" method="POST" enctype="multipart/form-data">
+                               @csrf
+                               <div class="import-controls">
+                                       <div class="file-upload">
+                                       <div class="input-group">
+                                           <input type="file" name="csv_file" class="form-control d-none" id="file-upload" accept=".csv" required>
+                                           <button class="btn btn-outline-secondary rounded-1" type="button" id="file-upload-button">
+                                               <i class="fa-solid fa-file-csv me-2"></i> Choose File
+                                           </button>
+                                           <span class="file-path" id="file-path">
+                                               {{ session('uploaded_file_name', 'No file chosen') }}
+                                           </span>
+                                       </div>
+                                   </div>
+                                   <div class="uploader-info">
+                                       <input type="text" class="form-control" value="Uploading as {{ Auth::guard('admin')->user()->username ?? 'Guest' }}" readonly>
+                                       @if(!session('csv_imported'))
+                                           <button type="submit" class="btn btn-outline-secondary import-btn">
+                                               <i class="fa-solid fa-upload"></i> Import
+                                           </button>
+                                       @endif
+                                   </div>
+                               </div>
+                           </form>
+                           {{-- Reset / Clear All Import Previews Button --}}
+                           @if(session()->has('validEntries') || session()->has('invalidEntries'))
+                               <button type="button" 
+                                       class="btn btn-outline-warning import-btn" 
+                                       id="openResetModal"
+                                       title="Clear all imported entries from preview">
+                                   <i class="fa-solid fa-rotate-left me-1"></i> Clear Imports
+                               </button>
+                           @endif
+                        </div>
 
                         <hr class="red-hr">
 
-                    <div class="action-message {{ session('success') ? 'text-success' : 'd-none' }}">
-                        <span class="message-text">{!! session('success') !!}</span>
-                        <button type="button" class="close-message-btn">&times;</button>
-                    </div>
+                        <div class="action-message {{ session('success') ? 'text-success' : 'd-none' }}">
+                            <span class="message-text">{!! session('success') !!}</span>
+                            <button type="button" class="close-message-btn">&times;</button>
+                        </div>
 
 
 
@@ -128,11 +126,10 @@
                                     </div>
                                 </div>
 
-                                <div class="table-responsive mt-3">
+                               <div class="table-responsive mt-3">
                                     <table id="invalid-entries-table" class="table table-hover volunteer-table">
                                         <thead>
                                             <tr>
-                                               
                                                 <th><input type="checkbox" class="select-all-invalid"></th>
                                                 <th>#</th> <!-- Row number -->
                                                 <th>Full Name</th>
@@ -149,60 +146,102 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-    @if(!empty($invalidEntries) && count($invalidEntries) > 0)
-        @foreach ($invalidEntries as $index => $entry)
-            <tr>
-                <td>
-                    <input type="checkbox" name="selected_invalid[]" value="{{ $index }}">
-                </td>
-                <td>{{ $index + 1 }}</td>
-                @php
-                    $columns = [
-                        'full_name' => 'Name',
-                        'id_number' => 'School ID',
-                        'course' => 'Course',
-                        'year_level' => 'Year',
-                        'contact_number' => 'Contact #',
-                        'email' => 'Email',
-                        'emergency_contact' => 'Emergency #',
-                        'fb_messenger' => 'FB/Messenger',
-                        'barangay' => 'Barangay',
-                        'district' => 'District',
-                    ];
-                @endphp
-                @foreach ($columns as $key => $label)
-                    <td>
-                        @if(empty($entry[$key]))
-                            <p class="text-danger fw-semibold">No {{ $label }}</p>
-                        @else
-                            {{ $entry[$key] }}
-                        @endif
-                    </td>
-                @endforeach
-                <td>
-                    <button type="button" class="btn btn-sm btn-outline-secondary"
-                            onclick="setLastUsedTable('invalid', '{{ $index }}'); openEditVolunteerModal('invalid', '{{ $index }}')">
-                        <i class="fa-solid fa-user-edit"></i> Edit
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary move-btn"
-                            onclick="submitMoveToValid(this)">
-                        <i class="fa-solid fa-arrow-right"></i> Validate
-                    </button>
-                </td>
-            </tr>
-        @endforeach
-    @else
-        <tr>
-            <td colspan="13" class="text-center text-muted py-4">
-                <i class="fa-solid fa-file-import fa-lg me-2"></i>
-                <span>No invalid entries yet.</span>
-            </td>
-        </tr>
-    @endif
-</tbody>
+                                            @if(!empty($invalidEntries) && count($invalidEntries) > 0)
+                                                @foreach ($invalidEntries as $index => $entry)
+                                                    <tr>
+                                                        <td>
+                                                            <input type="checkbox" name="selected_invalid[]" value="{{ $index }}">
+                                                        </td>
+                                                        <td>{{ $index + 1 }}</td>
 
+                                                            @foreach ([
+                                                                'full_name' => 'Name',
+                                                                'id_number' => 'School ID',
+                                                                'course' => 'Course',
+                                                                'year_level' => 'Year',
+                                                                'contact_number' => 'Contact #',
+                                                                'email' => 'Email',
+                                                                'emergency_contact' => 'Emergency #',
+                                                                'fb_messenger' => 'FB/Messenger',
+                                                                'barangay' => 'Barangay',
+                                                                'district' => 'District',
+                                                            ] as $key => $label)
+                                                                @php
+                                                                    $value = $entry[$key] ?? '';
+                                                                    $tooltip = '';
+
+                                                                    if (isset($entry['errors'][$key]) && count((array)$entry['errors'][$key]) > 0) {
+                                                                        $errorsArray = is_array($entry['errors'][$key]) ? $entry['errors'][$key] : [$entry['errors'][$key]];
+
+                                                                        // Human-readable messages
+                                                                        $readableErrors = [];
+                                                                        foreach ($errorsArray as $err) {
+                                                                            if ($key == 'full_name') $readableErrors[] = 'Invalid Name (letters, spaces, and punctuation only)';
+                                                                            elseif ($key == 'id_number') $readableErrors[] = 'Invalid School ID (6-7 digits)';
+                                                                            elseif ($key == 'year_level') $readableErrors[] = 'Invalid Year (must be 1-6)';
+                                                                            elseif ($key == 'contact_number') $readableErrors[] = 'Invalid Contact Number (09XXXXXXXXX or +639XXXXXXXXX)';
+                                                                            elseif ($key == 'emergency_contact') $readableErrors[] = 'Invalid Emergency Number (09XXXXXXXXX or +639XXXXXXXXX)';
+                                                                            elseif ($key == 'email') $readableErrors[] = 'Invalid Email (must be @gmail.com or @adzu.edu.ph)';
+                                                                            elseif ($key == 'fb_messenger') $readableErrors[] = 'Invalid FB/Messenger URL';
+                                                                            elseif ($key == 'barangay') $readableErrors[] = 'Invalid Barangay (must be text, max 255 chars)';
+                                                                            elseif ($key == 'district') $readableErrors[] = 'Invalid District (must be 1 or 2)';
+                                                                            else $readableErrors[] = $err;
+                                                                        }
+
+                                                                        if (empty($value)) {
+                                                                            array_unshift($readableErrors, "Missing {$label}");
+                                                                        }
+
+                                                                        $tooltip = implode('<br>', $readableErrors);
+                                                                    }
+                                                                @endphp
+                                                                <td
+                                                                    @if(!empty($tooltip))
+                                                                        class="text-danger fw-semibold"
+                                                                        data-bs-toggle="tooltip"
+                                                                        data-bs-html="true"
+                                                                        data-bs-placement="top"
+                                                                        title="{!! $tooltip !!}"
+                                                                        style="cursor: help; text-decoration: underline dotted;"
+                                                                    @endif
+                                                                >
+                                                                    {{ empty($value) ? 'No '.$label : $value }}
+                                                                </td>
+                                                            @endforeach
+                                                        <td>
+                                                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                                    onclick="setLastUsedTable('invalid', '{{ $index }}'); openEditVolunteerModal('invalid', '{{ $index }}')">
+                                                                <i class="fa-solid fa-user-edit"></i> Edit
+                                                            </button>
+                                                            <button type="button" class="btn btn-sm btn-outline-secondary move-btn"
+                                                                    onclick="submitMoveToValid(this)">
+                                                                <i class="fa-solid fa-arrow-right"></i> Validate
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                @endforeach
+                                            @else
+                                                <tr>
+                                                    <td colspan="13" class="text-center text-muted py-4">
+                                                        <i class="fa-solid fa-file-import fa-lg me-2"></i>
+                                                        <span>No invalid entries yet.</span>
+                                                    </td>
+                                                </tr>
+                                            @endif
+                                        </tbody>
                                     </table>
                                 </div>
+
+                                {{-- Initialize Bootstrap tooltips --}}
+                                <script>
+                                    document.addEventListener('DOMContentLoaded', function () {
+                                        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                                        tooltipTriggerList.map(function (tooltipTriggerEl) {
+                                            return new bootstrap.Tooltip(tooltipTriggerEl);
+                                        });
+                                    });
+                                </script>
+
 
                                 <div class="submit-section">
                                     @if(count($invalidEntries) > 0)
@@ -427,7 +466,7 @@
                                 </div>
                             </div>
                             
-                            <div class="table-responsive">
+                            <div class="table-responsive mt-3">
                                 <table id="import-logs-table" class="table table-hover volunteer-table">
                                     <thead class="table-light">
                                         <tr>
@@ -486,7 +525,7 @@
             @csrf
         </form>
         {{-- Hidden form for submission --}}
-        <form id="submitVerifiedForm" action="{{ route('volunteer.import.validateSave') }}" method="POST" style="display:none;">
+        <form id="submitVerifiedForm" action="" method="POST" style="display:none;">
             @csrf
         </form>
 
@@ -509,6 +548,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ asset('assets/volunteer_import/js/volunteer_import.js') }}"></script>
 
+    {{-- Remember Last Used Section --}}
     <script>
         window.lastUsedTable = { type: null, index: null };
 
@@ -543,140 +583,197 @@
         });
     </script>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // Target the header checkbox
-            const selectAllHeader = document.querySelector('.select-all-invalid');
-            if (!selectAllHeader) return;
+        {{-- Select All checkbox --}}
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                // Target the header checkbox
+                const selectAllHeader = document.querySelector('.select-all-invalid');
+                if (!selectAllHeader) return;
 
-            // When the header checkbox is clicked
-            selectAllHeader.addEventListener('change', () => {
+                // When the header checkbox is clicked
+                selectAllHeader.addEventListener('change', () => {
+                    const table = selectAllHeader.closest('table');
+                    if (!table) return;
+
+                    // Get all body checkboxes in this table
+                    const checkboxes = table.querySelectorAll('tbody input[type="checkbox"]');
+
+                    // Set each checkbox to match the header
+                    checkboxes.forEach(cb => cb.checked = selectAllHeader.checked);
+                });
+
+                // Optional: keep header checkbox in sync when any body checkbox changes
                 const table = selectAllHeader.closest('table');
-                if (!table) return;
-
-                // Get all body checkboxes in this table
-                const checkboxes = table.querySelectorAll('tbody input[type="checkbox"]');
-
-                // Set each checkbox to match the header
-                checkboxes.forEach(cb => cb.checked = selectAllHeader.checked);
-            });
-
-            // Optional: keep header checkbox in sync when any body checkbox changes
-            const table = selectAllHeader.closest('table');
-            if (table) {
-                table.querySelectorAll('tbody input[type="checkbox"]').forEach(cb => {
-                    cb.addEventListener('change', () => {
-                        const allChecked = Array.from(table.querySelectorAll('tbody input[type="checkbox"]'))
-                                                .every(c => c.checked);
-                        selectAllHeader.checked = allChecked;
+                if (table) {
+                    table.querySelectorAll('tbody input[type="checkbox"]').forEach(cb => {
+                        cb.addEventListener('change', () => {
+                            const allChecked = Array.from(table.querySelectorAll('tbody input[type="checkbox"]'))
+                                                    .every(c => c.checked);
+                            selectAllHeader.checked = allChecked;
+                        });
                     });
-                });
-            }
-        });
+                }
+            });
         </script>
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
 
-        const deleteModal = document.getElementById('deleteModal');
-        const deleteConfirmBtn = document.getElementById('deleteConfirmBtn');
-        const deleteCancelBtn = document.getElementById('deleteCancelBtn');
+        <script>
+document.addEventListener('DOMContentLoaded', () => {
+    const deleteModal = document.getElementById('deleteModal');
+    const deleteConfirmBtn = document.getElementById('deleteConfirmBtn');
+    const deleteCancelBtn = document.getElementById('deleteCancelBtn');
+    let pendingDelete = null;
 
-        const messageModal = document.getElementById('messageModal');
-        const messageModalText = document.getElementById('messageModalText');
-        const messageModalButtons = document.getElementById('messageModalButtons');
+    // -----------------------------
+    // Utility: Show message in a table container
+    // -----------------------------
+    function showMessage(container, message, type = 'info', persist = false) {
+        if (!container) return;
+        const msgDiv = container.querySelector('.action-message');
+        if (!msgDiv) return;
 
-        let pendingDelete = null;
+        const textSpan = msgDiv.querySelector('.message-text');
+        textSpan.innerHTML = message;
 
-        // --- Toggle Edit Table ---
-        document.querySelectorAll('.toggle-edit-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const container = btn.closest('.data-table-container');
-                container.classList.toggle('edit-mode'); // <-- toggles checkboxes
-                const hiddenActions = btn.closest('.table-actions').querySelector('.hidden-actions');
-                hiddenActions?.classList.toggle('visible'); // optional: show action buttons
-                btn.classList.toggle('active'); // toggle button style
-            });
+        // Reset classes
+        msgDiv.className = 'action-message';
+        if (type === 'success') msgDiv.classList.add('text-success');
+        else if (type === 'error') msgDiv.classList.add('text-error');
+        else msgDiv.classList.add('text-info');
+
+        msgDiv.classList.remove('d-none');
+
+        // Persist in sessionStorage if needed
+        if (persist) {
+            const table = container.querySelector('table');
+            if (table?.id) {
+                sessionStorage.setItem(`lastTableMessage-${table.id}`, JSON.stringify({ message, type }));
+            }
+        }
+    }
+
+    // -----------------------------
+    // Restore persistent messages
+    // -----------------------------
+    document.querySelectorAll('.data-table-container').forEach(container => {
+        const table = container.querySelector('table');
+        if (!table?.id) return;
+        const stored = sessionStorage.getItem(`lastTableMessage-${table.id}`);
+        if (stored) {
+            const { message, type } = JSON.parse(stored);
+            showMessage(container, message, type);
+        }
+    });
+
+    // -----------------------------
+    // Close message button
+    // -----------------------------
+    document.addEventListener('click', e => {
+        if (e.target.classList.contains('close-message-btn')) {
+            const msgDiv = e.target.closest('.action-message');
+            if (!msgDiv) return;
+            msgDiv.classList.add('d-none');
+
+            const container = e.target.closest('.data-table-container');
+            const table = container?.querySelector('table');
+            if (table?.id) sessionStorage.removeItem(`lastTableMessage-${table.id}`);
+        }
+    });
+
+    // -----------------------------
+    // Toggle Edit Table
+    // -----------------------------
+    document.querySelectorAll('.toggle-edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const container = btn.closest('.data-table-container');
+            container.classList.toggle('edit-mode');
+            const hiddenActions = btn.closest('.table-actions').querySelector('.hidden-actions');
+            hiddenActions?.classList.toggle('visible');
+            btn.classList.toggle('active');
         });
+    });
 
-        // --- Select All ---
-        document.querySelectorAll('.select-all-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const table = btn.closest('.data-table-container').querySelector('table');
-                const checkboxes = table.querySelectorAll('tbody input[type="checkbox"]');
-
-                const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-
-                checkboxes.forEach(cb => cb.checked = !allChecked);
-            });
+    // -----------------------------
+    // Select All Button
+    // -----------------------------
+    document.querySelectorAll('.select-all-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const container = btn.closest('.data-table-container');
+            const checkboxes = container.querySelectorAll('tbody input[type="checkbox"]');
+            if (checkboxes.length === 0) {
+                showMessage(container, 'No rows available', 'error');
+                return;
+            }
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !allChecked);
         });
+    });
 
-       // --- Copy Selected (persistent section message) ---
-        document.querySelectorAll('.copy-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tableContainer = btn.closest('.data-table-container');
-                const section = btn.closest('section');
-                const selected = Array.from(tableContainer.querySelectorAll('tbody input[type="checkbox"]:checked'));
+    // -----------------------------
+    // Copy Selected Rows
+    // -----------------------------
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const container = btn.closest('.data-table-container');
+            const selected = Array.from(container.querySelectorAll('tbody input[type="checkbox"]:checked'));
 
-                if (selected.length === 0) {
-                    showSectionMessage(section, 'No rows selected', 'error', true); // persistent like delete
-                    return;
-                }
+            if (selected.length === 0) {
+                // DO NOT persist this temporary error
+                showMessage(container, 'No rows selected', 'error', false);
+                return;
+            }
 
-                let textToCopy = '';
-                selected.forEach(cb => {
-                    const row = cb.closest('tr');
-                    const cells = Array.from(row.querySelectorAll('td'));
-                    textToCopy += cells.slice(1, -1).map(c => c.innerText.trim()).join('\t') + '\n';
-                });
-
-                navigator.clipboard.writeText(textToCopy)
-                    .then(() => {
-                        showSectionMessage(section, `📋 Copied ${selected.length} row(s)`, 'success', true); // persistent
-                    })
-                    .catch(err => {
-                        showSectionMessage(section, `❌ Failed to copy: ${err}`, 'error', true); // persistent
-                    });
+            let textToCopy = '';
+            selected.forEach(cb => {
+                const row = cb.closest('tr');
+                const cells = Array.from(row.querySelectorAll('td'));
+                textToCopy += cells.slice(1, -1).map(c => c.innerText.trim()).join('\t') + '\n';
             });
+
+            navigator.clipboard.writeText(textToCopy)
+                // DO NOT persist the copy success message
+                .then(() => showMessage(container, `📋 Copied ${selected.length} row(s)`, 'success', false))
+                .catch(err => showMessage(container, `❌ Failed to copy: ${err}`, 'error', false));
         });
+    });
 
+    // -----------------------------
+    // Delete Selected Rows
+    // -----------------------------
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const container = btn.closest('.data-table-container');
+            const selected = Array.from(container.querySelectorAll('tbody input[type="checkbox"]:checked'))
+                                  .map(cb => cb.value);
 
+            if (selected.length === 0) {
+                // DO NOT persist this temporary error
+                showMessage(container, 'No rows selected', 'error', false);
+                return;
+            }
 
-        // --- Delete Selected ---
-        document.querySelectorAll('.delete-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tableContainer = btn.closest('.data-table-container');
-                const section = btn.closest('section');
-                const selected = Array.from(tableContainer.querySelectorAll('tbody input[type="checkbox"]:checked'))
-                                    .map(cb => cb.value);
-
-                if (selected.length === 0) {
-                    showSectionMessage(section, 'No rows selected', 'error');
-                    return;
-                }
-
-                pendingDelete = {
-                    action: btn.dataset.action,
-                    tableType: btn.dataset.tableType,
-                    selected: selected,
-                    section: section
-                };
-
-                deleteModal.style.display = 'flex';
-            });
+            pendingDelete = {
+                action: btn.dataset.action,
+                tableType: btn.dataset.tableType,
+                selected,
+                container
+            };
+            if (deleteModal) deleteModal.style.display = 'flex';
         });
+    });
 
-        // --- Confirm Delete ---
+    // -----------------------------
+    // Confirm Delete
+    // -----------------------------
+    if (deleteConfirmBtn) {
         deleteConfirmBtn.addEventListener('click', () => {
             if (!pendingDelete) return;
 
-            const { action, tableType, selected, section } = pendingDelete;
+            const { action, tableType, selected, container } = pendingDelete;
             const form = document.getElementById('globalDeleteForm');
             form.action = action;
 
-            form.innerHTML = `
-                <input type="hidden" name="_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="table_type" value="${tableType}">
-            `;
+            form.innerHTML = `<input type="hidden" name="_token" value="{{ csrf_token() }}">
+                              <input type="hidden" name="table_type" value="${tableType}">`;
 
             selected.forEach(val => {
                 const input = document.createElement('input');
@@ -686,266 +783,213 @@
                 form.appendChild(input);
             });
 
-            const msg = `Deleted ${selected.length} row(s)`;
-            showSectionMessage(section, msg, 'success', true);
-
-            const table = section.querySelector('table');
-            const remainingRows = table.querySelectorAll('tbody tr');
-            if (remainingRows.length > 0) {
-                const firstDeletedIndex = Math.min(...selected.map(v => parseInt(v)));
-                const newIndex = firstDeletedIndex < remainingRows.length ? firstDeletedIndex : remainingRows.length - 1;
-                setLastUsedTable(tableType, newIndex);
-            } else {
-                setLastUsedTable(tableType, null);
-            }
-
             form.submit();
-            deleteModal.style.display = 'none';
+            if (deleteModal) deleteModal.style.display = 'none';
             pendingDelete = null;
         });
+    }
 
-        // --- Cancel Delete ---
+    // -----------------------------
+    // Cancel Delete
+    // -----------------------------
+    if (deleteCancelBtn) {
         deleteCancelBtn.addEventListener('click', () => {
-            deleteModal.style.display = 'none';
+            if (deleteModal) deleteModal.style.display = 'none';
             pendingDelete = null;
         });
-
-        // --- Utility: Show Message Modal ---
-        function showMessageModal(message) {
-            messageModalText.innerText = message;
-            messageModalButtons.innerHTML = '';
-
-            const okBtn = document.createElement('button');
-            okBtn.type = 'button';
-            okBtn.className = 'confirm-btn';
-            okBtn.innerText = 'OK';
-            okBtn.addEventListener('click', () => messageModal.style.display = 'none');
-
-            messageModalButtons.appendChild(okBtn);
-            messageModal.style.display = 'flex';
-        }
-
-    });
+    }
+});
 </script>
-
 <script>
-/**
- * Show a persistent, dismissible message in a section
- * @param {HTMLElement} sectionEl - The section containing the message div
- * @param {string} message - Message text (can contain HTML)
- * @param {string} type - 'success', 'error', 'info' (for styling)
- * @param {boolean} persist - If true, remember this message in sessionStorage
- */
-function showSectionMessage(sectionEl, message, type = 'info', persist = false) {
-    const msgDiv = sectionEl.querySelector('.action-message');
-    if (!msgDiv) return;
-
-    const textSpan = msgDiv.querySelector('.message-text');
-    textSpan.innerHTML = message; // allow HTML for colors/icons
-
-    // Reset classes
-    msgDiv.classList.remove('d-none', 'text-success', 'text-error', 'text-info');
-    switch(type) {
-        case 'success': msgDiv.classList.add('text-success'); break;
-        case 'error': msgDiv.classList.add('text-error'); break;
-        default: msgDiv.classList.add('text-info'); break;
-    }
-
-    // Show the message
-    msgDiv.classList.remove('d-none');
-
-    // Persist if requested
-    const sectionId = sectionEl.id || sectionEl.dataset.sectionId || 'default';
-    if (persist) {
-        sessionStorage.setItem(`lastSectionMessage-${sectionId}`, JSON.stringify({ message, type }));
-    } else {
-        // Non-persistent messages temporarily override but do not persist
-        sessionStorage.removeItem(`lastSectionMessage-${sectionId}`);
-    }
-}
-
-// Dismiss button logic
-document.addEventListener('click', (e) => {
-    if (e.target.classList.contains('close-message-btn')) {
-        const msgDiv = e.target.closest('.action-message');
+document.addEventListener('DOMContentLoaded', () => {
+    // -----------------------------
+    // Table message utilities
+    // -----------------------------
+    function showTableMessage(tableEl, message, type = 'info', persist = false) {
+        if (!tableEl) return;
+        const container = tableEl.closest('.data-table-container') || tableEl.parentElement;
+        const msgDiv = container.querySelector('.action-message');
         if (!msgDiv) return;
 
-        msgDiv.classList.add('d-none');
+        const textSpan = msgDiv.querySelector('.message-text');
+        textSpan.innerHTML = message;
 
-        const sectionEl = msgDiv.closest('section');
-        const sectionId = sectionEl.id || sectionEl.dataset.sectionId || 'default';
-        sessionStorage.removeItem(`lastSectionMessage-${sectionId}`);
+        msgDiv.className = 'action-message'; // reset classes
+        msgDiv.classList.add(type); // 'success', 'error', 'info'
+        msgDiv.classList.remove('d-none');
+
+        const tableId = tableEl.id || 'default';
+        if (persist) {
+            sessionStorage.setItem(`lastTableMessage-${tableId}`, JSON.stringify({ message, type }));
+        } else {
+            sessionStorage.removeItem(`lastTableMessage-${tableId}`);
+        }
     }
-});
 
-// Restore persisted messages on page load
-document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('section').forEach(section => {
-        const sectionId = section.id || section.dataset.sectionId || 'default';
-        const stored = sessionStorage.getItem(`lastSectionMessage-${sectionId}`);
+    function showTemporaryMessage(tableEl, message, type = 'success') {
+        showTableMessage(tableEl, message, type, false);
+    }
+
+    // Restore table messages
+    document.querySelectorAll('table.volunteer-table').forEach(table => {
+        const tableId = table.id;
+        const stored = sessionStorage.getItem(`lastTableMessage-${tableId}`);
         if (stored) {
             const { message, type } = JSON.parse(stored);
-            showSectionMessage(section, message, type);
+            showTableMessage(table, message, type, true); // Keep the message persistent
         }
     });
-});
 
-/* -------------------------------
-   Delete integration (persistent)
----------------------------------*/
-deleteConfirmBtn.addEventListener('click', () => {
-    if (!pendingDelete) return;
+    // -----------------------------
+    // Section message utilities
+    // -----------------------------
+    document.querySelectorAll('section').forEach(section => {
+        const msgDiv = section.querySelector('.action-message');
+        if (!msgDiv) return;
 
-    const { action, tableType, selected, section } = pendingDelete;
-    const form = document.getElementById('globalDeleteForm');
-    form.action = action;
+        const textSpan = msgDiv.querySelector('.message-text');
+        const sectionId = section.id || section.dataset.sectionId || 'default';
 
-    form.innerHTML = `
-        <input type="hidden" name="_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="table_type" value="${tableType}">
-    `;
-    selected.forEach(val => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'selected[]';
-        input.value = val;
-        form.appendChild(input);
+        // Save server message if present
+        const serverMessage = textSpan.innerHTML;
+        if (serverMessage) {
+            sessionStorage.setItem(`persistentMessage-${sectionId}`, serverMessage);
+            msgDiv.classList.remove('d-none');
+        }
+
+        // Restore persisted message
+        const storedMessage = sessionStorage.getItem(`persistentMessage-${sectionId}`);
+        if (storedMessage) {
+            textSpan.innerHTML = storedMessage;
+            msgDiv.classList.remove('d-none');
+        }
+
+        // Close button
+        const closeBtn = msgDiv.querySelector('.close-message-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                msgDiv.classList.add('d-none');
+                sessionStorage.removeItem(`persistentMessage-${sectionId}`);
+            });
+        }
     });
 
-    const msg = `Deleted ${selected.length} row(s)`;
-    showSectionMessage(section, msg, 'success', true); // persistent
+    // -----------------------------
+    // Global message close handler
+    // -----------------------------
+    document.addEventListener('click', e => {
+        if (e.target.classList.contains('close-message-btn')) {
+            const msgDiv = e.target.closest('.action-message');
+            if (!msgDiv) return;
 
-    const table = section.querySelector('table');
-    const remainingRows = table.querySelectorAll('tbody tr');
-    if (remainingRows.length > 0) {
-        const firstDeletedIndex = Math.min(...selected.map(v => parseInt(v)));
-        const newIndex = firstDeletedIndex < remainingRows.length ? firstDeletedIndex : remainingRows.length - 1;
-        setLastUsedTable(tableType, newIndex);
-    } else {
-        setLastUsedTable(tableType, null);
-    }
-
-    form.submit();
-    deleteModal.style.display = 'none';
-    pendingDelete = null;
-});
-
-/* -------------------------------
-   Temporary messages for copy/upload
----------------------------------*/
-function showTemporaryMessage(section, message, type = 'success') {
-    showSectionMessage(section, message, type, false); // non-persistent
-}
-</script>
-
-
-<!--Remember Message-->
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const msgDiv = document.querySelector('.action-message');
-    const textSpan = msgDiv.querySelector('.message-text');
-
-    // Check for a message from server
-    const serverMessage = textSpan.innerHTML;
-    if (serverMessage) {
-        // Save to sessionStorage so it persists
-        sessionStorage.setItem('persistentMessage', serverMessage);
-        msgDiv.classList.remove('d-none');
-    }
-
-    // Restore message from sessionStorage on reload
-    const storedMessage = sessionStorage.getItem('persistentMessage');
-    if (storedMessage) {
-        textSpan.innerHTML = storedMessage;
-        msgDiv.classList.remove('d-none');
-    }
-
-    // Close button
-    document.querySelectorAll('.close-message-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
             msgDiv.classList.add('d-none');
-            sessionStorage.removeItem('persistentMessage');
-        });
+            const container = msgDiv.closest('.data-table-container');
+            const table = container?.querySelector('table');
+            if (table?.id) {
+                sessionStorage.removeItem(`lastTableMessage-${table.id}`);
+            }
+        }
     });
-});
-</script>
 
-<style>
-
-    .action-message {
-    padding: 10px 15px;
-    border-radius: 5px;
-    margin-bottom: 15px;
-    position: relative;
-    font-weight: 500;
-}
-
-.action-message.text-success {
-    background-color: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-}
-
-.action-message.text-error {
-    background-color: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-}
-
-.action-message.text-info {
-    background-color: #d1ecf1;
-    color: #0c5460;
-    border: 1px solid #bee5eb;
-}
-
-.action-message .close-message-btn {
-    position: absolute;
-    top: 5px;
-    right: 10px;
-    background: none;
-    border: none;
-    font-size: 1.2rem;
-    cursor: pointer;
-    color: inherit;
-}
-
-
-</style>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const modal = document.getElementById('messageModal');
-    const modalText = document.getElementById('messageModalText');
-    const modalButtons = document.getElementById('messageModalButtons');
-
-    // Helper to show modal
-    function showMessage(message, type = 'info') {
-        modalText.textContent = message;
-
-        // Clear previous buttons
-        modalButtons.innerHTML = '';
-
-        // Add OK button
-        const okBtn = document.createElement('button');
-        okBtn.textContent = 'OK';
-        okBtn.classList.add('btn', 'btn-primary');
-        okBtn.addEventListener('click', () => {
-            modal.style.display = 'none';
-        });
-
-        modalButtons.appendChild(okBtn);
-        modal.style.display = 'flex';
+    // -----------------------------
+    // Show Message for No Rows Selected (Persistent)
+    // -----------------------------
+    function showNoRowsSelectedMessage(container, type = 'error') {
+        const message = 'No rows selected';
+        showTableMessage(container, message, type, true); // Persist the message
     }
 
-    @if(session('error_modal'))
-        showMessage("{{ session('error_modal') }}", 'error');
-    @endif
+    // -----------------------------
+    // Copy Selected Rows
+    // -----------------------------
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const container = btn.closest('.data-table-container');
+            const selected = Array.from(container.querySelectorAll('tbody input[type="checkbox"]:checked'));
 
-    @if(session('success_modal'))
-        showMessage("{{ session('success_modal') }}", 'success');
-    @endif
+            if (selected.length === 0) {
+                // Persist "No rows selected" message
+                showNoRowsSelectedMessage(container, 'error');
+                return;
+            }
+
+            let textToCopy = '';
+            selected.forEach(cb => {
+                const row = cb.closest('tr');
+                const cells = Array.from(row.querySelectorAll('td'));
+                textToCopy += cells.slice(1, -1).map(c => c.innerText.trim()).join('\t') + '\n';
+            });
+
+            navigator.clipboard.writeText(textToCopy)
+                .then(() => showTableMessage(container, `📋 Copied ${selected.length} row(s)`, 'success', false))
+                .catch(err => showTableMessage(container, `❌ Failed to copy: ${err}`, 'error', false));
+        });
+    });
+
+    // -----------------------------
+    // Delete Selected Rows
+    // -----------------------------
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const container = btn.closest('.data-table-container');
+            const selected = Array.from(container.querySelectorAll('tbody input[type="checkbox"]:checked'))
+                                  .map(cb => cb.value);
+
+            if (selected.length === 0) {
+                // Persist "No rows selected" message
+                showNoRowsSelectedMessage(container, 'error');
+                return;
+            }
+
+            pendingDelete = {
+                action: btn.dataset.action,
+                tableType: btn.dataset.tableType,
+                selected,
+                container
+            };
+            if (deleteModal) deleteModal.style.display = 'flex';
+        });
+    });
+
+    // -----------------------------
+    // Confirm Delete
+    // -----------------------------
+    if (deleteConfirmBtn) {
+        deleteConfirmBtn.addEventListener('click', () => {
+            if (!pendingDelete) return;
+
+            const { action, tableType, selected, container } = pendingDelete;
+            const form = document.getElementById('globalDeleteForm');
+            form.action = action;
+
+            form.innerHTML = `<input type="hidden" name="_token" value="{{ csrf_token() }}">
+                              <input type="hidden" name="table_type" value="${tableType}">`;
+
+            selected.forEach(val => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'selected[]';
+                input.value = val;
+                form.appendChild(input);
+            });
+
+            form.submit();
+            if (deleteModal) deleteModal.style.display = 'none';
+            pendingDelete = null;
+        });
+    }
+
+    // -----------------------------
+    // Cancel Delete
+    // -----------------------------
+    if (deleteCancelBtn) {
+        deleteCancelBtn.addEventListener('click', () => {
+            if (deleteModal) deleteModal.style.display = 'none';
+            pendingDelete = null;
+        });
+    }
 });
 </script>
-
 
 </body>
 </html>

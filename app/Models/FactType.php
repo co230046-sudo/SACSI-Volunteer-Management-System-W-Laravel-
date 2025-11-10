@@ -9,11 +9,12 @@ class FactType extends Model
 {
     use HasFactory;
 
-    protected $table = 'fact_types'; // pluralized
+    protected $table = 'fact_types';
     protected $primaryKey = 'fact_type_id';
+    public $timestamps = false;
 
     protected $fillable = [
-        'type_name',
+        'type_name', // <-- use type_name
         'description',
     ];
 

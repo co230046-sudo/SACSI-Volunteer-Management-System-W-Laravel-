@@ -9,10 +9,10 @@ class ImportLog extends Model
 {
     use HasFactory;
 
-    // Primary key
+    protected $table = 'import_logs';
     protected $primaryKey = 'import_id';
+    public $timestamps = true; // enable timestamps
 
-    // Mass assignable fields
     protected $fillable = [
         'file_name',
         'admin_id',
@@ -22,19 +22,15 @@ class ImportLog extends Model
         'duplicate_count',
         'status',
         'remarks',
-        'completed_at',
     ];
 
-    // Cast completed_at as datetime
-    protected $casts = [
-        'completed_at' => 'datetime',
-    ];
-
-    /**
-     * Admin relationship
-     */
     public function admin()
     {
         return $this->belongsTo(AdminAccount::class, 'admin_id', 'admin_id');
+    }
+
+    public function volunteerProfiles()
+    {
+        return $this->hasMany(VolunteerProfile::class, 'import_id', 'import_id');
     }
 }

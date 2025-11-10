@@ -27,9 +27,11 @@ Route::prefix('volunteer-import')->group(function () {
 
     // Show Import (Invalid, Valid, Import Logs)
     Route::post('/preview', [VolunteerImportController::class, 'preview'])->name('volunteer.import.preview');
-
+    
+    // Reset/Clear Import File
     Route::post('/validate-save', [VolunteerImportController::class, 'validateAndSave'])->name('volunteer.import.validateSave');
 
+    // Update Invalid/Valid Volunteer
     Route::post('/clear-invalid', [VolunteerImportController::class, 'clearInvalid'])->name('volunteer.import.clearInvalid');
 
     // Reset CSV File Import
@@ -39,15 +41,16 @@ Route::prefix('volunteer-import')->group(function () {
     Route::post('/move-invalid', [VolunteerImportController::class, 'moveInvalidToValid'])->name('volunteer.import.moveInvalidToValid');
 
     // Update Invalid/Valid Volunteer
-    Route::put('/volunteer/update-entry/{index}/{type}', [VolunteerImportController::class, 'updateVolunteerEntry'])->name('volunteer.update');
+    Route::put('/volunteer-import/volunteer/update-entry/{index}/{type}', [VolunteerImportController::class, 'updateVolunteerEntry'])->name('volunteer.import.update-entry');
 
     // Move Valid to Invalid
     Route::get('/move-valid-to-invalid/{index}', [VolunteerImportController::class, 'moveValidToInvalid'])->name('volunteer.moveValidToInvalid');
 
     // Delete selected invalid entries
-    Route::post('/volunteer/delete-entries', [VolunteerImportController::class, 'deleteEntries'])
-    ->name('volunteer.deleteEntries');
+    Route::post('/volunteer/delete-entries', [VolunteerImportController::class, 'deleteEntries'])->name('volunteer.deleteEntries');
 
+    // Undo Delete selected invalid entries
+    Route::get('/volunteer-import/undo-delete', [VolunteerImportController::class, 'undoDelete'])->name('volunteer.import.undo-delete');
 
-
+    
 });

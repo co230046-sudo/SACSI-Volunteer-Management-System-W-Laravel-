@@ -14,6 +14,9 @@ class AdminAccount extends Authenticatable
     public $incrementing = true;
     protected $keyType = 'int';
 
+    // Enable automatic created_at and updated_at timestamps
+    public $timestamps = true;
+
     protected $fillable = [
         'username',
         'email',
@@ -24,9 +27,13 @@ class AdminAccount extends Authenticatable
         'status',
     ];
 
-    protected $hidden = ['password'];
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
 
     // Relationships
+
     public function authenticateLogs()
     {
         return $this->hasMany(AdminAuthenticateLog::class, 'admin_id', 'admin_id');
@@ -50,5 +57,10 @@ class AdminAccount extends Authenticatable
     public function factLogs()
     {
         return $this->hasMany(FactLog::class, 'admin_id', 'admin_id');
+    }
+
+    public function createdEvents()
+    {
+        return $this->hasMany(Event::class, 'created_by', 'admin_id');
     }
 }

@@ -30,13 +30,13 @@ class Event extends Model
         'end_datetime' => 'datetime',
     ];
 
-    // Relation: creator admin
+    // Relation: Event creator (admin)
     public function creator()
     {
         return $this->belongsTo(AdminAccount::class, 'created_by', 'admin_id');
     }
 
-    // Relation: Event attendance records
+    // Relation: Event attendances
     public function attendances()
     {
         return $this->hasMany(EventAttendance::class, 'event_id', 'event_id');
@@ -48,7 +48,7 @@ class Event extends Model
         return $this->hasMany(EventFeedback::class, 'event_id', 'event_id');
     }
 
-    // Relation: Logs
+    // Relation: Event logs
     public function logs()
     {
         return $this->hasMany(EventLog::class, 'event_id', 'event_id');
@@ -58,6 +58,18 @@ class Event extends Model
     public function attendanceImports()
     {
         return $this->hasMany(AttendanceImportLog::class, 'event_id', 'event_id');
+    }
+
+    // Relation: Event organizers
+    public function organizers()
+    {
+        return $this->hasMany(EventOrganizer::class, 'event_id', 'event_id');
+    }
+
+    // Relation: Expected volunteers
+    public function expectedVolunteers()
+    {
+        return $this->hasMany(EventExpectedVolunteer::class, 'event_id', 'event_id');
     }
 
     // Relation: Location

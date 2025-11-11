@@ -26,13 +26,13 @@ class EventLog extends Model
         'timestamp' => 'datetime',
     ];
 
-    // Relation: Belongs to Event
+    // Relation: Event associated with this log
     public function event()
     {
         return $this->belongsTo(Event::class, 'event_id', 'event_id');
     }
 
-    // Relation: Belongs to AdminAccount
+    // Relation: Admin who performed the action
     public function admin()
     {
         return $this->belongsTo(AdminAccount::class, 'admin_id', 'admin_id');

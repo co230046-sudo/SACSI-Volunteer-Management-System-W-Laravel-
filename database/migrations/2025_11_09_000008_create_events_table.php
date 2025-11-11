@@ -15,13 +15,14 @@ return new class extends Migration
                 $table->text('description')->nullable();
                 $table->string('venue')->nullable();
                 $table->unsignedInteger('location_id')->nullable();
-                $table->foreign('location_id')->references('location_id')->on('locations')->onDelete('set null');
                 $table->timestamp('start_datetime')->nullable();
                 $table->timestamp('end_datetime')->nullable();
                 $table->enum('status', ['planned','ongoing','completed','cancelled'])->default('planned');
                 $table->unsignedInteger('created_by')->nullable();
-                $table->foreign('created_by')->references('admin_id')->on('admin_accounts')->onDelete('set null');
                 $table->timestamps();
+
+                $table->foreign('location_id')->references('location_id')->on('locations')->onDelete('set null');
+                $table->foreign('created_by')->references('admin_id')->on('admin_accounts')->onDelete('set null');
             });
         }
     }

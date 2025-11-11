@@ -15,7 +15,7 @@ return new class extends Migration
                 $table->unsignedInteger('admin_id')->nullable();
                 $table->string('action');
                 $table->text('details')->nullable();
-                $table->timestamp('timestamp')->nullable();
+                $table->timestamp('timestamp')->useCurrent();
 
                 $table->foreign('event_id')->references('event_id')->on('events')->onDelete('cascade');
                 $table->foreign('admin_id')->references('admin_id')->on('admin_accounts')->onDelete('set null');

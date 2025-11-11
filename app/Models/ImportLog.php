@@ -11,7 +11,7 @@ class ImportLog extends Model
 
     protected $table = 'import_logs';
     protected $primaryKey = 'import_id';
-    public $timestamps = true; // enable timestamps
+    public $timestamps = true;
 
     protected $fillable = [
         'file_name',
@@ -24,11 +24,13 @@ class ImportLog extends Model
         'remarks',
     ];
 
+    // Relation: Belongs to AdminAccount
     public function admin()
     {
         return $this->belongsTo(AdminAccount::class, 'admin_id', 'admin_id');
     }
 
+    // Relation: Has many VolunteerProfiles
     public function volunteerProfiles()
     {
         return $this->hasMany(VolunteerProfile::class, 'import_id', 'import_id');

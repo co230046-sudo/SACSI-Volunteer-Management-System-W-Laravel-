@@ -11,15 +11,13 @@ return new class extends Migration
         if (!Schema::hasTable('fact_logs')) {
             Schema::create('fact_logs', function (Blueprint $table) {
                 $table->increments('fact_log_id');
-                $table->unsignedInteger('fact_type_id');
                 $table->unsignedInteger('admin_id')->nullable();
                 $table->string('entity_type');
-                $table->unsignedInteger('entity_id');
+                $table->unsignedInteger('entity_id')->nullable();
                 $table->string('action');
                 $table->text('details')->nullable();
-                $table->timestamp('timestamp')->nullable();
+                $table->timestamp('timestamp')->useCurrent();
 
-                $table->foreign('fact_type_id')->references('fact_type_id')->on('fact_types')->onDelete('cascade');
                 $table->foreign('admin_id')->references('admin_id')->on('admin_accounts')->onDelete('set null');
             });
         }

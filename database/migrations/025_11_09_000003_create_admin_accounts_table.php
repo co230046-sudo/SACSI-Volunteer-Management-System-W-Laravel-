@@ -11,10 +11,10 @@ return new class extends Migration
         if (!Schema::hasTable('admin_accounts')) {
             Schema::create('admin_accounts', function (Blueprint $table) {
                 $table->increments('admin_id');
-                $table->string('username', 100);
+                $table->string('username', 100)->unique();
                 $table->string('password');
                 $table->string('profile_picture')->nullable();
-                $table->string('email');
+                $table->string('email')->unique();
                 $table->string('full_name')->nullable();
                 $table->enum('role', ['admin','super_admin'])->default('admin');
                 $table->enum('status', ['active','inactive','suspended'])->default('active');

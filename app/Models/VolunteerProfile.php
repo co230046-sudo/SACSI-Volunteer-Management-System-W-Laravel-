@@ -17,10 +17,10 @@ class VolunteerProfile extends Model
     protected $fillable = [
         'import_id',
         'location_id',
+        'course_id', // updated to match schema
         'full_name',
         'id_number',
         'school_id',
-        'course',
         'year_level',
         'email',
         'contact_number',
@@ -44,22 +44,21 @@ class VolunteerProfile extends Model
         return $this->belongsTo(Location::class, 'location_id', 'location_id');
     }
 
-    // Relation: Event Attendance
-    public function eventAttendances()
-    {
-        return $this->hasMany(EventAttendance::class, 'volunteer_id', 'volunteer_id');
-    }
-
-    // Relation: Event Feedback
-    public function eventFeedbacks()
-    {
-        return $this->hasMany(EventFeedback::class, 'volunteer_id', 'volunteer_id');
-    }
-
-    // Relation: Event Feedback
+    // Relation: Course
     public function course()
     {
         return $this->belongsTo(Course::class, 'course_id', 'course_id');
     }
 
+    // Relation: Event Attendances
+    public function eventAttendances()
+    {
+        return $this->hasMany(EventAttendance::class, 'volunteer_id', 'volunteer_id');
+    }
+
+    // Relation: Event Feedbacks
+    public function eventFeedbacks()
+    {
+        return $this->hasMany(EventFeedback::class, 'volunteer_id', 'volunteer_id');
+    }
 }

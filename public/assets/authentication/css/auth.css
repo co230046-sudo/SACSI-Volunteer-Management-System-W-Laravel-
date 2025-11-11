@@ -841,6 +841,41 @@ body, .content-wrapper {
   width: 100%;
 }
 
+/* ==============================
+   INPUT AUTOFILL, VALID & INVALID (user interacted)
+   ============================== */
+
+/* Remove browser autofill blue/yellow background in Chrome, Edge, Safari */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0px 1000px rgba(255,255,255,0.9) inset !important;
+  -webkit-text-fill-color: #555 !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Firefox */
+input:-moz-autofill {
+  box-shadow: 0 0 0px 1000px rgba(255,255,255,0.9) inset !important;
+  -moz-text-fill-color: #555 !important;
+}
+
+/* Valid input (always green when valid) */
+input:valid {
+  background-color: #d4f5d4 !important; /* light green */
+  box-shadow: 0 0 0 2px #4CAF50 !important; /* green outline */
+  color: #222;
+}
+
+/* Invalid input: only show red if user interacted */
+input:invalid:focus,
+input:invalid:not(:placeholder-shown) {
+  background-color: #f5d4d4 !important; /* light red */
+  box-shadow: 0 0 0 2px #E53935 !important; /* red outline */
+  color: #222;
+}
+
 /* =========================
    RESPONSIVE ADJUSTMENTS
    ========================= */

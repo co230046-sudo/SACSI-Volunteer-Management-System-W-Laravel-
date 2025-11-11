@@ -14,7 +14,6 @@ class FactLog extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'fact_type_id',
         'admin_id',
         'entity_type',
         'entity_id',
@@ -26,11 +25,6 @@ class FactLog extends Model
     protected $casts = [
         'timestamp' => 'datetime',
     ];
-
-    public function factType()
-    {
-        return $this->belongsTo(FactType::class, 'fact_type_id', 'fact_type_id');
-    }
 
     public function admin()
     {

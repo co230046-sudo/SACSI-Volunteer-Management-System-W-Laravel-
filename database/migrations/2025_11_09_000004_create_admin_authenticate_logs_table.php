@@ -13,9 +13,9 @@ return new class extends Migration
                 $table->increments('log_id');
                 $table->unsignedInteger('admin_id')->nullable();
                 $table->string('ip_address')->nullable();
-                $table->enum('status', ['Success', 'Failed']);
+                $table->enum('status', ['success','failed','locked'])->default('success');
                 $table->text('reason')->nullable();
-                $table->timestamp('login_time')->nullable();
+                $table->timestamp('login_time')->useCurrent();
                 $table->timestamps();
 
                 $table->foreign('admin_id')->references('admin_id')->on('admin_accounts')->onDelete('set null');

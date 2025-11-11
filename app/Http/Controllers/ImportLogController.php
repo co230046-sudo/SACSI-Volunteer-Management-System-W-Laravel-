@@ -14,9 +14,15 @@ class ImportLogController extends Controller
      */
     public function index()
     {
+        // Fetch all import logs, newest first
         $importLogs = ImportLog::with('admin')
             ->orderBy('created_at', 'desc')
             ->get();
+
+        // Filter out logs that are cancelled or have zero total_records
+        $importLogs = $importLogs->filter(function ($log) {
+            return $log->status !== 'Cancelled' && $log->total_records > 0;
+        });
 
         return view('import_logs.index', compact('importLogs'));
     }
@@ -52,5 +58,29 @@ class ImportLogController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Import log recorded successfully!');
+    }
+
+    private function cleanOldUploadsSafe()
+    {
+        $uploadPath = 'uploads'; // relative to storage/app/public
+
+        if (!Storage::disk('public')->exists($uploadPath)) return;
+
+        // Get all files in the uploads directory
+        $files = Storage::disk('public')->files($uploadPath);
+
+        // Get all file names currently referenced in ImportLog
+        $activeFiles = ImportLog::pluck('file_name')->map(function($name) {
+            return $name; // adjust if you stored paths differently
+        })->toArray();
+
+        foreach ($files as $file) {
+            $basename = basename($file); // just the file name
+
+            // Delete only if file is NOT referenced in import logs
+            if (!in_array($basename, $activeFiles)) {
+                Storage::disk('public')->delete($file);
+            }
+        }
     }
 }

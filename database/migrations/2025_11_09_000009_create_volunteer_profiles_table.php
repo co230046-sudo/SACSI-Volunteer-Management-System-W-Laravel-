@@ -8,13 +8,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Make sure the table doesn't exist
         if (!Schema::hasTable('volunteer_profiles')) {
             Schema::create('volunteer_profiles', function (Blueprint $table) {
                 $table->increments('volunteer_id');
                 $table->unsignedInteger('import_id')->nullable();
                 $table->unsignedInteger('location_id')->nullable();
-                $table->unsignedInteger('course_id')->nullable(); // matches courses.course_id type
+                $table->unsignedInteger('course_id')->nullable();
                 $table->string('full_name');
                 $table->string('id_number')->nullable();
                 $table->string('school_id')->nullable();
@@ -29,18 +28,9 @@ return new class extends Migration
                 $table->text('notes')->nullable();
                 $table->timestamps();
 
-                // Foreign keys
-                $table->foreign('import_id')
-                    ->references('import_id')->on('import_logs')
-                    ->onDelete('set null');
-
-                $table->foreign('location_id')
-                    ->references('location_id')->on('locations')
-                    ->onDelete('set null');
-
-                $table->foreign('course_id')
-                    ->references('course_id')->on('courses')
-                    ->onDelete('set null');
+                $table->foreign('import_id')->references('import_id')->on('import_logs')->onDelete('set null');
+                $table->foreign('location_id')->references('location_id')->on('locations')->onDelete('set null');
+                $table->foreign('course_id')->references('course_id')->on('courses')->onDelete('set null');
             });
         }
     }
@@ -49,7 +39,6 @@ return new class extends Migration
     {
         if (Schema::hasTable('volunteer_profiles')) {
             Schema::table('volunteer_profiles', function (Blueprint $table) {
-                // Drop foreign keys first
                 $table->dropForeign(['import_id']);
                 $table->dropForeign(['location_id']);
                 $table->dropForeign(['course_id']);

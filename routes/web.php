@@ -17,6 +17,7 @@ Route::get('/register', [AuthController::class, 'showRegister'])->name('auth.reg
 Route::post('/register', [AuthController::class, 'register'])->name('auth.register.submit');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+
 // Homepage
 Route::get('/home', [HomePageController::class, 'index'])->name('home');
 

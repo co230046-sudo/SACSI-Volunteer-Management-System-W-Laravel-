@@ -12,7 +12,7 @@ class AttendanceImportLog extends Model
     protected $table = 'attendance_import_logs';
     protected $primaryKey = 'import_id';
     public $incrementing = true;
-    public $timestamps = false;
+    public $timestamps = false; // Using import_date instead
 
     protected $fillable = [
         'event_id',
@@ -29,11 +29,13 @@ class AttendanceImportLog extends Model
         'import_date' => 'datetime',
     ];
 
+    // Relation: Belongs to Event
     public function event()
     {
         return $this->belongsTo(Event::class, 'event_id', 'event_id');
     }
 
+    // Relation: Belongs to AdminAccount
     public function admin()
     {
         return $this->belongsTo(AdminAccount::class, 'admin_id', 'admin_id');

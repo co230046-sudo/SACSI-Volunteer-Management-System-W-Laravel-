@@ -11,8 +11,8 @@ return new class extends Migration
         if (!Schema::hasTable('locations')) {
             Schema::create('locations', function (Blueprint $table) {
                 $table->increments('location_id');
-                $table->string('district', 100);  // not nullable
-                $table->string('barangay', 100);  // not nullable
+                $table->string('district', 100);
+                $table->string('barangay', 100);
                 $table->timestamps();
             });
         }

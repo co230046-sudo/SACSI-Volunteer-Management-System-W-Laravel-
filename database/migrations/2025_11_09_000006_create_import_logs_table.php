@@ -1,5 +1,4 @@
 <?php
-
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -17,9 +16,11 @@ return new class extends Migration
                 $table->integer('valid_count')->default(0);
                 $table->integer('invalid_count')->default(0);
                 $table->integer('duplicate_count')->default(0);
-                $table->enum('status', ['pending','completed','failed','cancelled','reset'])->default('pending');
+                $table->enum('status', ['Pending','Completed','Cancelled','Reset','Failed'])->default('Pending');
                 $table->text('remarks')->nullable();
                 $table->timestamps();
+
+                $table->foreign('admin_id')->references('admin_id')->on('admin_accounts')->onDelete('set null');
             });
         }
     }

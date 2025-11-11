@@ -9,15 +9,15 @@ class EventAttendance extends Model
 {
     use HasFactory;
 
-    protected $table = 'event_attendance';
-    protected $primaryKey = 'attendance_id'; // assuming your PK is named like this
+    protected $table = 'event_attendances';
+    protected $primaryKey = 'attendance_id';
     public $incrementing = true;
     public $timestamps = true;
 
     protected $fillable = [
         'event_id',
         'volunteer_id',
-        'attendance_status',
+        'status',        // matches the migration column
         'hours_rendered',
         'remarks',
         'certificate_link',

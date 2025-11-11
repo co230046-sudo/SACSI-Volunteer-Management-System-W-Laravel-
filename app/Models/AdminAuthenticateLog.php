@@ -12,11 +12,11 @@ class AdminAuthenticateLog extends Model
     protected $table = 'admin_authenticate_logs';
     protected $primaryKey = 'log_id';
     public $incrementing = true;
-    public $timestamps = false; // Using manual timestamp column
+    public $timestamps = true; // Enable created_at & updated_at
 
     protected $fillable = [
         'admin_id',
-        'login_time',
+        'login_time', // semantic timestamp
         'ip_address',
         'status',
         'reason',
@@ -24,6 +24,8 @@ class AdminAuthenticateLog extends Model
 
     protected $casts = [
         'login_time' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
     // Relation: Belongs to AdminAccount

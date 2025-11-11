@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\AdminAccount;
 use App\Models\AdminAuthenticateLog;
 use App\Models\FactLog;
-use App\Models\FactType;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
@@ -19,75 +19,77 @@ class AuthController extends Controller
     {
         return view('authentication.admin.login');
     }
-
     /* ===========================
-       HANDLE LOGIN
-    ============================ */
-    public function login(Request $request)
-    {
-        $request->validate([
-            'username' => 'required|email',
-            'password' => 'required|string',
-        ], [
-            'username.required' => 'Please enter your email.',
-            'username.email' => 'Please enter a valid email address.',
-            'password.required' => 'Please enter your password.',
-        ]);
+   HANDLE LOGIN
+=========================== */
+public function login(Request $request)
+{
+    $request->validate([
+        'username' => 'required|string',
+        'password' => 'required|string',
+    ], [
+        'username.required' => 'Please enter your username, email, or full name.',
+        'password.required' => 'Please enter your password.',
+    ]);
 
-        $credentials = [
-            'email' => $request->username,
-            'password' => $request->password,
-        ];
+    $loginField = $request->input('username');
+    $password = $request->input('password');
+    $ip = $request->ip();
 
-        $ip = $request->ip();
-        $admin = AdminAccount::where('email', $request->username)->first();
+    // Attempt to find admin by username, email, or full_name
+    $admin = AdminAccount::where('username', $loginField)
+        ->orWhere('email', $loginField)
+        ->orWhere('full_name', $loginField)
+        ->first();
 
-        if (Auth::guard('admin')->attempt($credentials)) {
-            $request->session()->regenerate();
+    // Check password manually
+    if ($admin && \Illuminate\Support\Facades\Hash::check($password, $admin->password)) {
+        // Login the admin
+        Auth::guard('admin')->login($admin);
+        $request->session()->regenerate();
 
-            // Successful login log
-            AdminAuthenticateLog::create([
-                'admin_id' => $admin?->admin_id,
-                'ip_address' => $ip,
-                'status' => 'success',
-                'reason' => null,
-                'login_time' => now(),
-            ]);
-
-            $this->logFact(
-                'authentication',
-                $admin?->admin_id,
-                'admin_accounts',
-                $admin?->admin_id,
-                'login',
-                'Admin logged in successfully'
-            );
-
-            return redirect()->route('home')->with('success', 'Welcome back, Admin!');
-        }
-
-        // Failed login log
+        // Log successful login
         AdminAuthenticateLog::create([
-            'admin_id' => $admin?->admin_id,
+            'admin_id' => $admin->admin_id,
             'ip_address' => $ip,
-            'status' => 'failed',
-            'reason' => 'Incorrect email or password',
+            'status' => 'success',
+            'reason' => null,
             'login_time' => now(),
         ]);
 
         $this->logFact(
-            'authentication',
-            $admin?->admin_id,
+            $admin->admin_id,
             'admin_accounts',
-            $admin?->admin_id,
-            'failed_login',
-            'Incorrect email or password'
+            $admin->admin_id,
+            'login',
+            'Admin logged in successfully'
         );
 
-        return back()
-            ->withInput($request->only('username'))
-            ->with('login_error', 'Incorrect email or password.');
+        return redirect()->route('home')
+            ->with('success', 'Welcome back, ' . ($admin->full_name ?? 'Admin') . '!');
     }
+
+    // Log failed login (admin_id may be null if user not found)
+    AdminAuthenticateLog::create([
+        'admin_id' => $admin?->admin_id,
+        'ip_address' => $ip,
+        'status' => 'failed',
+        'reason' => 'Incorrect credentials',
+        'login_time' => now(),
+    ]);
+
+    $this->logFact(
+        $admin?->admin_id,
+        'admin_accounts',
+        $admin?->admin_id,
+        'failed_login',
+        'Incorrect username, email, or full name, or password'
+    );
+
+    return back()
+        ->withInput($request->only('username'))
+        ->with('login_error', 'Incorrect username, email, or full name, or password.');
+}
 
     /* ===========================
        SHOW REGISTER PAGE
@@ -104,17 +106,34 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $request->validate([
+            'full_name' => 'required|string|max:255',
             'username' => 'required|string|max:100|unique:admin_accounts,username',
-            'email' => 'required|email|unique:admin_accounts,email',
-            'password' => ['required', 'confirmed', 'min:8', 'regex:/[A-Z]/', 'regex:/[0-9]/'],
+            'email' => [
+                'required',
+                'email',
+                'unique:admin_accounts,email',
+                'regex:/@(gmail\.com|adzu\.edu\.ph)$/i'
+            ],
+            'password' => [
+                'required',
+                'confirmed',
+                'min:8',
+                'regex:/^(?=.*[A-Z])(?=.*\d).+$/',
+            ],
             'profile_picture' => 'required|image|mimes:jpg,jpeg,png|max:2048',
             'role' => 'required|in:super_admin,admin',
         ], [
-            'username.required' => 'Please enter your full name.',
+            'full_name.required' => 'Please enter your full name.',
+            'username.required' => 'Please enter your username.',
+            'username.unique' => 'This username is already taken.',
+            'email.required' => 'Please enter your email.',
+            'email.email' => 'Please enter a valid email address.',
             'email.unique' => 'This email is already registered.',
+            'email.regex' => 'Only @gmail.com or @adzu.edu.ph emails are allowed.',
+            'password.required' => 'Please enter your password.',
             'password.confirmed' => 'Passwords do not match.',
             'password.min' => 'Password must be at least 8 characters.',
-            'password.regex' => 'Password must contain at least one uppercase letter and one number.',
+            'password.regex' => 'Password must include at least one uppercase letter and one number.',
             'profile_picture.required' => 'Please upload a profile picture.',
             'profile_picture.image' => 'Only JPG, JPEG, or PNG files are allowed.',
             'role.required' => 'Please select a role.',
@@ -123,18 +142,21 @@ class AuthController extends Controller
 
         $profilePath = $request->file('profile_picture')->store('profile_pictures', 'public');
 
-        $admin = AdminAccount::create([
-            'username' => $request->username,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'profile_picture' => $profilePath,
-            'role' => $request->role,
-            'status' => 'active',
-        ]);
+        $admin = null;
+        DB::transaction(function () use ($request, $profilePath, &$admin) {
+            $admin = AdminAccount::create([
+                'full_name' => $request->full_name,
+                'username' => $request->username,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'profile_picture' => $profilePath,
+                'role' => $request->role,
+                'status' => 'active',
+            ]);
 
-        Auth::guard('admin')->login($admin);
+            Auth::guard('admin')->login($admin);
+        });
 
-        // Log registration
         AdminAuthenticateLog::create([
             'admin_id' => $admin->admin_id,
             'ip_address' => $request->ip(),
@@ -144,7 +166,6 @@ class AuthController extends Controller
         ]);
 
         $this->logFact(
-            'authentication',
             $admin->admin_id,
             'admin_accounts',
             $admin->admin_id,
@@ -152,7 +173,7 @@ class AuthController extends Controller
             'Admin registered and auto-logged in'
         );
 
-        return redirect()->route('home')->with('success', 'Registration successful! Welcome!');
+        return redirect()->route('home')->with('success', 'Registration successful! Welcome, ' . $admin->full_name . '!');
     }
 
     /* ===========================
@@ -163,23 +184,23 @@ class AuthController extends Controller
         $adminId = Auth::guard('admin')->id();
         $ip = $request->ip();
 
-        // Log logout
-        AdminAuthenticateLog::create([
-            'admin_id' => $adminId,
-            'ip_address' => $ip,
-            'status' => 'success',
-            'reason' => 'Logged out',
-            'login_time' => now(),
-        ]);
+        if ($adminId) {
+            AdminAuthenticateLog::create([
+                'admin_id' => $adminId,
+                'ip_address' => $ip,
+                'status' => 'success',
+                'reason' => 'Logged out',
+                'login_time' => now(),
+            ]);
 
-        $this->logFact(
-            'authentication',
-            $adminId,
-            'admin_accounts',
-            $adminId,
-            'logout',
-            'Admin logged out successfully'
-        );
+            $this->logFact(
+                $adminId,
+                'admin_accounts',
+                $adminId,
+                'logout',
+                'Admin logged out successfully'
+            );
+        }
 
         Auth::guard('admin')->logout();
         $request->session()->invalidate();
@@ -193,15 +214,9 @@ class AuthController extends Controller
     /* ===========================
        HELPER: LOG TO FACT_LOGS
     ============================ */
-    private function logFact($factTypeName, $adminId, $entityType, $entityId, $action, $details = null)
+    private function logFact($adminId, $entityType, $entityId, $action, $details = null)
     {
-        $factType = FactType::firstOrCreate(
-            ['type_name' => $factTypeName],
-            ['description' => $factTypeName]
-        );
-
         FactLog::create([
-            'fact_type_id' => $factType->fact_type_id,
             'admin_id' => $adminId,
             'entity_type' => $entityType,
             'entity_id' => $entityId,

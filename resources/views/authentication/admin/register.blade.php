@@ -34,10 +34,17 @@
         @csrf
         <h1>Registration</h1>
 
-        {{-- User Name --}}
+        {{-- Full Name --}}
         <div class="input-group required-field">
           <i class="fa fa-user icon"></i>
-          <input type="text" name="username" placeholder="Full Name" value="{{ old('username') }}" required>
+          <input type="text" name="full_name" placeholder="Full Name" value="{{ old('full_name') }}" required>
+        </div>
+
+
+        {{-- Username --}}
+        <div class="input-group required-field">
+          <i class="fa fa-id-badge icon"></i>
+          <input type="text" name="username" placeholder="Username" value="{{ old('username') }}" required>
         </div>
 
         {{-- Email --}}
@@ -80,8 +87,8 @@
         <div class="file-input-group required-field">
           <i class="fa fa-upload file-icon"></i>
           <label id="file-label" class="custom-file-upload">
-            <p style="padding-left: 30px; color: #555;">Upload Picture</p>
-            <input type="file" id="profile-picture" name="profile_picture" accept="image/*" onchange="updateFileName(this)" required>
+            <p id="file-name" style="padding-left: 30px; color: #555;">Upload Picture</p>
+            <input type="file" id="profile-picture" name="profile_picture" accept="image/*" onchange="handleFileUpload(this)" required>
           </label>
           <button id="see-photo-btn" class="see-photo-btn" style="display:none;" type="button" onclick="openPhotoModal()">See Photo</button>
         </div>
@@ -120,60 +127,68 @@
 
   {{-- Password visibility --}}
   <script>
-    const passwordInput = document.getElementById('password');
-    const confirmInput = document.getElementById('password_confirmation');
-    const eyeIcon = document.querySelector('.toggle-password');
+  // Password toggle logic remains unchanged
+  const passwordInput = document.getElementById('password');
+  const confirmInput = document.getElementById('password_confirmation');
+  const eyeIcon = document.querySelector('.toggle-password');
 
-    // Show eye icon only if password is not empty
-    passwordInput.addEventListener('input', function () {
-      eyeIcon.style.display = this.value.trim() !== '' ? 'block' : 'none';
+  passwordInput.addEventListener('input', function () {
+    eyeIcon.style.display = this.value.trim() !== '' ? 'block' : 'none';
+  });
+
+  function togglePasswords(el) {
+    [passwordInput, confirmInput].forEach(input => {
+      input.type = input.type === 'password' ? 'text' : 'password';
     });
+    el.classList.toggle('fa-eye');
+    el.classList.toggle('fa-eye-slash');
+  }
 
-    // Toggle password visibility for both fields
-    function togglePasswords(el) {
-      [passwordInput, confirmInput].forEach(input => {
-        input.type = input.type === 'password' ? 'text' : 'password';
-      });
+  // File upload + modal
+  let uploadedImageURL = "";
+  let modalShownOnce = false; // ensure modal shows once automatically
 
-      el.classList.toggle('fa-eye');
-      el.classList.toggle('fa-eye-slash');
-    }
+  function handleFileUpload(input) {
+    const file = input.files[0];
+    const seePhotoBtn = document.getElementById("see-photo-btn");
+    const fileNameDisplay = document.getElementById("file-name");
 
-    // File upload + modal
-    let uploadedImageURL = "";
+    if (file) {
+      uploadedImageURL = URL.createObjectURL(file);
+      fileNameDisplay.textContent = file.name; // show file name
+      seePhotoBtn.style.display = "inline-block";
 
-    function updateFileName(input) {
-      const file = input.files[0];
-      const seePhotoBtn = document.getElementById("see-photo-btn");
-
-      if (file) {
-        uploadedImageURL = URL.createObjectURL(file);
-        seePhotoBtn.style.display = "inline-block";
-      } else {
-        seePhotoBtn.style.display = "none";
-        uploadedImageURL = "";
+      // Show modal automatically only once
+      if (!modalShownOnce) {
+        openPhotoModal();
+        modalShownOnce = true;
       }
+    } else {
+      fileNameDisplay.textContent = "Upload Picture";
+      seePhotoBtn.style.display = "none";
+      uploadedImageURL = "";
+      modalShownOnce = false;
     }
+  }
 
-    function openPhotoModal() {
-      const modal = document.getElementById("photoModal");
-      const preview = document.getElementById("photoPreview");
-      if (uploadedImageURL) {
-        preview.src = uploadedImageURL;
-        modal.style.display = "flex";
-      }
+  function openPhotoModal() {
+    const modal = document.getElementById("photoModal");
+    const preview = document.getElementById("photoPreview");
+    if (uploadedImageURL) {
+      preview.src = uploadedImageURL;
+      modal.style.display = "flex";
     }
+  }
 
-    function closePhotoModal() {
-      document.getElementById("photoModal").style.display = "none";
-    }
+  function closePhotoModal() {
+    document.getElementById("photoModal").style.display = "none";
+  }
 
-    window.addEventListener("click", function(event) {
-      const modal = document.getElementById("photoModal");
-      if (event.target === modal) closePhotoModal();
-    });
-
-    </script>
+  window.addEventListener("click", function(event) {
+    const modal = document.getElementById("photoModal");
+    if (event.target === modal) closePhotoModal();
+  });
+</script>
 
     {{-- Password Hint --}}
     <script>

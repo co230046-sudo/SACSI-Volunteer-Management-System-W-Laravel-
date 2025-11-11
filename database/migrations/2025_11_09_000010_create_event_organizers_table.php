@@ -12,11 +12,12 @@ return new class extends Migration
             Schema::create('event_organizers', function (Blueprint $table) {
                 $table->increments('organizer_id');
                 $table->unsignedInteger('event_id');
-                $table->foreign('event_id')->references('event_id')->on('events')->onDelete('cascade');
                 $table->string('organizer_name');
                 $table->string('organizer_email')->nullable();
                 $table->string('organizer_contact')->nullable();
                 $table->timestamps();
+
+                $table->foreign('event_id')->references('event_id')->on('events')->onDelete('cascade');
             });
         }
     }

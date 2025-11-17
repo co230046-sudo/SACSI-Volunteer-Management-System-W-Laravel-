@@ -454,136 +454,137 @@ class VolunteerImportController extends Controller
             ->with('last_updated_index', $index);
     }
 
-    /**
-     * Move from Invalid -> Valid
-     */
-    public function moveInvalidToValid(Request $request)
-    {
-        $invalid = session('invalidEntries', []);
-        $valid = session('validEntries', []);
-        $movedEntries = [];
-        $skippedEntries = [];
-        $adminId = auth()->guard('admin')->id();
+   /**
+ * Move from Invalid -> Valid
+ */
+public function moveInvalidToValid(Request $request)
+{
+    $invalid = session('invalidEntries', []);
+    $valid = session('validEntries', []);
+    $movedEntries = [];
+    $skippedEntries = [];
+    $adminId = auth()->guard('admin')->id();
 
-        $selected = array_map('intval', $request->input('selected_invalid', []));
+    $selectedIndices = $request->input('selected_invalid', []); // array of indexes in $invalid
 
-        if (!empty($selected)) {
-            foreach ($selected as $index) {
-                if (!array_key_exists($index, $invalid)) continue;
+    if (!empty($selectedIndices)) {
+        foreach ($selectedIndices as $index) {
+            if (!isset($invalid[$index])) continue;
 
-                $entry = $invalid[$index];
+            $entry = $invalid[$index];
 
-                // Skip if it has errors
-                if (!empty($entry['errors'] ?? [])) {
-                    $skippedEntries[] = [
-                        'name' => $entry['full_name'] ?? 'N/A',
-                        'index' => $index
-                    ];
-                    continue;
-                }
-
-                // Move entry
-                $entry['original_index'] = $index;
-                unset($entry['errors'], $entry['error_message']);
-
-                $valid[] = $entry;
-                $movedEntries[] = [
+            // Skip if it has errors
+            if (!empty($entry['errors'] ?? [])) {
+                $skippedEntries[] = [
                     'name' => $entry['full_name'] ?? 'N/A',
-                    'index' => $index,
-                    'entity_id' => $entry['volunteer_id'] ?? $entry['row_number'] ?? null
+                    'index' => $index
                 ];
-
-                unset($invalid[$index]);
-
-                // Log the move
-                $this->logFact(
-                    'Move to Verified',
-                    $adminId,
-                    'Volunteer Import',
-                    $entry['volunteer_id'] ?? $entry['row_number'] ?? null,
-                    'Moved',
-                    "Moved Volunteer Entry #".($index+1)." {$entry['full_name']} from invalid to valid."
-                );
+                continue;
             }
 
-            $invalid = array_values($invalid);
-            $valid = array_values($valid);
+            // Move entry
+            unset($entry['errors'], $entry['error_message']);
+            $valid[] = $entry;
+            $movedEntries[] = [
+                'name' => $entry['full_name'] ?? 'N/A',
+                'index' => $index
+            ];
 
-            session([
-                'invalidEntries' => $invalid,
-                'validEntries' => $valid,
-                // Remember last updated table/index
-                'last_updated_table' => 'valid',
-                'last_updated_index' => !empty($movedEntries) ? $movedEntries[0]['index'] : null,
-            ]);
+            unset($invalid[$index]);
+
+            // Log the move
+            $this->logFact(
+                'Move to Verified',
+                $adminId,
+                'Volunteer Import',
+                $entry['volunteer_id'] ?? $entry['row_number'] ?? null,
+                'Moved',
+                "Moved Volunteer Entry #".($index+1)." {$entry['full_name']} from invalid to valid."
+            );
         }
 
-        $messageParts = [];
-        if ($movedEntries) {
-            $movedList = array_map(fn($e) => "Moved Volunteer Entry #".($e['index']+1)." {$e['name']} from invalid to valid", $movedEntries);
-            $messageParts[] = "✅ " . implode(', ', $movedList) . ".";
-        }
-        if ($skippedEntries) {
-            $skippedList = array_map(fn($e) => "Volunteer Entry #".($e['index']+1)." {$e['name']}", $skippedEntries);
-            $messageParts[] = "⚠️ Could not move (invalid fields): <span style='color:red;'>" . implode(', ', $skippedList) . "</span>.";
-        }
-        if (!$movedEntries && !$skippedEntries) {
-            $messageParts[] = "ℹ️ No invalid entries selected to move.";
-        }
-
-        // Redirect with fragment to valid entries table
-        return back()->withFragment('valid-entries-table')
-                    ->with('success', implode(' ', $messageParts));
-    }
-
-
-    /**
-     * Move from Valid -> Invalid
-     */
-    public function moveValidToInvalid(Request $request, $index)
-    {
-        $valid = session('validEntries', []);
-        $invalid = session('invalidEntries', []);
-        $adminId = auth()->guard('admin')->id();
-
-        if (!isset($valid[$index])) {
-            return back()->withFragment('invalid-entries-table')
-                        ->with('invalid_error', "ℹ️ No valid entry selected to move back.");
-        }
-
-        $entry = $valid[$index];
-        unset($valid[$index]);
-
-        // Add back to invalid
-        if (isset($entry['original_index'])) {
-            $invalid[$entry['original_index']] = $entry;
-        } else {
-            $invalid[] = $entry;
-        }
-
-        ksort($invalid);
+        // Reindex arrays
         $invalid = array_values($invalid);
+        $valid = array_values($valid);
 
         session([
-            'validEntries' => array_values($valid),
             'invalidEntries' => $invalid,
-            'last_updated_table' => 'invalid',
-            'last_updated_index' => isset($entry['original_index']) ? $entry['original_index'] : count($invalid) - 1,
-            'invalid_success' => "⚠️ Moved Volunteer Entry #".($index+1)." {$entry['full_name']} from valid to invalid."
+            'validEntries' => $valid,
+            'last_updated_table' => 'valid',
+            'last_updated_index' => count($valid) - 1
         ]);
-
-        // Log the move back
-        $this->logFact(
-            'Move to Invalid',
-            $adminId,
-            'Volunteer Import',
-            $entry['volunteer_id'] ?? $entry['row_number'] ?? null,
-            'Moved Back',
-            "Moved Volunteer Entry #".($index+1)." {$entry['full_name']} from valid to invalid."
-        );
-
-        return back()->withFragment('invalid-entries-table');
     }
+
+    // Build message
+    $messageParts = [];
+    if ($movedEntries) {
+        $movedList = array_map(fn($e) => "Moved Volunteer Entry #".($e['index']+1)." {$e['name']}", $movedEntries);
+        $messageParts[] = "✅ " . implode(', ', $movedList) . " to valid.";
+    }
+    if ($skippedEntries) {
+        $skippedList = array_map(fn($e) => $e['name'], $skippedEntries);
+        $messageParts[] = "⚠️ Could not move: " . implode(', ', $skippedList) . ".";
+    }
+    if (!$movedEntries && !$skippedEntries) {
+        $messageParts[] = "ℹ️ No invalid entries selected to move.";
+    }
+
+    return back()
+        ->withFragment('valid-entries-table')
+        ->with('success', implode(' ', $messageParts));
+}
+
+/**
+ * Move from Valid -> Invalid
+ */
+public function moveValidToInvalid(Request $request, $index)
+{
+    $valid = session('validEntries', []);
+    $invalid = session('invalidEntries', []);
+    $adminId = auth()->guard('admin')->id();
+
+    if (!isset($valid[$index])) {
+        return back()
+            ->withFragment('invalid-entries-table')
+            ->with('success', "ℹ️ No valid entry selected to move.");
+    }
+
+    $entry = $valid[$index];
+    unset($valid[$index]);
+
+    // Restore to original index if available
+    if (isset($entry['original_index'])) {
+        $invalid[$entry['original_index']] = $entry;
+    } else {
+        $invalid[] = $entry;
+    }
+
+    // Sort by index
+    ksort($invalid);
+    $invalid = array_values($invalid);
+
+    session([
+        'validEntries' => array_values($valid),
+        'invalidEntries' => $invalid,
+        'last_updated_table' => 'invalid',
+        'last_updated_index' => isset($entry['original_index']) ? $entry['original_index'] : count($invalid) - 1,
+    ]);
+
+    // Log action
+    $this->logFact(
+        'Move to Invalid',
+        $adminId,
+        'Volunteer Import',
+        $entry['volunteer_id'] ?? $entry['row_number'] ?? null,
+        'Moved Back',
+        "Moved Volunteer Entry #".($index+1)." {$entry['full_name']} from valid to invalid."
+    );
+
+    return back()
+        ->withFragment('invalid-entries-table')
+        ->with('success', "⚠️ Moved Volunteer Entry #".($index+1)." {$entry['full_name']} back to invalid.");
+}
+
 
     /**
      * Delete Entries
@@ -757,213 +758,213 @@ class VolunteerImportController extends Controller
                     ->with('last_updated_indices', array_keys($data));
     }
 
-   /**
- * Validate and Save Selected Valid Entries
- */
-public function validateAndSave(Request $request)
-{
-    // --- Debug logs (helpful while testing) ---
-    Log::info('DEBUG_SUBMIT: raw selected_valid input', ['raw' => $request->input('selected_valid', [])]);
-    Log::info('DEBUG_SUBMIT: session validEntries count', ['count' => count(session('validEntries', []))]);
-    Log::info('DEBUG_SUBMIT: session invalidEntries count', ['count' => count(session('invalidEntries', []))]);
+    /**
+     * Validate and Save Selected Valid Entries
+     */
+    public function validateAndSave(Request $request)
+    {
+        // --- Debug logs (helpful while testing) ---
+        Log::info('DEBUG_SUBMIT: raw selected_valid input', ['raw' => $request->input('selected_valid', [])]);
+        Log::info('DEBUG_SUBMIT: session validEntries count', ['count' => count(session('validEntries', []))]);
+        Log::info('DEBUG_SUBMIT: session invalidEntries count', ['count' => count(session('invalidEntries', []))]);
 
-    // --- Normalize + deduplicate selected indexes (defensive) ---
-    $selectedIndexes = $request->input('selected_valid', []);
-    $selectedIndexes = array_values(array_unique(array_map('intval', (array)$selectedIndexes)));
-    Log::info('DEBUG_SUBMIT: selected_valid normalized', ['selected' => $selectedIndexes]);
+        // --- Normalize + deduplicate selected indexes (defensive) ---
+        $selectedIndexes = $request->input('selected_valid', []);
+        $selectedIndexes = array_values(array_unique(array_map('intval', (array)$selectedIndexes)));
+        Log::info('DEBUG_SUBMIT: selected_valid normalized', ['selected' => $selectedIndexes]);
 
-    $validEntries = session('validEntries', []);
-    $invalidEntries = session('invalidEntries', []);
-    $admin = Auth::guard('admin')->user();
-    $fileName = session('uploaded_file_name', 'N/A');
+        $validEntries = session('validEntries', []);
+        $invalidEntries = session('invalidEntries', []);
+        $admin = Auth::guard('admin')->user();
+        $fileName = session('uploaded_file_name', 'N/A');
 
-    if (!$admin) {
-        $message = 'Admin not authenticated.';
-        return $request->ajax()
-            ? response()->json(['error_modal' => $message])
-            : back()->with('error_modal', $message);
-    }
-
-    $adminId = $admin->admin_id;
-
-    // Block save if there are still invalid entries
-    if (!empty($invalidEntries)) {
-        $invalidRows = implode(', ', array_column($invalidEntries, 'row_number'));
-        $this->logFact(
-            'Failed Import',
-            $adminId,
-            'Volunteer Import',
-            null,
-            'Failed',
-            [
-                'invalid_rows' => $invalidRows,
-                'invalid_count' => count($invalidEntries),
-                'reason' => 'Invalid entries prevent import'
-            ]
-        );
-
-        $message = "❌ Cannot upload. Invalid entries found in row(s): <strong>{$invalidRows}</strong>. Please fix them first.";
-        return $request->ajax()
-            ? response()->json(['error_modal' => $message])
-            : back()->with('error_modal', $message);
-    }
-
-    // After dedupe, if nothing left, bail
-    if (empty($selectedIndexes)) {
-        $message = '❌ No verified entries selected to save.';
-        return $request->ajax()
-            ? response()->json(['error_modal' => $message])
-            : back()->with('error_modal', $message);
-    }
-
-    // Build entriesToSave from validEntries
-    $entriesToSave = [];
-    foreach ($selectedIndexes as $index) {
-        if (!isset($validEntries[$index])) {
-            Log::warning('validateAndSave: selected index not found in validEntries', ['index' => $index]);
-            continue;
-        }
-
-        $entry = $validEntries[$index];
-
-        // run your row-level validation method
-        $errors = $this->validateRow($entry);
-
-        if ($errors) {
-            $rowNumber = $entry['row_number'] ?? $index;
-            $message = "❌ Validation failed for row <strong>{$rowNumber}</strong>. No entries were saved.";
+        if (!$admin) {
+            $message = 'Admin not authenticated.';
             return $request->ajax()
                 ? response()->json(['error_modal' => $message])
                 : back()->with('error_modal', $message);
         }
 
-        $entriesToSave[] = [
-            'index' => $index,
-            'data'  => $entry
-        ];
-    }
+        $adminId = $admin->admin_id;
 
-    if (empty($entriesToSave)) {
-        $message = '❌ No valid entries found to save (they may have been removed).';
-        return $request->ajax()
-            ? response()->json(['error_modal' => $message])
-            : back()->with('error_modal', $message);
-    }
+        // Block save if there are still invalid entries
+        if (!empty($invalidEntries)) {
+            $invalidRows = implode(', ', array_column($invalidEntries, 'row_number'));
+            $this->logFact(
+                'Failed Import',
+                $adminId,
+                'Volunteer Import',
+                null,
+                'Failed',
+                [
+                    'invalid_rows' => $invalidRows,
+                    'invalid_count' => count($invalidEntries),
+                    'reason' => 'Invalid entries prevent import'
+                ]
+            );
 
-    try {
-        $savedEntries = [];
+            $message = "❌ Cannot upload. Invalid entries found in row(s): <strong>{$invalidRows}</strong>. Please fix them first.";
+            return $request->ajax()
+                ? response()->json(['error_modal' => $message])
+                : back()->with('error_modal', $message);
+        }
 
-        DB::transaction(function () use ($entriesToSave, $adminId, &$savedEntries) {
-            // Create import log
-            $importLog = ImportLog::create([
-                'file_name'       => session('uploaded_file_name') ?? 'CSV Upload',
-                'admin_id'        => $adminId,
-                'total_records'   => count($entriesToSave),
-                'valid_count'     => count($entriesToSave),
-                'invalid_count'   => 0,
-                'duplicate_count' => 0,
-                'status'          => 'Completed',
-                'remarks'         => "Successfully imported " . count($entriesToSave) . " row(s) by Admin ID: {$adminId}.",
+        // After dedupe, if nothing left, bail
+        if (empty($selectedIndexes)) {
+            $message = '❌ No verified entries selected to save.';
+            return $request->ajax()
+                ? response()->json(['error_modal' => $message])
+                : back()->with('error_modal', $message);
+        }
+
+        // Build entriesToSave from validEntries
+        $entriesToSave = [];
+        foreach ($selectedIndexes as $index) {
+            if (!isset($validEntries[$index])) {
+                Log::warning('validateAndSave: selected index not found in validEntries', ['index' => $index]);
+                continue;
+            }
+
+            $entry = $validEntries[$index];
+
+            // run your row-level validation method
+            $errors = $this->validateRow($entry);
+
+            if ($errors) {
+                $rowNumber = $entry['row_number'] ?? $index;
+                $message = "❌ Validation failed for row <strong>{$rowNumber}</strong>. No entries were saved.";
+                return $request->ajax()
+                    ? response()->json(['error_modal' => $message])
+                    : back()->with('error_modal', $message);
+            }
+
+            $entriesToSave[] = [
+                'index' => $index,
+                'data'  => $entry
+            ];
+        }
+
+        if (empty($entriesToSave)) {
+            $message = '❌ No valid entries found to save (they may have been removed).';
+            return $request->ajax()
+                ? response()->json(['error_modal' => $message])
+                : back()->with('error_modal', $message);
+        }
+
+        try {
+            $savedEntries = [];
+
+            DB::transaction(function () use ($entriesToSave, $adminId, &$savedEntries) {
+                // Create import log
+                $importLog = ImportLog::create([
+                    'file_name'       => session('uploaded_file_name') ?? 'CSV Upload',
+                    'admin_id'        => $adminId,
+                    'total_records'   => count($entriesToSave),
+                    'valid_count'     => count($entriesToSave),
+                    'invalid_count'   => 0,
+                    'duplicate_count' => 0,
+                    'status'          => 'Completed',
+                    'remarks'         => "Successfully imported " . count($entriesToSave) . " row(s) by Admin ID: {$adminId}.",
+                ]);
+
+                foreach ($entriesToSave as $entryData) {
+                    $entry = $entryData['data'];
+                    $index = $entryData['index'];
+                    $idNumber = $entry['id_number'] ?? null;
+
+                    // --- Map course_name to course_id ---
+                    $courseName = preg_replace('/\s+/', ' ', trim($entry['course'] ?? ''));
+                    $courseId = null;
+                    if ($courseName) {
+                        $courseId = \App\Models\Course::whereRaw('LOWER(TRIM(course_name)) = ?', [strtolower($courseName)])
+                            ->value('course_id');
+                    }
+
+                    // --- Map location_id and auto-fill barangay/district ---
+                    $barangay = $entry['barangay'] ?? null;
+                    $locationId = $barangay ? \App\Models\Location::where('barangay', $barangay)->value('location_id') : null;
+
+                    $location = $locationId ? \App\Models\Location::find($locationId) : null;
+                    $resolvedBarangay = $location->barangay ?? null;
+                    $resolvedDistrict = $location->district_id ?? null; // <-- numeric district_id
+
+
+                    // DEBUG: check course and location lookup
+                    Log::info('DEBUG_COURSE_LOOKUP', [
+                        'entry_index' => $index,
+                        'entry_course_name' => $courseName,
+                        'matched_course_id' => $courseId,
+                        'all_courses' => \App\Models\Course::pluck('course_name')->toArray()
+                    ]);
+
+                    Log::info('DEBUG_LOCATION_LOOKUP', [
+                        'entry_index' => $index,
+                        'entry_barangay' => $barangay,
+                        'location_id' => $locationId,
+                        'resolved_barangay' => $resolvedBarangay,
+                        'resolved_district' => $resolvedDistrict
+                    ]);
+
+                    // Save to volunteer_profile
+                    $volunteer = \App\Models\VolunteerProfile::create([
+                        'import_id'         => $importLog->import_id,
+                        'full_name'         => $entry['full_name'] ?? null,
+                        'id_number'         => $idNumber ?? 'TEMP-' . uniqid(),
+                        'course_id'         => $courseId,
+                        'year_level'        => $entry['year_level'] ?? null,
+                        'contact_number'    => $entry['contact_number'] ?? null,
+                        'emergency_contact' => $entry['emergency_contact'] ?? null,
+                        'email'             => $entry['email'] ?? null,
+                        'fb_messenger'      => $entry['fb_messenger'] ?? null,
+                        'location_id'       => $locationId,
+                        'barangay'          => $resolvedBarangay,
+                        'district'          => $resolvedDistrict,
+                        'class_schedule'    => $entry['class_schedule'] ?? null,
+                        'status'            => 'active',
+                    ]);
+
+                    // log saved entry
+                    $savedEntries[] = [
+                        'index'     => $index,
+                        'name'      => $entry['full_name'] ?? 'N/A',
+                        'entity_id' => $volunteer->volunteer_id
+                    ];
+
+                    $this->logFact(
+                        'Import Verified',
+                        $adminId,
+                        'VolunteerProfile',
+                        $volunteer->volunteer_id,
+                        'Imported',
+                        "Saved Volunteer Entry #".($index+1)." {$entry['full_name']}"
+                    );
+                }
+            });
+
+            // Clear sessions
+            session()->forget([
+                'validEntries',
+                'invalidEntries',
+                'uploaded_file_name',
+                'uploaded_file_path',
+                'csv_imported',
+                'import_log_id'
             ]);
 
-            foreach ($entriesToSave as $entryData) {
-                $entry = $entryData['data'];
-                $index = $entryData['index'];
-                $idNumber = $entry['id_number'] ?? null;
+            $savedList = array_map(fn($e) => "Saved Volunteer Entry #".($e['index']+1)." {$e['name']}", $savedEntries);
+            $message = "✅ Successfully saved " . count($savedEntries) . " entries: " . implode(', ', $savedList) . " from file '<strong>{$fileName}</strong>' on " . now()->format('M d, Y h:i A') . ".";
 
-                // --- Map course_name to course_id ---
-                $courseName = preg_replace('/\s+/', ' ', trim($entry['course'] ?? ''));
-                $courseId = null;
-                if ($courseName) {
-                    $courseId = \App\Models\Course::whereRaw('LOWER(TRIM(course_name)) = ?', [strtolower($courseName)])
-                        ->value('course_id');
-                }
+            return back()->with('success', $message);
 
-                // --- Map location_id and auto-fill barangay/district ---
-                $barangay = $entry['barangay'] ?? null;
-                $locationId = $barangay ? \App\Models\Location::where('barangay', $barangay)->value('location_id') : null;
+        } catch (\Exception $e) {
+            Log::error('Import failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
 
-                $location = $locationId ? \App\Models\Location::find($locationId) : null;
-                $resolvedBarangay = $location->barangay ?? null;
-                $resolvedDistrict = $location->district_id ?? null; // <-- numeric district_id
-
-
-                // DEBUG: check course and location lookup
-                Log::info('DEBUG_COURSE_LOOKUP', [
-                    'entry_index' => $index,
-                    'entry_course_name' => $courseName,
-                    'matched_course_id' => $courseId,
-                    'all_courses' => \App\Models\Course::pluck('course_name')->toArray()
-                ]);
-
-                Log::info('DEBUG_LOCATION_LOOKUP', [
-                    'entry_index' => $index,
-                    'entry_barangay' => $barangay,
-                    'location_id' => $locationId,
-                    'resolved_barangay' => $resolvedBarangay,
-                    'resolved_district' => $resolvedDistrict
-                ]);
-
-                // Save to volunteer_profile
-                $volunteer = \App\Models\VolunteerProfile::create([
-                    'import_id'         => $importLog->import_id,
-                    'full_name'         => $entry['full_name'] ?? null,
-                    'id_number'         => $idNumber ?? 'TEMP-' . uniqid(),
-                    'course_id'         => $courseId,
-                    'year_level'        => $entry['year_level'] ?? null,
-                    'contact_number'    => $entry['contact_number'] ?? null,
-                    'emergency_contact' => $entry['emergency_contact'] ?? null,
-                    'email'             => $entry['email'] ?? null,
-                    'fb_messenger'      => $entry['fb_messenger'] ?? null,
-                    'location_id'       => $locationId,
-                    'barangay'          => $resolvedBarangay,
-                    'district'          => $resolvedDistrict,
-                    'class_schedule'    => $entry['class_schedule'] ?? null,
-                    'status'            => 'active',
-                ]);
-
-                // log saved entry
-                $savedEntries[] = [
-                    'index'     => $index,
-                    'name'      => $entry['full_name'] ?? 'N/A',
-                    'entity_id' => $volunteer->volunteer_id
-                ];
-
-                $this->logFact(
-                    'Import Verified',
-                    $adminId,
-                    'VolunteerProfile',
-                    $volunteer->volunteer_id,
-                    'Imported',
-                    "Saved Volunteer Entry #".($index+1)." {$entry['full_name']}"
-                );
-            }
-        });
-
-        // Clear sessions
-        session()->forget([
-            'validEntries',
-            'invalidEntries',
-            'uploaded_file_name',
-            'uploaded_file_path',
-            'csv_imported',
-            'import_log_id'
-        ]);
-
-        $savedList = array_map(fn($e) => "Saved Volunteer Entry #".($e['index']+1)." {$e['name']}", $savedEntries);
-        $message = "✅ Successfully saved " . count($savedEntries) . " entries: " . implode(', ', $savedList) . " from file '<strong>{$fileName}</strong>' on " . now()->format('M d, Y h:i A') . ".";
-
-        return back()->with('success', $message);
-
-    } catch (\Exception $e) {
-        Log::error('Import failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-
-        $message = "❌ Import failed: {$e->getMessage()}";
-        return $request->ajax()
-            ? response()->json(['error_modal' => $message])
-            : back()->with('error_modal', $message);
+            $message = "❌ Import failed: {$e->getMessage()}";
+            return $request->ajax()
+                ? response()->json(['error_modal' => $message])
+                : back()->with('error_modal', $message);
+        }
     }
-}
 
 
 
@@ -1045,23 +1046,68 @@ public function validateAndSave(Request $request)
         return back()->with('success', $message);
     }
 
+    public function checkDuplicates(Request $request)
+{
+    $ids = $request->input('ids', []);
+
+    \Log::info('🟦 checkDuplicates() - Received IDs:', $ids);
+
+    if (empty($ids)) {
+        \Log::warning('🟨 checkDuplicates() - No IDs received.');
+        return response()->json([
+            'duplicates' => [],
+            'message' => 'No IDs provided for duplicate check.'
+        ]);
+    }
+
+    \Log::info('🟦 checkDuplicates() - Querying DB for these id_numbers:', $ids);
+
+    // Find existing duplicates in the DB
+    $existing = VolunteerProfile::whereIn('id_number', $ids)
+                                ->pluck('id_number')
+                                ->toArray();
+
+    \Log::info('🟥 checkDuplicates() - Existing duplicates in DB:', $existing);
+
+    if (!empty($existing)) {
+        $message = "⚠️ Cannot submit. The following ID(s) already exist in the database: <strong>"
+                   . implode(', ', $existing) . "</strong>.";
+        return response()->json([
+            'duplicates' => $existing,
+            'message' => $message
+        ]);
+    }
+
+    // No duplicates found
+    return response()->json([
+        'duplicates' => [],
+        'message' => null
+    ]);
+}
+
+
+
     public function updateSchedule(Request $request, $id)
     {
         try {
             $scheduleString = $request->input('schedule');
+            $type = $request->input('type', 'valid'); // 'valid' or 'invalid'
+
             if (!$scheduleString || !is_string($scheduleString)) {
                 return redirect()->back()->with('error', 'Invalid schedule data.');
             }
 
-            $validEntries = session('validEntries', []);
-            if (!isset($validEntries[$id])) {
+            // Choose session array based on type
+            $entries = session($type . 'Entries', []);
+            if (!isset($entries[$id])) {
                 return redirect()->back()->with('error', 'Entry not found in session.');
             }
 
-            $entry = $validEntries[$id];
+            $entry = $entries[$id];
             $oldSchedule = $entry['class_schedule'] ?? '';
 
             $days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
             $normalize = function($schedule) use ($days) {
                 $result = [];
                 foreach ($days as $day) {
@@ -1078,7 +1124,29 @@ public function validateAndSave(Request $request)
             };
 
             $oldParts = $normalize($oldSchedule);
-            $newParts = $normalize($scheduleString);
+            $newPartsRaw = $normalize($scheduleString);
+
+            // Normalize new values to HH:MM-HH:MM
+            $newParts = [];
+            $reformattedCells = [];
+            foreach ($days as $day) {
+                $newParts[$day] = [];
+                foreach ($newPartsRaw[$day] as $idx => $val) {
+                    $parts = explode('-', $val);
+                    if (count($parts) === 2) {
+                        $parts = array_map(fn($p) => preg_match('/^\d{1,2}$/', $p) ? $p.':00' : $p, $parts);
+                        $norm = implode('-', $parts);
+                    } else {
+                        $norm = $val;
+                    }
+                    $newParts[$day][$idx] = $norm;
+
+                    $oldVal = $oldParts[$day][$idx] ?? null;
+                    if ($oldVal && $oldVal !== $norm && !in_array($norm, $oldParts[$day] ?? [])) {
+                        $reformattedCells[$day][] = ['from' => $oldVal, 'to' => $norm];
+                    }
+                }
+            }
 
             $dayChanges = [];
             $changesMade = false;
@@ -1088,70 +1156,71 @@ public function validateAndSave(Request $request)
                 $removedDay = array_diff($oldParts[$day] ?? [], $newParts[$day] ?? []);
                 $dayChanges[$day] = ['added' => $addedDay, 'removed' => $removedDay];
 
-                if (count($addedDay) > 0 || count($removedDay) > 0) {
+                if (count($addedDay) > 0 || count($removedDay) > 0 || !empty($reformattedCells[$day] ?? [])) {
                     $changesMade = true;
                 }
             }
 
             // Update session
-            $validEntries[$id]['class_schedule'] = trim($scheduleString);
-            session(['validEntries' => $validEntries]);
+            $entries[$id]['class_schedule'] = trim($scheduleString);
+            session([$type . 'Entries' => $entries]);
 
-            // Build human-readable flash message
-        $rowNumber = $entry['row_number'] ?? ($id + 1); // Use row_number if exists, fallback to $id+1
+            // Build flash message
+            $rowNumber = $entry['row_number'] ?? ($id + 1);
 
-            $message = "<strong>Updated Class Schedule (Row #{$rowNumber}) for {$entry['full_name']}</strong><br>";
+            if (!$changesMade) {
+                $message = "<strong>Row #{$rowNumber} for {$entry['full_name']}</strong><br>ℹ️ No changes made";
+            } else {
+                $message = "<strong>Updated Class Schedule (Row #{$rowNumber}) for {$entry['full_name']}</strong><br>";
+                foreach ($days as $day) {
+                    $added = $dayChanges[$day]['added'];
+                    $removed = $dayChanges[$day]['removed'];
+                    $reformatted = $reformattedCells[$day] ?? [];
 
-            foreach ($days as $day) {
-                $added = $dayChanges[$day]['added'];
-                $removed = $dayChanges[$day]['removed'];
-
-                if (count($added) > 0 || count($removed) > 0) {
                     $parts = [];
-                    if (count($added) > 0) $parts[] = "✅ <span style='color:#007bff;'>" . implode(', ', $added) . "</span>";
-                    if (count($removed) > 0) $parts[] = "⚠️ <span style='color:red;'>" . implode(', ', $removed) . "</span>";
-                    $message .= "<strong>$day:</strong> " . implode(' | ', $parts) . "<br>";
-                } else {
-                    // Always show even if nothing changed
-                    $message .= "<strong>$day:</strong> ℹ️ No change<br>";
+                    if (!empty($added)) $parts[] = "✅ <span style='color:#007bff;'>Added: ".implode(', ', $added)."</span>";
+                    if (!empty($removed)) $parts[] = "⚠️ <span style='color:red;'>Removed: ".implode(', ', $removed)."</span>";
+                    if (!empty($reformatted)) {
+                        $parts[] = "ℹ️ <span style='color:orange;'>Reformatted: " . implode(', ', array_map(fn($c) => "{$c['from']} → {$c['to']}", $reformatted)) . "</span>";
+                    }
+
+                    $message .= "<strong>$day:</strong> " . ($parts ? implode(' | ', $parts) : "ℹ️ No change") . "<br>";
                 }
             }
 
-            $flashType = 'success'; // always success, so modal always shows
-
-
-            // Fact log
+            // Log facts
             $adminId = auth()->guard('admin')->id() ?? null;
-            $factMessage = "Updated Class Schedule for Volunteer #".($id+1)." {$entry['full_name']}. ";
+            $factMessage = ($changesMade ? "Updated" : "No changes made") . " Class Schedule for Volunteer #".($id+1)." {$entry['full_name']}. ";
             foreach ($days as $day) {
                 $added = $dayChanges[$day]['added'];
                 $removed = $dayChanges[$day]['removed'];
-                if (count($added) > 0 || count($removed) > 0) {
-                    $parts = [];
-                    if (count($added) > 0) $parts[] = "Added: " . implode(', ', $added);
-                    if (count($removed) > 0) $parts[] = "Removed: " . implode(', ', $removed);
-                    $factMessage .= "$day [" . implode('; ', $parts) . "]; ";
-                }
+                $reformatted = $reformattedCells[$day] ?? [];
+                $parts = [];
+                if (!empty($added)) $parts[] = "Added: ".implode(', ', $added);
+                if (!empty($removed)) $parts[] = "Removed: ".implode(', ', $removed);
+                foreach ($reformatted as $cell) $parts[] = "Reformatted: {$cell['from']} → {$cell['to']}";
+                if (!empty($parts)) $factMessage .= "$day [".implode('; ', $parts)."]; ";
             }
 
             $this->logFact(
-                'Update Schedule',
+                ($changesMade ? 'Update Schedule' : 'No Change'),
                 $adminId,
                 'Volunteer Import',
                 $entry['volunteer_id'] ?? $entry['row_number'] ?? null,
-                'Updated',
+                ($changesMade ? 'Updated' : 'No Change'),
                 $factMessage
             );
 
             return redirect()->back()
-                ->with($flashType, $message)
-                ->with('last_updated_table', 'valid')
+                ->with('success', $message)
+                ->with('last_updated_table', $type)
                 ->with('last_updated_index', $id);
 
         } catch (\Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());
         }
     }
+
     
     /**
      * Centralized FactLog helper with auto entity type inference

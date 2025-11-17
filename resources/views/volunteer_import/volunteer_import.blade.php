@@ -82,15 +82,17 @@
 
                 <hr class="red-hr">
 
-                <div class="action-message {{ session('success') ? 'text-success' : 'd-none' }}">
-                    <span class="message-text">{!! session('success') !!}</span>
-                    <button type="button" class="close-message-btn">&times;</button>
-                </div>
-
                 {{-- Data Table --}}
                 <form action="{{ route('volunteer.import.moveInvalidToValid') }}" method="POST">
                     @csrf
                     <div class="data-table-container">
+
+                        {{-- Action Message --}}
+                        <div class="action-message {{ session('success') ? 'text-success' : 'd-none' }}">
+                            <span class="message-text">{!! session('success') !!}</span>
+                            <button type="button" class="close-message-btn">&times;</button>
+                        </div>
+
                         <div class="table-controls mb-0">
                             <div class="table-actions d-flex align-items-center justify-content-center gap-2">
                                 <h3>Invalid Entries</h3>
@@ -216,17 +218,15 @@
                                                     @endphp
 
                                                     <button type="button"
-                                                            class="btn btn-sm {{ $scheduleValid ? 'btn-success' : 'btn-danger' }}"
-                                                            onclick="openScheduleModal(
-                                                                `{!! nl2br(e($displaySchedule)) !!}`,
-                                                                'valid',
-                                                                '{{ $index }}'
-                                                            )">
+                                                        class="btn btn-sm {{ $scheduleValid ? 'btn-success' : 'btn-danger' }}"
+                                                        onclick="openScheduleModal(
+                                                            `{!! nl2br(e($displaySchedule)) !!}`,
+                                                            'invalid',  {{-- Correctly pass the type --}}
+                                                            '{{ $index }}'
+                                                        )">
                                                         {{ $buttonText }}
                                                     </button>
-
                                                 </td>
-
 
                                                 <td>
                                                     <button type="button" class="btn btn-sm btn-outline-secondary"
@@ -296,14 +296,15 @@
 
                 <hr class="red-hr">
 
-                <div class="action-message {{ session('success') ? 'text-success' : 'd-none' }}">
-                    <span class="message-text">{!! session('success') !!}</span>
-                    <button type="button" class="close-message-btn">&times;</button>
-                </div>
-
                 <form action="{{ route('volunteer.import.validateSave') }}" method="POST">
                     @csrf
                     <div class="data-table-container">
+
+                        {{-- Action Message --}}
+                        <div class="action-message {{ session('success') ? 'text-success' : 'd-none' }}">
+                            <span class="message-text">{!! session('success') !!}</span>
+                            <button type="button" class="close-message-btn">&times;</button>
+                        </div>
 
                         <div class="table-controls mb-0">
                             <div class="table-actions d-flex align-items-center justify-content-center gap-2">
@@ -352,7 +353,14 @@
                                     @if(!empty($validEntries) && count($validEntries) > 0)
                                         @foreach ($validEntries as $index => $entry)
                                             <tr class="valid-entry">
-                                                <td><input type="checkbox" name="selected_valid[]" value="{{ $index }}"></td>
+                                                <td>
+                                                    <input type="checkbox" 
+                                                        name="selected_valid[]" 
+                                                        value="{{ $index }}" 
+                                                        @if(!empty($entry['id_number']))
+                                                                data-id-number="{{ $entry['id_number'] }}"
+                                                        @endif>
+                                                </td>
                                                 <td>{{ $index + 1 }}</td>
 
                                                 @php
@@ -687,79 +695,76 @@
 
     {{-- Remember Last Used Section --}}
     <script>
-        // On page load, initialize from Laravel flash
-        document.addEventListener('DOMContentLoaded', () => {
-            @if(session('last_updated_table') && session('last_updated_indices'))
-                const table = "{{ session('last_updated_table') }}";
-                const indices = @json(session('last_updated_indices'));
+    document.addEventListener('DOMContentLoaded', () => {
+        const persistKey = 'lastUsedTable';
+        const persistenceCount = 2; // Number of reloads to persist
 
-                // Store in sessionStorage for persistence
-                sessionStorage.setItem('lastUsedTable', JSON.stringify({ type: table, index: indices }));
+        @if(session('last_updated_table') && session('last_updated_indices'))
+            const table = "{{ session('last_updated_table') }}";
+            const indices = @json(session('last_updated_indices'));
 
-                // Highlight affected rows
-                indices.forEach(i => {
-                    const tbl = document.getElementById(table + '-entries-table');
-                    if (tbl) {
-                        const row = tbl.querySelectorAll('tbody tr')[i];
-                        if (row) {
-                            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            row.style.backgroundColor = '#fff3cd';
-                            setTimeout(() => row.style.backgroundColor = '', 2000);
-                        }
+            // Store in sessionStorage with persistence counter
+            sessionStorage.setItem(persistKey, JSON.stringify({ type: table, index: indices, remaining: persistenceCount }));
+
+            // Highlight affected rows immediately
+            indices.forEach(i => {
+                const tbl = document.getElementById(table + '-entries-table');
+                if (tbl) {
+                    const row = tbl.querySelectorAll('tbody tr')[i];
+                    if (row) {
+                        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        row.style.backgroundColor = '#fff3cd';
+                        setTimeout(() => row.style.backgroundColor = '', 2000);
                     }
-                });
-            @endif
+                }
+            });
+        @endif
 
-            // Optional: read previous lastUsedTable from sessionStorage if Laravel flash is missing
-            const stored = sessionStorage.getItem('lastUsedTable');
-            if (stored) {
-                window.lastUsedTable = JSON.parse(stored);
+        // Read from sessionStorage for persistence if Laravel flash is missing
+        let stored = sessionStorage.getItem(persistKey);
+        if(stored){
+            try {
+                stored = JSON.parse(stored);
+
+                if(stored.remaining > 0){
+                    stored.remaining--;
+                    sessionStorage.setItem(persistKey, JSON.stringify(stored));
+
+                    const tbl = document.getElementById(stored.type + '-entries-table');
+                    if(tbl && stored.index){
+                        stored.index.forEach(i => {
+                            const row = tbl.querySelectorAll('tbody tr')[i];
+                            if(row){
+                                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                row.style.transition = "background-color 0.5s";
+                                row.style.backgroundColor = '#fff3cd';
+                                setTimeout(() => row.style.backgroundColor = '', 2000);
+                            }
+                        });
+                    }
+                } else {
+                    sessionStorage.removeItem(persistKey);
+                }
+            } catch(e){
+                sessionStorage.removeItem(persistKey);
             }
-        });
-
-        // Helper to set last used table manually (for JS actions like edit modal)
-        function setLastUsedTable(type, index) {
-            window.lastUsedTable.type = type;
-            window.lastUsedTable.index = index;
-            sessionStorage.setItem('lastUsedTable', JSON.stringify({ type, index }));
         }
+
+        // Initialize global JS helper
+        window.lastUsedTable = stored || { type: null, index: null };
+    });
+
+    // Helper to set last used table manually (for JS actions like edit modal)
+    function setLastUsedTable(type, index){
+        window.lastUsedTable.type = type;
+        window.lastUsedTable.index = index;
+        sessionStorage.setItem('lastUsedTable', JSON.stringify({ type, index, remaining: 2 }));
+    }
     </script>
 
 
-        {{-- Select All checkbox --}}
-        <script>
-            document.addEventListener('DOMContentLoaded', () => {
-                // Target the header checkbox
-                const selectAllHeader = document.querySelector('.select-all-invalid');
-                if (!selectAllHeader) return;
 
-                // When the header checkbox is clicked
-                selectAllHeader.addEventListener('change', () => {
-                    const table = selectAllHeader.closest('table');
-                    if (!table) return;
-
-                    // Get all body checkboxes in this table
-                    const checkboxes = table.querySelectorAll('tbody input[type="checkbox"]');
-
-                    // Set each checkbox to match the header
-                    checkboxes.forEach(cb => cb.checked = selectAllHeader.checked);
-                });
-
-                // Optional: keep header checkbox in sync when any body checkbox changes
-                const table = selectAllHeader.closest('table');
-                if (table) {
-                    table.querySelectorAll('tbody input[type="checkbox"]').forEach(cb => {
-                        cb.addEventListener('change', () => {
-                            const allChecked = Array.from(table.querySelectorAll('tbody input[type="checkbox"]'))
-                                                    .every(c => c.checked);
-                            selectAllHeader.checked = allChecked;
-                        });
-                    });
-                }
-            });
-        </script>
-
-        <script>
+    <script>
 document.addEventListener('DOMContentLoaded', () => {
     const deleteModal = document.getElementById('deleteModal');
     const deleteConfirmBtn = document.getElementById('deleteConfirmBtn');
@@ -767,63 +772,44 @@ document.addEventListener('DOMContentLoaded', () => {
     let pendingDelete = null;
 
     // -----------------------------
-    // Utility: Show message in a table container
+    // Show message for a specific section
     // -----------------------------
-    function showMessage(container, message, type = 'info', persist = false) {
-        if (!container) return;
-        const msgDiv = container.querySelector('.action-message');
+    function showMessage(sectionId, message, type = 'info', autoHide = true) {
+        const section = document.getElementById(sectionId);
+        if (!section) return;
+        const msgDiv = section.querySelector('.action-message');
         if (!msgDiv) return;
 
         const textSpan = msgDiv.querySelector('.message-text');
         textSpan.innerHTML = message;
 
-        // Reset classes
-        msgDiv.className = 'action-message';
-        if (type === 'success') msgDiv.classList.add('text-success');
-        else if (type === 'error') msgDiv.classList.add('text-error');
+        msgDiv.className = 'action-message'; // reset classes
+        if(type === 'success') msgDiv.classList.add('text-success');
+        else if(type === 'error') msgDiv.classList.add('text-error');
         else msgDiv.classList.add('text-info');
 
         msgDiv.classList.remove('d-none');
 
-        // Persist in sessionStorage if needed
-        if (persist) {
-            const table = container.querySelector('table');
-            if (table?.id) {
-                sessionStorage.setItem(`lastTableMessage-${table.id}`, JSON.stringify({ message, type }));
-            }
+        // Auto-hide after 6 seconds
+        if(autoHide) {
+            setTimeout(() => {
+                msgDiv.classList.add('d-none');
+            }, 6000);
         }
     }
 
     // -----------------------------
-    // Restore persistent messages
+    // Handle close button click for all messages
     // -----------------------------
-    document.querySelectorAll('.data-table-container').forEach(container => {
-        const table = container.querySelector('table');
-        if (!table?.id) return;
-        const stored = sessionStorage.getItem(`lastTableMessage-${table.id}`);
-        if (stored) {
-            const { message, type } = JSON.parse(stored);
-            showMessage(container, message, type);
-        }
+    document.querySelectorAll('.close-message-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const msgDiv = btn.closest('.action-message');
+            if(msgDiv) msgDiv.classList.add('d-none');
+        });
     });
 
     // -----------------------------
-    // Close message button
-    // -----------------------------
-    document.addEventListener('click', e => {
-        if (e.target.classList.contains('close-message-btn')) {
-            const msgDiv = e.target.closest('.action-message');
-            if (!msgDiv) return;
-            msgDiv.classList.add('d-none');
-
-            const container = e.target.closest('.data-table-container');
-            const table = container?.querySelector('table');
-            if (table?.id) sessionStorage.removeItem(`lastTableMessage-${table.id}`);
-        }
-    });
-
-    // -----------------------------
-    // Toggle Edit Table
+    // Toggle edit mode
     // -----------------------------
     document.querySelectorAll('.toggle-edit-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -836,14 +822,35 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // -----------------------------
-    // Select All Button
+    // Select All checkbox headers
+    // -----------------------------
+    ['invalid','valid'].forEach(type => {
+        const headerCb = document.querySelector(`.select-all-${type}`);
+        if (!headerCb) return;
+        const table = document.getElementById(`${type}-entries-table`);
+        if (!table) return;
+
+        headerCb.addEventListener('change', () => {
+            table.querySelectorAll('tbody input[type="checkbox"]').forEach(cb => cb.checked = headerCb.checked);
+        });
+
+        table.querySelectorAll('tbody input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const allChecked = Array.from(table.querySelectorAll('tbody input[type="checkbox"]')).every(c => c.checked);
+                headerCb.checked = allChecked;
+            });
+        });
+    });
+
+    // -----------------------------
+    // Select All toggle button
     // -----------------------------
     document.querySelectorAll('.select-all-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const container = btn.closest('.data-table-container');
             const checkboxes = container.querySelectorAll('tbody input[type="checkbox"]');
-            if (checkboxes.length === 0) {
-                showMessage(container, 'No rows available', 'error');
+            if (!checkboxes.length) {
+                showMessage(container.closest('section').id, 'No rows available', 'error');
                 return;
             }
             const allChecked = Array.from(checkboxes).every(cb => cb.checked);
@@ -852,72 +859,63 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // -----------------------------
-    // Copy Selected Rows
+    // Copy selected rows
     // -----------------------------
     document.querySelectorAll('.copy-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const container = btn.closest('.data-table-container');
+            const sectionId = container.closest('section').id;
             const selected = Array.from(container.querySelectorAll('tbody input[type="checkbox"]:checked'));
-
-            if (selected.length === 0) {
-                // DO NOT persist this temporary error
-                showMessage(container, 'No rows selected', 'error', false);
+            if (!selected.length) {
+                showMessage(sectionId, 'No rows selected', 'error');
                 return;
             }
 
-            let textToCopy = '';
+            let text = '';
             selected.forEach(cb => {
                 const row = cb.closest('tr');
                 const cells = Array.from(row.querySelectorAll('td'));
-                textToCopy += cells.slice(1, -1).map(c => c.innerText.trim()).join('\t') + '\n';
+                text += cells.slice(1, -1).map(c => c.innerText.trim()).join('\t') + '\n';
             });
 
-            navigator.clipboard.writeText(textToCopy)
-                // DO NOT persist the copy success message
-                .then(() => showMessage(container, `📋 Copied ${selected.length} row(s)`, 'success', false))
-                .catch(err => showMessage(container, `❌ Failed to copy: ${err}`, 'error', false));
+            navigator.clipboard.writeText(text)
+                .then(() => {
+                    showMessage(sectionId, `✔ Copied ${selected.length} row(s)`, 'success');
+
+                    // Temporary button feedback
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '✔ Copied';
+                    setTimeout(() => btn.innerHTML = originalText, 1500);
+                })
+                .catch(err => showMessage(sectionId, `❌ Failed to copy: ${err}`, 'error'));
         });
     });
 
     // -----------------------------
-    // Delete Selected Rows
+    // Delete selected rows
     // -----------------------------
+    function showNoRowsSelected(sectionId) { showMessage(sectionId, 'No rows selected', 'error'); }
+
     document.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const container = btn.closest('.data-table-container');
-            const selected = Array.from(container.querySelectorAll('tbody input[type="checkbox"]:checked'))
-                                  .map(cb => cb.value);
+            const sectionId = container.closest('section').id;
+            const selected = Array.from(container.querySelectorAll('tbody input[type="checkbox"]:checked')).map(cb => cb.value);
+            if (!selected.length) { showNoRowsSelected(sectionId); return; }
 
-            if (selected.length === 0) {
-                // DO NOT persist this temporary error
-                showMessage(container, 'No rows selected', 'error', false);
-                return;
-            }
-
-            pendingDelete = {
-                action: btn.dataset.action,
-                tableType: btn.dataset.tableType,
-                selected,
-                container
-            };
+            pendingDelete = { action: btn.dataset.action, tableType: btn.dataset.tableType, selected, container };
             if (deleteModal) deleteModal.style.display = 'flex';
         });
     });
 
-    // -----------------------------
-    // Confirm Delete
-    // -----------------------------
     if (deleteConfirmBtn) {
         deleteConfirmBtn.addEventListener('click', () => {
             if (!pendingDelete) return;
-
-            const { action, tableType, selected, container } = pendingDelete;
+            const { action, tableType, selected } = pendingDelete;
             const form = document.getElementById('globalDeleteForm');
             form.action = action;
-
             form.innerHTML = `<input type="hidden" name="_token" value="{{ csrf_token() }}">
                               <input type="hidden" name="table_type" value="${tableType}">`;
-
             selected.forEach(val => {
                 const input = document.createElement('input');
                 input.type = 'hidden';
@@ -925,16 +923,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 input.value = val;
                 form.appendChild(input);
             });
-
             form.submit();
             if (deleteModal) deleteModal.style.display = 'none';
             pendingDelete = null;
         });
     }
 
-    // -----------------------------
-    // Cancel Delete
-    // -----------------------------
     if (deleteCancelBtn) {
         deleteCancelBtn.addEventListener('click', () => {
             if (deleteModal) deleteModal.style.display = 'none';
@@ -943,196 +937,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 </script>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    // -----------------------------
-    // Table message utilities
-    // -----------------------------
-    function showTableMessage(tableEl, message, type = 'info', persist = false) {
-        if (!tableEl) return;
-        const container = tableEl.closest('.data-table-container') || tableEl.parentElement;
-        const msgDiv = container.querySelector('.action-message');
-        if (!msgDiv) return;
 
-        const textSpan = msgDiv.querySelector('.message-text');
-        textSpan.innerHTML = message;
-
-        msgDiv.className = 'action-message'; // reset classes
-        msgDiv.classList.add(type); // 'success', 'error', 'info'
-        msgDiv.classList.remove('d-none');
-
-        const tableId = tableEl.id || 'default';
-        if (persist) {
-            sessionStorage.setItem(`lastTableMessage-${tableId}`, JSON.stringify({ message, type }));
-        } else {
-            sessionStorage.removeItem(`lastTableMessage-${tableId}`);
-        }
-    }
-
-    function showTemporaryMessage(tableEl, message, type = 'success') {
-        showTableMessage(tableEl, message, type, false);
-    }
-
-    // Restore table messages
-    document.querySelectorAll('table.volunteer-table').forEach(table => {
-        const tableId = table.id;
-        const stored = sessionStorage.getItem(`lastTableMessage-${tableId}`);
-        if (stored) {
-            const { message, type } = JSON.parse(stored);
-            showTableMessage(table, message, type, true); // Keep the message persistent
-        }
-    });
-
-    // -----------------------------
-    // Section message utilities
-    // -----------------------------
-    document.querySelectorAll('section').forEach(section => {
-        const msgDiv = section.querySelector('.action-message');
-        if (!msgDiv) return;
-
-        const textSpan = msgDiv.querySelector('.message-text');
-        const sectionId = section.id || section.dataset.sectionId || 'default';
-
-        // Save server message if present
-        const serverMessage = textSpan.innerHTML;
-        if (serverMessage) {
-            sessionStorage.setItem(`persistentMessage-${sectionId}`, serverMessage);
-            msgDiv.classList.remove('d-none');
-        }
-
-        // Restore persisted message
-        const storedMessage = sessionStorage.getItem(`persistentMessage-${sectionId}`);
-        if (storedMessage) {
-            textSpan.innerHTML = storedMessage;
-            msgDiv.classList.remove('d-none');
-        }
-
-        // Close button
-        const closeBtn = msgDiv.querySelector('.close-message-btn');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
-                msgDiv.classList.add('d-none');
-                sessionStorage.removeItem(`persistentMessage-${sectionId}`);
-            });
-        }
-    });
-
-    // -----------------------------
-    // Global message close handler
-    // -----------------------------
-    document.addEventListener('click', e => {
-        if (e.target.classList.contains('close-message-btn')) {
-            const msgDiv = e.target.closest('.action-message');
-            if (!msgDiv) return;
-
-            msgDiv.classList.add('d-none');
-            const container = msgDiv.closest('.data-table-container');
-            const table = container?.querySelector('table');
-            if (table?.id) {
-                sessionStorage.removeItem(`lastTableMessage-${table.id}`);
-            }
-        }
-    });
-
-    // -----------------------------
-    // Show Message for No Rows Selected (Persistent)
-    // -----------------------------
-    function showNoRowsSelectedMessage(container, type = 'error') {
-        const message = 'No rows selected';
-        showTableMessage(container, message, type, true); // Persist the message
-    }
-
-    // -----------------------------
-    // Copy Selected Rows
-    // -----------------------------
-    document.querySelectorAll('.copy-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const container = btn.closest('.data-table-container');
-            const selected = Array.from(container.querySelectorAll('tbody input[type="checkbox"]:checked'));
-
-            if (selected.length === 0) {
-                // Persist "No rows selected" message
-                showNoRowsSelectedMessage(container, 'error');
-                return;
-            }
-
-            let textToCopy = '';
-            selected.forEach(cb => {
-                const row = cb.closest('tr');
-                const cells = Array.from(row.querySelectorAll('td'));
-                textToCopy += cells.slice(1, -1).map(c => c.innerText.trim()).join('\t') + '\n';
-            });
-
-            navigator.clipboard.writeText(textToCopy)
-                .then(() => showTableMessage(container, `📋 Copied ${selected.length} row(s)`, 'success', false))
-                .catch(err => showTableMessage(container, `❌ Failed to copy: ${err}`, 'error', false));
-        });
-    });
-
-    // -----------------------------
-    // Delete Selected Rows
-    // -----------------------------
-    document.querySelectorAll('.delete-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const container = btn.closest('.data-table-container');
-            const selected = Array.from(container.querySelectorAll('tbody input[type="checkbox"]:checked'))
-                                  .map(cb => cb.value);
-
-            if (selected.length === 0) {
-                // Persist "No rows selected" message
-                showNoRowsSelectedMessage(container, 'error');
-                return;
-            }
-
-            pendingDelete = {
-                action: btn.dataset.action,
-                tableType: btn.dataset.tableType,
-                selected,
-                container
-            };
-            if (deleteModal) deleteModal.style.display = 'flex';
-        });
-    });
-
-    // -----------------------------
-    // Confirm Delete
-    // -----------------------------
-    if (deleteConfirmBtn) {
-        deleteConfirmBtn.addEventListener('click', () => {
-            if (!pendingDelete) return;
-
-            const { action, tableType, selected, container } = pendingDelete;
-            const form = document.getElementById('globalDeleteForm');
-            form.action = action;
-
-            form.innerHTML = `<input type="hidden" name="_token" value="{{ csrf_token() }}">
-                              <input type="hidden" name="table_type" value="${tableType}">`;
-
-            selected.forEach(val => {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'selected[]';
-                input.value = val;
-                form.appendChild(input);
-            });
-
-            form.submit();
-            if (deleteModal) deleteModal.style.display = 'none';
-            pendingDelete = null;
-        });
-    }
-
-    // -----------------------------
-    // Cancel Delete
-    // -----------------------------
-    if (deleteCancelBtn) {
-        deleteCancelBtn.addEventListener('click', () => {
-            if (deleteModal) deleteModal.style.display = 'none';
-            pendingDelete = null;
-        });
-    }
-});
-</script>
 
 </body>
 </html>

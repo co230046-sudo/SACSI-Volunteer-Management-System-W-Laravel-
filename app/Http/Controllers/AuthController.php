@@ -205,13 +205,15 @@ public function login(Request $request)
             );
 
             // 3️⃣ Mark any pending imports as Abandoned, preserve admin_id
-            ImportLog::where('admin_id', $adminId)
+            $admin = Auth::guard('admin')->user();
+            ImportLog::where('admin_id', $admin->admin_id)
                     ->where('status', 'Pending')
                     ->update([
                         'status'  => 'Abandoned',
-                        'admin_id'=> $adminId, // preserve who started the import
-                        'remarks' => "Admin ID: {$adminId} logged out before completing import."
+                        'admin_id'=> $admin->admin_id, // preserve the admin who started it
+                        'remarks' => "Admin: {$admin->username} logged out before completing import."
                     ]);
+
         }
 
         // 4️⃣ Logout and invalidate session

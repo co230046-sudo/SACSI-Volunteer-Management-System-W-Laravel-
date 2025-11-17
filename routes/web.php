@@ -54,8 +54,15 @@ Route::prefix('volunteer-import')->group(function () {
     Route::get('/volunteer-import/undo-delete', [VolunteerImportController::class, 'undoDelete'])->name('volunteer.import.undo-delete');
 
     // Edit Class Schedule
-    // Edit Class Schedule
-Route::put('/volunteers/{id}/update-schedule', [VolunteerImportController::class, 'updateSchedule'])->name('volunteer.update-schedule');
+    Route::put('/volunteers/{id}/update-schedule', [VolunteerImportController::class, 'updateSchedule'])->name('volunteer.update-schedule');
 
+   Route::post('/check-duplicates', function(Request $request) {
+    $ids = $request->input('ids', []);
+    $duplicates = \App\Models\VolunteerProfile::whereIn('id_number', $ids)
+                    ->pluck('id_number')
+                    ->toArray();
+
+    return response()->json(['duplicates' => $duplicates]);
+});
 
 });

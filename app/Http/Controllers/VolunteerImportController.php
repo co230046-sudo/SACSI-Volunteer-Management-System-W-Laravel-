@@ -211,89 +211,150 @@ class VolunteerImportController extends Controller
 
 
     /**
- * Normalize row: strip comments, format numbers, ensure all keys exist
- */
-private function normalizeRow(array $row, array $header): array
-{
-    $mapping = [
-        'name'=>'full_name','full_name'=>'full_name','full name'=>'full_name',
-        'id number'=>'id_number','school id'=>'id_number','id num'=>'id_number','id'=>'id_number',
-        'email address'=>'email','email'=>'email',
-        'phone'=>'contact_number','contact number'=>'contact_number','contact'=>'contact_number',
-        'emergency'=>'emergency_contact','emergency contact'=>'emergency_contact',
-        'fb'=>'fb_messenger','fb/messenger'=>'fb_messenger','messenger'=>'fb_messenger',
-        'barangay'=>'barangay','district'=>'district','course'=>'course','year'=>'year_level','year level'=>'year_level',
-        'class schedule'=>'class_schedule','class_schedule'=>'class_schedule',
-    ];
+     * Normalize row: strip comments, format numbers, ensure all keys exist
+     */
+    private function normalizeRow(array $row, array $header): array
+    {
+        $mapping = [
+            'name'=>'full_name','full_name'=>'full_name','full name'=>'full_name',
+            'id number'=>'id_number','school id'=>'id_number','id num'=>'id_number','id'=>'id_number',
+            'email address'=>'email','email'=>'email',
+            'phone'=>'contact_number','contact number'=>'contact_number','contact'=>'contact_number',
+            'emergency'=>'emergency_contact','emergency contact'=>'emergency_contact',
+            'fb'=>'fb_messenger','fb/messenger'=>'fb_messenger','messenger'=>'fb_messenger',
+            'barangay'=>'barangay','district'=>'district',
+            'course'=>'course','year'=>'year_level','year level'=>'year_level',
+            'class schedule'=>'class_schedule','class_schedule'=>'class_schedule',
+        ];
 
-    $normalized = [];
+        $normalized = [];
 
-    foreach ($header as $index => $col) {
-        $key = strtolower(trim($col));
-        $key = str_replace([' ', '-'], '_', $key);
-        $key = $mapping[$key] ?? $key;
+        // ---------- helper: fix "9-11" → "9:00-11:00" ----------
+        $fixTime = function ($timeStr) {
+            if (!$timeStr) return "";
 
-        $value = (string)($row[$index] ?? '');
+            $parts = explode('-', $timeStr);
+            if (count($parts) !== 2) return trim($timeStr);
+
+            $fix = function ($p) {
+                $p = trim($p);
+                if (preg_match('/^\d{1,2}$/', $p)) return $p . ":00";
+                return $p;
+            };
+
+            return $fix($parts[0]) . "-" . $fix($parts[1]);
+        };
+
+        // ---------- helper: sort by start time ----------
+        $sortRanges = function (&$arr) {
+            usort($arr, function ($a, $b) {
+                [$ah, $am] = explode(':', explode('-', $a)[0]);
+                [$bh, $bm] = explode(':', explode('-', $b)[0]);
+                return ($ah * 60 + $am) <=> ($bh * 60 + $bm);
+            });
+        };
+
+        foreach ($header as $index => $col) {
+            $key = strtolower(trim($col));
+            $key = str_replace([' ', '-'], '_', $key);
+            $key = $mapping[$key] ?? $key;
+
+            $value = (string)($row[$index] ?? '');
+
+            /**
+             * ---------------- CLASS SCHEDULE ----------------
+             */
+            if ($key === 'class_schedule') {
+                // 1. Flatten spacing & remove line breaks
+                $clean = str_replace(["\r\n", "\n", "\r", "\t"], ' ', $value);
+                $clean = preg_replace('/\s+/', ' ', $clean);
+                $clean = trim($clean);
+
+                if ($clean === "") {
+                    $normalized[$key] = "";
+                    continue;
+                }
+
+                $days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+                $schedule = [];
+
+                foreach ($days as $day) {
+                    $regex = "/{$day}:\s*(.*?)(?=(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|$))/i";
+
+                    if (preg_match($regex, $clean, $match)) {
+                        $raw = trim(str_ireplace("No Class", "", $match[1]));
+                        $items = array_filter(explode(" ", $raw));
+
+                        // Convert time ranges and remove duplicates
+                        $items = array_unique(array_map($fixTime, $items));
+
+                        // Sort properly
+                        $sortRanges($items);
+
+                        $schedule[$day] = $items;
+                    } else {
+                        $schedule[$day] = [];
+                    }
+                }
+
+                // Rebuild canonical format
+                $result = [];
+                foreach ($days as $day) {
+                    $result[] = $day . ": " . (empty($schedule[$day]) ? "No Class" : implode(" ", $schedule[$day]));
+                }
+
+                $normalized[$key] = implode(" ", $result);
+                continue;
+            }
+
+            /**
+             * ---------------- NORMAL FIELDS ----------------
+             */
+            $value = preg_replace('/#.*/', '', $value);
+            $value = trim($value);
+
+            if (in_array($value, ['-', 'N/A'])) $value = '';
+
+            if ($key === 'id_number') $value = strtoupper($value);
+
+            if (in_array($key, ['contact_number','emergency_contact'])) {
+                $value = preg_replace('/[^\d+]/', '', $value);
+            }
+
+            // 🔹 District cleanup (prevents "District District 1")
+            if ($key === 'district' && $value !== "") {
+                $value = trim(str_ireplace("District", "", $value));
+                $value = preg_replace('/\s+/', '', $value); // " 1 " → "1"
+            }
+
+            $normalized[$key] = $value;
+        }
 
         /**
-         * CLASS SCHEDULE — SPECIAL HANDLING
-         * Accept breaklines (\n, \r\n), slashes (/), dashes (-), colons (:)
-         * Flatten into a single clean line but preserve everything else.
+         * Ensure required keys exist
          */
-        if ($key === 'class_schedule') {
-
-            // Replace line breaks and tabs with a space
-            $value = str_replace(["\r\n", "\n", "\r", "\t"], ' ', $value);
-
-            // Remove weird spacing
-            $value = preg_replace('/\s+/', ' ', $value);
-
-            // Final clean trim
-            $normalized[$key] = trim($value);
-            continue;
+        foreach ([
+            'full_name','id_number','email','contact_number','emergency_contact',
+            'fb_messenger','barangay','district','course','year_level','class_schedule'
+        ] as $key) {
+            if (!isset($normalized[$key])) $normalized[$key] = '';
         }
 
-        // Remove #comments
-        $value = preg_replace('/#.*/', '', $value);
+        /**
+         * Auto-assign district ID (only 1 or 2)
+         */
+        if (!empty($normalized['barangay'])) {
+            $districtId = DB::table('locations')
+                ->whereRaw('LOWER(barangay) = ?', [ strtolower($normalized['barangay']) ])
+                ->value('district_id');
 
-        $value = trim($value);
-
-        if (in_array($value, ['-', 'N/A'])) {
-            $value = '';
+            if ($districtId) {
+                $normalized['district'] = $districtId;
+            }
         }
 
-        if ($key === 'id_number') {
-            $value = strtoupper($value);
-        }
-
-        if (in_array($key, ['contact_number','emergency_contact'])) {
-            $value = preg_replace('/[^\d+]/', '', $value);
-        }
-
-        $normalized[$key] = $value;
+        return $normalized;
     }
-
-    // Ensure required keys exist
-    foreach ([
-        'full_name','id_number','email','contact_number','emergency_contact',
-        'fb_messenger','barangay','district','course','year_level','class_schedule'
-    ] as $key) {
-        if (!isset($normalized[$key])) $normalized[$key] = '';
-    }
-
-    // ⭐ NEW — AUTO-ASSIGN district based on barangay
-    if (!empty($normalized['barangay'])) {
-        $districtId = DB::table('locations')
-            ->whereRaw('LOWER(barangay) = ?', [ strtolower($normalized['barangay']) ])
-            ->value('district_id');
-
-        if ($districtId) {
-            $normalized['district'] = $districtId;
-        }
-    }
-
-    return $normalized;
-}
 
 
     /**
@@ -350,6 +411,9 @@ private function normalizeRow(array $row, array $header): array
         return empty($errors) ? null : $errors;
     }
 
+    /**
+     * Update/Correct Volunteer Fields
+     */
     public function updateVolunteerEntry(Request $request, $index, $type)
     {
         $entries = session($type . 'Entries', []);
@@ -358,6 +422,7 @@ private function normalizeRow(array $row, array $header): array
         }
 
         $entry = $entries[$index];
+        $before = $entry;  // ⭐ Preserve original values BEFORE updates
         $input = array_map('trim', $request->all());
 
         // Normalize contact numbers and ID
@@ -399,7 +464,8 @@ private function normalizeRow(array $row, array $header): array
         // FB/Messenger validation
         if (!empty($input['fb_messenger'])) {
             $fb = $input['fb_messenger'];
-            if (!filter_var($fb, FILTER_VALIDATE_URL) || stripos(parse_url($fb, PHP_URL_HOST) ?: '', 'facebook.com') === false) {
+            if (!filter_var($fb, FILTER_VALIDATE_URL) ||
+                stripos(parse_url($fb, PHP_URL_HOST) ?: '', 'facebook.com') === false) {
                 $errors['fb_messenger'] = ['FB/Messenger must be a valid Facebook link'];
             }
         }
@@ -420,14 +486,24 @@ private function normalizeRow(array $row, array $header): array
             }
         }
 
-        // Update session entries
+        // ⭐ Detect REAL changes only
         $updatedFields = [];
         foreach ($input as $field => $value) {
-            if (!isset($errors[$field])) {
-                $entries[$index][$field] = $value;
+            if (isset($errors[$field])) {
+                continue; // Skip invalid fields
+            }
+
+            $oldValue = $before[$field] ?? '';
+
+            // ⭐ Only add if there is a TRUE change
+            if ($value !== $oldValue) {
                 $updatedFields[$field] = $value;
             }
+
+            // Apply updates to session
+            $entries[$index][$field] = $value;
         }
+
         $entries[$index]['errors'] = $errors;
         session([$type . 'Entries' => $entries]);
 
@@ -452,10 +528,29 @@ private function normalizeRow(array $row, array $header): array
         if ($adminId && !empty($updatedFields)) {
             $fieldDetails = [];
             foreach ($updatedFields as $field => $value) {
-                if (isset($labels[$field])) $fieldDetails[] = "{$labels[$field]}='{$value}'";
+                if (isset($labels[$field])) {
+                    $fieldDetails[] = "{$labels[$field]}='{$value}'";
+                }
             }
-            $fullName = $updatedFields['full_name'] ?? $entry['full_name'] ?? 'Unknown';
-            $this->logFact('Update Entry', $adminId, 'Volunteer Import', $volunteerId ?? null, 'Updated', "Updated entry #".($index+1)." '{$fullName}': ".implode(', ', $fieldDetails).".");
+
+            $fullName = $before['full_name'] ?? 'Unknown';
+
+            $entityIdForLog = $entries[$index]['volunteer_id']
+                ?? $entries[$index]['row_number']
+                ?? ($index + 1);
+
+            $entityTypeForLog = isset($entries[$index]['volunteer_id'])
+                ? 'VolunteerProfile'
+                : 'Volunteer Import';
+
+            $this->logFact(
+                'Update Entry',
+                $adminId,
+                $entityTypeForLog,
+                $entityIdForLog,
+                'Updated',
+                "Updated entry #".($index+1)." '{$fullName}': ".implode(', ', $fieldDetails)."."
+            );
         }
 
         // Build flash message
@@ -464,13 +559,14 @@ private function normalizeRow(array $row, array $header): array
         $changesMade = false;
 
         foreach ($labels as $field => $label) {
-            if (isset($updatedFields[$field])) {
+            if (array_key_exists($field, $updatedFields)) {
                 $changesMade = true;
-                $oldValue = $entry[$field] ?? '';
+                $oldValue = $before[$field] ?? '';
                 $newValue = $updatedFields[$field];
+
                 $message .= ($oldValue !== $newValue)
                     ? "✅ <strong>{$label}:</strong> <span style='color:#007bff;'>{$newValue}</span><br>"
-                    : "✅ <strong>{$label}:</strong> {$newValue}<br>";
+                    : "ℹ️ <strong>{$label}:</strong> No change<br>";
             }
         }
 
@@ -484,96 +580,97 @@ private function normalizeRow(array $row, array $header): array
             }
         }
 
-        if (!$changesMade) $message .= "ℹ️ No changes were made.<br>";
+        if (!$changesMade) {
+            $message .= "ℹ️ No changes were made.<br>";
+        }
 
-        $flashType = !empty($updatedFields) ? 'success' : 'error';
+        $flashType = $changesMade ? 'success' : 'error';
 
-        // ✅ Pass both table (valid/invalid) and index back to the view
         return redirect()->route('volunteer.import.index')
             ->with($flashType, $message)
             ->with('last_updated_table', $type)
             ->with('last_updated_index', $index);
     }
 
-   /**
- * Move from Invalid -> Valid
- */
-public function moveInvalidToValid(Request $request)
-{
-    $invalid = session('invalidEntries', []);
-    $valid = session('validEntries', []);
-    $movedEntries = [];
-    $skippedEntries = [];
-    $adminId = auth()->guard('admin')->id();
+    /**
+     * Move from Invalid -> Valid
+     */
+    public function moveInvalidToValid(Request $request)
+    {
+        $invalid = session('invalidEntries', []);
+        $valid = session('validEntries', []);
+        $movedEntries = [];
+        $skippedEntries = [];
+        $adminId = auth()->guard('admin')->id();
 
-    $selectedIndices = $request->input('selected_invalid', []); // array of indexes in $invalid
+        $selectedIndices = $request->input('selected_invalid', []); // array of indexes in $invalid
 
-    if (!empty($selectedIndices)) {
-        foreach ($selectedIndices as $index) {
-            if (!isset($invalid[$index])) continue;
+        if (!empty($selectedIndices)) {
+            foreach ($selectedIndices as $index) {
+                if (!isset($invalid[$index])) continue;
 
-            $entry = $invalid[$index];
+                $entry = $invalid[$index];
 
-            // Skip if it has errors
-            if (!empty($entry['errors'] ?? [])) {
-                $skippedEntries[] = [
+                // Skip if it has errors
+                if (!empty($entry['errors'] ?? [])) {
+                    $skippedEntries[] = [
+                        'name' => $entry['full_name'] ?? 'N/A',
+                        'index' => $index
+                    ];
+                    continue;
+                }
+
+                // Move entry
+                unset($entry['errors'], $entry['error_message']);
+                $valid[] = $entry;
+                $movedEntries[] = [
                     'name' => $entry['full_name'] ?? 'N/A',
                     'index' => $index
                 ];
-                continue;
+
+                unset($invalid[$index]);
+
+                // Log the move
+                $this->logFact(
+                    'Move to Verified',
+                    $adminId,
+                    'Volunteer Import',
+                    $entry['volunteer_id'] ?? $entry['row_number'] ?? null,
+                    'Moved',
+                    "Moved Volunteer Entry #".($index+1)." {$entry['full_name']} from invalid to valid."
+                );
             }
 
-            // Move entry
-            unset($entry['errors'], $entry['error_message']);
-            $valid[] = $entry;
-            $movedEntries[] = [
-                'name' => $entry['full_name'] ?? 'N/A',
-                'index' => $index
-            ];
+            // Reindex arrays
+            $invalid = array_values($invalid);
+            $valid = array_values($valid);
 
-            unset($invalid[$index]);
-
-            // Log the move
-            $this->logFact(
-                'Move to Verified',
-                $adminId,
-                'Volunteer Import',
-                $entry['volunteer_id'] ?? $entry['row_number'] ?? null,
-                'Moved',
-                "Moved Volunteer Entry #".($index+1)." {$entry['full_name']} from invalid to valid."
-            );
+            session([
+                'invalidEntries' => $invalid,
+                'validEntries' => $valid,
+                'last_updated_table' => 'valid',
+                'last_updated_index' => count($valid) - 1
+            ]);
         }
 
-        // Reindex arrays
-        $invalid = array_values($invalid);
-        $valid = array_values($valid);
+        // Build message
+        $messageParts = [];
+        if ($movedEntries) {
+            $movedList = array_map(fn($e) => "Moved Volunteer Entry #".($e['index']+1)." {$e['name']}", $movedEntries);
+            $messageParts[] = "✅ " . implode(', ', $movedList) . " to valid.";
+        }
+        if ($skippedEntries) {
+            $skippedList = array_map(fn($e) => $e['name'], $skippedEntries);
+            $messageParts[] = "⚠️ Could not move: " . implode(', ', $skippedList) . ".";
+        }
+        if (!$movedEntries && !$skippedEntries) {
+            $messageParts[] = "ℹ️ No invalid entries selected to move.";
+        }
 
-        session([
-            'invalidEntries' => $invalid,
-            'validEntries' => $valid,
-            'last_updated_table' => 'valid',
-            'last_updated_index' => count($valid) - 1
-        ]);
+        return back()
+            ->withFragment('valid-entries-table')
+            ->with('success', implode(' ', $messageParts));
     }
-
-    // Build message
-    $messageParts = [];
-    if ($movedEntries) {
-        $movedList = array_map(fn($e) => "Moved Volunteer Entry #".($e['index']+1)." {$e['name']}", $movedEntries);
-        $messageParts[] = "✅ " . implode(', ', $movedList) . " to valid.";
-    }
-    if ($skippedEntries) {
-        $skippedList = array_map(fn($e) => $e['name'], $skippedEntries);
-        $messageParts[] = "⚠️ Could not move: " . implode(', ', $skippedList) . ".";
-    }
-    if (!$movedEntries && !$skippedEntries) {
-        $messageParts[] = "ℹ️ No invalid entries selected to move.";
-    }
-
-    return back()
-        ->withFragment('valid-entries-table')
-        ->with('success', implode(' ', $messageParts));
-}
 
     /**
      * Move from Valid -> Invalid
@@ -718,7 +815,6 @@ public function moveInvalidToValid(Request $request)
                     ->with('last_updated_table', $tableType)
                     ->with('last_updated_indices', $selected);
     }
-
 
     /**
      * Undo Deleted Entries
@@ -977,7 +1073,7 @@ public function moveInvalidToValid(Request $request)
                         'VolunteerProfile',
                         $volunteer->volunteer_id,
                         'Imported',
-                        "Saved Volunteer Entry #".($index+1)." {$entry['full_name']}"
+                        "Imported Volunteer Entry #".($index+1)." – {$entry['full_name']}"
                     );
                 }
             });
@@ -1085,6 +1181,9 @@ public function moveInvalidToValid(Request $request)
         return back()->with('success', $message);
     }
 
+    /**
+     * Check if Entries Already Exist in Database (table:volunteer_profile)
+     */
     public function checkDuplicates(Request $request)
     {
         $ids = $request->input('ids', []);
@@ -1124,8 +1223,9 @@ public function moveInvalidToValid(Request $request)
         ]);
     }
 
-
-
+    /**
+     * Update Class Schedule
+     */
     public function updateSchedule(Request $request, $id)
     {
         try {
@@ -1165,6 +1265,11 @@ public function moveInvalidToValid(Request $request)
             $oldParts = $normalize($oldSchedule);
             $newPartsRaw = $normalize($scheduleString);
 
+            // PATCH: remove empty values before diffing
+            $clean = function($arr) {
+                return array_values(array_filter($arr, fn($v) => trim($v) !== ""));
+            };
+
             // Normalize new values to HH:MM-HH:MM
             $newParts = [];
             $reformattedCells = [];
@@ -1181,7 +1286,9 @@ public function moveInvalidToValid(Request $request)
                     $newParts[$day][$idx] = $norm;
 
                     $oldVal = $oldParts[$day][$idx] ?? null;
-                    if ($oldVal && $oldVal !== $norm && !in_array($norm, $oldParts[$day] ?? [])) {
+
+                    // PATCH: prevent reformatted "" → "" false detection
+                    if ($oldVal && $norm && $oldVal !== $norm && !in_array($norm, $oldParts[$day] ?? [])) {
                         $reformattedCells[$day][] = ['from' => $oldVal, 'to' => $norm];
                     }
                 }
@@ -1191,8 +1298,13 @@ public function moveInvalidToValid(Request $request)
             $changesMade = false;
 
             foreach ($days as $day) {
-                $addedDay = array_diff($newParts[$day] ?? [], $oldParts[$day] ?? []);
-                $removedDay = array_diff($oldParts[$day] ?? [], $newParts[$day] ?? []);
+                // PATCH: clean before diff
+                $cleanNew = $clean($newParts[$day] ?? []);
+                $cleanOld = $clean($oldParts[$day] ?? []);
+
+                $addedDay = array_diff($cleanNew, $cleanOld);
+                $removedDay = array_diff($cleanOld, $cleanNew);
+
                 $dayChanges[$day] = ['added' => $addedDay, 'removed' => $removedDay];
 
                 if (count($addedDay) > 0 || count($removedDay) > 0 || !empty($reformattedCells[$day] ?? [])) {
@@ -1260,7 +1372,6 @@ public function moveInvalidToValid(Request $request)
         }
     }
 
-    
     /**
      * Centralized FactLog helper with auto entity type inference
     */
@@ -1277,15 +1388,19 @@ public function moveInvalidToValid(Request $request)
         $admin = Auth::guard('admin')->user();
         $adminId = is_numeric($adminId) ? (int)$adminId : ($admin->admin_id ?? null);
 
-        // Normalize details
+        // Encode details nicely
         $encodedDetails = is_array($details) || is_object($details)
             ? json_encode($details, JSON_UNESCAPED_UNICODE)
             : (string)$details;
 
-        // entity type auto-detection
+        // Determine entity_type + proper entity_id
         if (is_object($entity)) {
             $entityType = class_basename($entity);
-            $entityId = $entityId ?? ($entity->id ?? null);
+
+            // Use getKey() so models with custom PKs (volunteer_id, import_id, admin_id) work
+            $modelKey = method_exists($entity, 'getKey') ? $entity->getKey() : null;
+
+            $entityId = $entityId ?? $modelKey;
         } elseif (is_string($entity)) {
             $entityType = $entity;
         } else {
@@ -1301,5 +1416,6 @@ public function moveInvalidToValid(Request $request)
             'details'     => $encodedDetails,
         ]);
     }
+
 
 }

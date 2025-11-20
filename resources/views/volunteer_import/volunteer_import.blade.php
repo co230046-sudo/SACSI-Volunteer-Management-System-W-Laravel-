@@ -196,16 +196,22 @@
                                                             @endphp
 
                                                             {{-- ⭐ FIXED DISTRICT DISPLAY --}}
-                                                            @if($key === 'district')
-                                                                @php
-                                                                    $districtId = $entry['district'] ?? null;
-                                                                    $districtName = $districtNames[$districtId] ?? "District $districtId";
-                                                                @endphp
+                                                                @if($key === 'district')
+                                                                    @php
+                                                                        $districtId = trim($entry['district'] ?? '');
 
-                                                                <td data-value="{{ strtolower($districtName) }}">
-                                                                    {{ $districtName }}
-                                                                </td>
-                                                            @else
+                                                                        // Prevent "District District 1"
+                                                                        if (stripos($districtId, 'district') !== false) {
+                                                                            $districtName = $districtId;
+                                                                        } else {
+                                                                            $districtName = "District " . $districtId;
+                                                                        }
+                                                                    @endphp
+
+                                                                    <td data-value="{{ strtolower($districtName) }}">
+                                                                        {{ $districtName }}
+                                                                    </td>
+                                                                @else
 
                                                                 {{-- ORIGINAL DISPLAY --}}
                                                                 <td
@@ -413,15 +419,23 @@
                                                             ? substr($value,0,20).'...' : $value;
                                                     @endphp
 
-                                                    {{-- DISTRICT --}}
+                                                    {{-- ⭐ FIXED DISTRICT DISPLAY --}}
                                                     @if($key === 'district')
                                                         @php
-                                                            $districtId = $entry['district'] ?? null;
-                                                            $districtName = $districtNames[$districtId] ?? "District $districtId";
+                                                            $districtId = trim($entry['district'] ?? '');
+
+                                                            // Prevent "District District 1"
+                                                            if (stripos($districtId, 'district') !== false) {
+                                                                $districtName = $districtId;
+                                                            } else {
+                                                                $districtName = "District " . $districtId;
+                                                            }
                                                         @endphp
+
                                                         <td data-value="{{ strtolower($districtName) }}">
                                                             {{ $districtName }}
                                                         </td>
+
 
                                                     {{-- CLASS SCHEDULE --}}
                                                     @elseif($key === 'class_schedule')
@@ -732,10 +746,6 @@
         </form>
 
     </div>
-
-<script>
-    window.locationDistricts = @json($barangays);
-</script>
     
     {{-- Modals --}}
     @include('layouts.modals.guides.volunteer_import.import_guide_modal')

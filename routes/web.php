@@ -5,6 +5,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\HomePageController;
 use App\Http\Controllers\VolunteerImportController;
+use App\Http\Controllers\CreateEventController;
 
 Route::get('/', function () {
     return redirect()->route('auth.login');
@@ -60,9 +61,10 @@ Route::middleware(['auth:admin'])->group(function () {
             [VolunteerImportController::class, 'updateSchedule'])
             ->name('volunteer.update-schedule');
 
-        // ✔ Use your controller's duplicate check, not closure
         Route::post('/check-duplicates', 
             [VolunteerImportController::class, 'checkDuplicates'])
             ->name('volunteer.import.checkDuplicates');
     });
 });
+
+//Route::get('/create-event', [CreateEventController::class, 'create-event'])->name('create-event');

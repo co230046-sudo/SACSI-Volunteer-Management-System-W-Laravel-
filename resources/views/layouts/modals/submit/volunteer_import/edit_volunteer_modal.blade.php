@@ -434,7 +434,7 @@ const locationsMap = @json($locationsMap);
         const selected = barangaySelect.value.trim();
         const errorSpan = document.getElementById('district-error');
 
-        if(!selected){
+        if (!selected) {
             districtInput.value = '';
             districtIdInput.value = '';
             errorSpan.textContent = 'District depends on Barangay selection';
@@ -444,12 +444,24 @@ const locationsMap = @json($locationsMap);
         }
 
         const districtId = locationsMap[selected];
-        if(districtId){
-            districtInput.value = "District " + districtId;
-            districtIdInput.value = districtId;
+
+        if (districtId) {
+
+            // ✅ PATCH: Prevent false "Updated District X"
+            const current = districtInput.value.trim();
+            const expected = String(districtId);
+
+            // Only update if different
+            if (current !== expected) {
+                districtInput.value = expected;
+            }
+
+            districtIdInput.value = expected;
+
             errorSpan.textContent = '';
             districtInput.classList.add('valid');
             districtInput.classList.remove('invalid');
+
         } else {
             districtInput.value = '';
             districtIdInput.value = '';
@@ -488,7 +500,7 @@ const locationsMap = @json($locationsMap);
             if(!districtId) return 'Invalid district for selected barangay';
             return true;
         },
-        class_schedule: v => true // hidden, no validation needed
+        class_schedule: v => true 
     };
 
     function validateField(input){
@@ -498,7 +510,7 @@ const locationsMap = @json($locationsMap);
         if(res!==true){
             input.classList.add('invalid');
             input.classList.remove('valid');
-            if(errorSpan) { errorSpan.textContent=res; errorSpan.style.display='block'; }
+            if(errorSpan){ errorSpan.textContent=res; errorSpan.style.display='block'; }
             return false;
         } else {
             input.classList.remove('invalid');
@@ -523,6 +535,7 @@ const locationsMap = @json($locationsMap);
     });
 
     barangaySelect.addEventListener('change', ()=>{ updateDistrict(); validateAll(); });
+
     courseSelect.addEventListener('change', ()=>{
         const opt = courseSelect.options[courseSelect.selectedIndex];
         collegeInput.value = opt ? opt.dataset.college||'' : '';
@@ -531,22 +544,27 @@ const locationsMap = @json($locationsMap);
 
     window.openEditVolunteerModal = function(type, index){
         const volunteer = (window.volunteersData[type]||[])[index]||{};
+
         Object.keys(rules).forEach(key=>{
-            const input=document.getElementById(key);
+            const input = document.getElementById(key);
             if(!input) return;
-            if(key==='barangay'){
+
+            if(key === 'barangay'){
                 input.value = volunteer[key] && locationsMap[volunteer[key]] ? volunteer[key] : '';
-            } else input.value = volunteer[key] || '';
-            if(input.tagName==='SELECT'){
-                const opt = Array.from(input.options).find(o=>o.value===input.value);
+            } else {
+                input.value = volunteer[key] || '';
+            }
+
+            if(input.tagName === 'SELECT'){
+                const opt = Array.from(input.options).find(o => o.value === input.value);
                 if(opt) input.value = opt.value;
             }
         });
 
-        const selectedCourse = Array.from(courseSelect.options).find(o=>o.value===volunteer.course);
-        if(selectedCourse){ 
-            courseSelect.value = selectedCourse.value; 
-            collegeInput.value = selectedCourse.dataset.college||''; 
+        const selectedCourse = Array.from(courseSelect.options).find(o => o.value === volunteer.course);
+        if(selectedCourse){
+            courseSelect.value = selectedCourse.value;
+            collegeInput.value = selectedCourse.dataset.college || '';
         }
 
         updateDistrict();
@@ -556,22 +574,22 @@ const locationsMap = @json($locationsMap);
         form.action = routeTemplate.replace('__INDEX__', index).replace('__TYPE__', type);
 
         modal.classList.add('is-open');
-        document.documentElement.style.overflow='hidden';
-        document.body.style.overflow='hidden';
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
     };
 
     window.closeEditVolunteerModal = function(){
         modal.classList.remove('is-open');
-        document.documentElement.style.overflow=''; 
-        document.body.style.overflow='';
+        document.documentElement.style.overflow = '';
+        document.body.style.overflow = '';
     };
 
     modal.querySelector('.modal-overlay').addEventListener('click', e=>{
-        if(e.target===modal.querySelector('.modal-overlay')) closeEditVolunteerModal();
+        if(e.target === modal.querySelector('.modal-overlay')) closeEditVolunteerModal();
     });
 
     document.addEventListener('keydown', e=>{
-        if(modal.classList.contains('is-open') && e.key==='Escape') closeEditVolunteerModal();
+        if(modal.classList.contains('is-open') && e.key === 'Escape') closeEditVolunteerModal();
     });
 
     form.addEventListener('submit', e=>{

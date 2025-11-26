@@ -1,0 +1,379 @@
+/* ===========================
+   TOP HEADER BAR STYLE
+   =========================== */
+.header-bar {
+    display: flex;
+    justify-content: center; /* Reverted to center as dropdown is gone */
+    align-items: center;
+    position: relative;
+    background-color: #c90000;
+    color: white;
+    padding: 10px 25px;
+    height: 60px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+/* Grouping for Menu Icon and Title */
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    width: 100%; 
+    justify-content: center; /* Center the title */
+}
+
+/* Centered Title */
+.header-title {
+    font-size: 1.6em;
+    font-weight: 700;
+    margin: 0;
+    text-align: center;
+}
+
+/* Menu Icon */
+.menu-icon {
+    position: absolute;
+    right: 25px;
+    font-size: 1.8em;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.menu-icon:hover {
+    transform: scale(1.15);
+}
+
+/* ===========================
+   ACTIONS DROPDOWN STYLES
+   =========================== */
+.dropdown {
+    position: relative;
+    display: flex; /* Centers the button inside the item-value area */
+    justify-content: center;
+    align-items: center;
+    height: 100%; 
+}
+
+/* The dropdown button inside the metric box */
+.dropdown-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: #a30000;
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+}
+
+.dropdown-toggle:hover {
+    background-color: #7a0000;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.dropdown-menu {
+    position: absolute;
+    bottom: 100%;       /* 👈 Makes it open upward */
+    top: auto;          /* 👈 Disable downward positioning */
+    left: 50%;
+    transform: translateX(-50%); /* keeps it centered */
+    
+    background-color: #ffffff;
+    min-width: 250px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+    z-index: 9999;
+    border-radius: 4px;
+    overflow: hidden;
+    display: none;
+    margin-bottom: 8px; /* spacing between button and dropdown */
+}
+
+
+.dropdown-menu.show {
+    display: block; 
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #333;
+    padding: 12px 16px;
+    text-decoration: none;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.dropdown-item i {
+    color: #c90000;
+}
+
+.dropdown-item:hover {
+    background-color: #f1f1f1;
+    cursor: pointer;
+}
+
+/* Styles for the Sort By Year Select inside the Dropdown */
+.dropdown-section {
+    padding: 10px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.dropdown-label {
+    font-size: 12px;
+    color: #555;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+
+.dropdown-select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    background-color: #f9f9f9;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+.dropdown-select:focus {
+    outline: none;
+    border-color: #c90000;
+}
+
+.dropdown-divider {
+    height: 1px;
+    background-color: #eee;
+    margin: 5px 0;
+}
+
+
+/* ===========================
+   GRID CONTAINER
+   =========================== */
+:root {
+    --graph-red: #ff0000;
+    --graph-blue: #0026ff;
+    --graph-orange: #ff6a00;
+    --graph-green: #07b71e;
+    --graph-purple: #b200ff;
+    --dashboard-bg: #f0f2f5; 
+    --dashboard-border: #ccc;
+    --dashboard-radius: 6px;
+}
+
+body {
+    font-family: "Open Sans", Arial, sans-serif;
+    background-color: var(--dashboard-bg);
+    margin: 0;
+    padding: 0;
+}
+
+.parent {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-template-rows: repeat(12, 1fr);
+    gap: 16px;
+    background: #fff;
+    box-shadow: 0 12px 12px rgba(0,0,0,0.2);
+    max-width: 1200px;
+    height: 650px;
+    margin: 40px auto; 
+    padding: 20px;
+    border-radius: var(--dashboard-radius);
+    transition: all 0.3s ease;
+}
+
+/* ===========================
+   CHART BOXES
+   =========================== */
+.div1, .div2, .div3, .div4 {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+    background-color: #ffffff;
+    padding: 15px;
+    overflow: hidden; 
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--dashboard-radius);
+}
+
+.div1 { grid-column: 1 / span 4; grid-row: 1 / span 6; }
+.div2 { grid-column: 5 / span 2; grid-row: 1 / span 6; }
+.div3 { grid-column: 5 / span 2; grid-row: 7 / span 6; }
+.div4 { grid-column: 4; grid-row: 1 / span 3; }
+
+/* ===========================
+   METRIC BOXES
+   =========================== */
+.dashboard-item {
+    /* Set to relative so dropdown menu can position absolute relative to it */
+    position: relative; 
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+    background-color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    text-align: center;
+    border-radius: 4px;
+}
+
+.item-title {
+    font-size: 14px;
+    color: #777;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+}
+
+.item-value {
+    font-size: 38px;
+    font-weight: bold;
+    color: #c90000;
+}
+
+/* Metric box grid positions */
+#total-volunteers-container { grid-column: 1 / span 2; grid-row: 7 / span 2; }
+#active-volunteers-container { grid-column: 3 / span 2; grid-row: 7 / span 2; }
+#growth-rate-container { grid-column: 1 / span 2; grid-row: 9 / span 2; }
+#average-attendance-container { grid-column: 3 / span 2; grid-row: 9 / span 2; }
+#event-success-rate-container { grid-column: 1 / span 2; grid-row: 11 / span 2; }
+/* NEW GRID POSITION for the Actions Dropdown */
+#actions-item-container { grid-column: 3 / span 2; grid-row: 11 / span 2; }
+
+
+/* ===========================
+   PIE CHART + LEGEND
+   =========================== */
+h3 {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-top: 0;
+    margin-bottom: 5px;
+    text-align: center;
+}
+
+.chart-container {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
+    overflow: hidden; 
+    flex-grow: 1;
+}
+
+.legend {
+  list-style-type: none;
+  padding: 0 10px;
+  margin: 0;
+  background: #FFF; 
+  font-size: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.legend li {
+  line-height: 1.25em; 
+  margin-bottom: 0.3em; 
+  padding-left: 0.5em;
+  border-left: 1.25em solid black; 
+}
+.legend li:nth-child(1) { border-color: var(--graph-blue); }
+.legend li:nth-child(2) { border-color: var(--graph-red); }
+.legend li:nth-child(3) { border-color: var(--graph-green); }
+
+canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* ===========================
+   RESPONSIVE DESIGN
+   =========================== */
+
+/* Large tablets */
+@media (max-width: 1400px) {
+    .parent {
+        max-width: 95%;
+        height: auto;
+    }
+}
+
+/* Tablets */
+@media (max-width: 1200px) {
+    .parent {
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: auto;
+        height: auto;
+    }
+
+    .div1 { grid-column: 1 / span 4; grid-row: auto; }
+    .div2 { grid-column: 1 / span 2; grid-row: auto; }
+    .div3 { grid-column: 3 / span 2; grid-row: auto; }
+
+    #total-volunteers-container,
+    #active-volunteers-container,
+    #growth-rate-container,
+    #average-attendance-container,
+    #event-success-rate-container,
+    #actions-item-container {
+        grid-column: span 2;
+        grid-row: auto; /* Ensure stacking is dynamic */
+    }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    .header-bar {
+        flex-direction: row;
+        height: 60px;
+        padding: 10px 25px;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .header-left {
+        width: auto;
+        justify-content: center;
+        margin-bottom: 0;
+    }
+
+    .menu-icon {
+        position: absolute;
+        right: 25px;
+    }
+
+    
+    .parent {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+
+    .div1, .div2, .div3 {
+        grid-column: 1;
+        grid-row: auto;
+    }
+
+    .dashboard-item {
+        grid-column: 1;
+        grid-row: auto;
+    }
+
+    .item-value {
+        font-size: 28px;
+    }
+}

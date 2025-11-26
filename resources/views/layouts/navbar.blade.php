@@ -672,10 +672,11 @@ document.addEventListener("DOMContentLoaded", () => {
           <hr style="border:none; border-top:2px solid #ad2d2dff; margin:0.5rem 0;">
 
           <!-- Edit Profile -->
-          <button class="account-btn">
-            <i class="fa-solid fa-user-pen icon"></i>
-            <span class="account-btn-text">Edit Profile</span>
-          </button>
+         <button class="account-btn" onclick="window.location.href='{{ route('admin.profile') }}'">
+          <i class="fa-solid fa-user-pen icon"></i>
+          <span class="account-btn-text">Edit Profile</span>
+      </button>
+
 
           <button class="account-btn">
             <i class="fa-solid fa-circle-question icon"></i>
@@ -765,7 +766,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <hr>
         </div>
 
-        <a href="routegoeshere">
+        <a href="{{ route('dashboard') }}">
             <i class="fas fa-chart-line me-2"></i><span class="link-text">Dashboard</span>
         </a>
 

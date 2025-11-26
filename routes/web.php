@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
+
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\HomePageController;
 use App\Http\Controllers\VolunteerImportController;
@@ -9,6 +10,12 @@ use App\Http\Controllers\CreateEventController;
 use App\Http\Controllers\VolunteerListController;
 use App\Http\Controllers\VolunteerProfileController;
 use App\Http\Controllers\EventDetailsController;
+use App\Http\Controllers\DashboardController;
+
+
+Route::get('/test123', function () {
+    return "THIS IS THE REAL PROJECT";
+});
 
 Route::get('/', function () {
     return redirect()->route('auth.login');
@@ -21,9 +28,20 @@ Route::get('/register', [AuthController::class, 'showRegister'])->name('auth.reg
 Route::post('/register', [AuthController::class, 'register'])->name('auth.register.submit');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+
+/* ------------------ GLOBAL ADMIN PROFILE ROUTE (FIX) ------------------ */
+Route::get('/admin/profile', function () {
+    return view('admin.profile');
+})->name('admin.profile');
+
+
 /* ------------------ PROTECTED ROUTES (ADMIN ONLY) ------------------ */
 Route::middleware(['auth:admin'])->group(function () {
 
+    /* Dashboard */
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    /* Home Page */
     Route::get('/home', [HomePageController::class, 'index'])->name('home');
 
     /* --- Import Volunteer --- */
@@ -97,7 +115,7 @@ Route::middleware(['auth:admin'])->group(function () {
 
     Route::get('/volunteers/locations', [VolunteerListController::class, 'locations'])->name('volunteers.locations');
 
-    /* ------------------ VOLUNTEER Profile ------------------ */
+    /* ------------------ VOLUNTEER PROFILE ------------------ */
     Route::get('/volunteer-profile/{id}', [VolunteerProfileController::class, 'show'])
         ->name('volunteers.show');
 

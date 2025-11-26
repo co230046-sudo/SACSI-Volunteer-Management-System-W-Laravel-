@@ -1,0 +1,279 @@
+/* RESET */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+  background: #f2f5f8;
+}
+
+/* MAIN SECTION FIX */
+section {
+  width: 100%;
+  padding: 80px 1rem 1rem;
+  animation: slideUp 0.6s ease-out both;
+}
+
+/* WIDTH FIX */
+.main-content,
+.student-section-wrapper {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* GRID FIX */
+.student-section-wrapper {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+/* LEFT = 75% | RIGHT = 25% */
+.left-col {
+  flex: 3 1 72%;
+}
+
+.right-col {
+  flex: 1 1 300px;
+}
+
+/* CARD WRAPPER FIX */
+.left-section,
+.events-section {
+  background: #fff;
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+}
+
+/* ------------------------------
+   PROFILE SECTION (CLEANED)
+--------------------------------*/
+.profile-section {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1.2rem;
+  transition: 0.3s ease;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+}
+
+.profile-photo {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #e5e5e5;
+  display: block;
+  margin: 0 auto 0.5rem auto;
+  border: 3px solid #ccc;
+  transition: 0.25s ease;
+}
+
+.profile-photo:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 12px rgba(178,0,12,0.4);
+}
+
+/* NAME + TITLE */
+.volunteer-name {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #222;
+}
+
+.volunteer-title {
+  font-size: 1rem;
+  color: #777;
+  margin-bottom: 0.5rem;
+}
+
+/* ------------------------------
+   RIGHT ACTION BUTTON PANEL
+--------------------------------*/
+.action-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.info-card {
+  background: #fafafa;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  min-width: 110px;
+  transition: 0.25s ease;
+  font-weight: 600;
+}
+
+.info-card i {
+  font-size: 1.4rem;
+  color: #b2000c;
+  transition: 0.25s ease;
+}
+
+.info-card:hover {
+  background: #ffe6e6;
+  border-color: #b2000c;
+  transform: translateY(-2px);
+}
+
+.info-card:hover i {
+  transform: scale(1.1) rotate(-6deg);
+  color: #8a0000;
+}
+
+/* ------------------------------
+   ADMIN DETAILS PANEL
+--------------------------------*/
+.volunteer-details {
+  background: #fff;
+  padding: 1.2rem;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  margin-bottom: 1rem;
+  transition: 0.3s;
+}
+
+.volunteer-details:hover {
+  box-shadow: 0 3px 14px rgba(0,0,0,0.12);
+}
+
+.detail-card {
+  background: #fafafa;
+  border: 1px solid #ddd;
+  padding: 12px;
+  border-radius: 8px;
+  transition: 0.25s;
+}
+
+.detail-card h6 {
+  margin: 0;
+  display: flex;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #444;
+}
+
+.detail-card p {
+  margin-top: 6px;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.detail-card:hover {
+  background: #ffe6e6;
+  border-color: #b2000c;
+  transform: translateY(-2px);
+}
+
+/* COPY BUTTON FIX */
+.copy-volunteer-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: #b2000c;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  display: flex;
+  gap: 4px;
+  cursor: pointer;
+  transition: 0.25s;
+}
+
+.copy-volunteer-btn:hover {
+  background: #8a0000;
+  transform: scale(1.05);
+}
+
+/* ------------------------------
+   ACTIVITY LOG (RIGHT COLUMN)
+--------------------------------*/
+.event-wrapper {
+  padding: 0.8rem;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+}
+
+.events-title {
+  text-align: center;
+  font-size: 1.4rem;
+  color: #b2000c;
+  margin-bottom: 1rem;
+}
+
+.event-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 6px;
+}
+
+.event-item td {
+  background: #fff;
+  padding: 12px;
+  border: 1px solid #ddd;
+  transition: 0.25s;
+}
+
+.event-item:hover td {
+  background: #ffe6e6;
+  border-color: #b2000c;
+}
+
+.event-name a {
+  text-decoration: none;
+  color: #333;
+  font-weight: 600;
+}
+
+.event-name a:hover {
+  color: #b2000c;
+}
+
+.event-datetime {
+  white-space: nowrap;
+  text-align: right;
+  color: #777;
+}
+
+.click-bubble {
+  opacity: 0;
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%) translateX(10px);
+  background: #b2000c;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 10px;
+  white-space: nowrap;
+  transition: 0.3s ease;
+}
+
+.event-item:hover .click-bubble {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}

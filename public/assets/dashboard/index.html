@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SACSI Volunteer Dashboard Layout</title>
+
+  <link rel="stylesheet" href="{{ asset('assets/dashboard/style.css') }}">
+    <script src="{{ asset('assets/dashboard/script.js') }}"></script>
+
+
+    <!-- FULL FONT AWESOME CDN (FIXES MISSING ICONS) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <link rel="stylesheet" href="{{ asset('assets/dashboard/bootstrap-5.0.2-dist/css/bootstrap.min.css') }}">
+<script src="{{ asset('assets/dashboard/bootstrap-5.0.2-dist/js/bootstrap.bundle.min.js') }}"></script>
+
+</head>
+
+
+<body>
+    <!-- HEADER -->
+    <div class="header-bar">
+        <div class="header-left">
+            <span class="menu-icon">&#9776;</span>
+
+            <h1 class="header-title">
+                <i class="fa-solid fa-book fa-xl"></i> 
+                Volunteer & Event Dashboard
+            </h1>
+
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD GRID -->
+    <div class="parent">
+
+        <div class="div1">
+            <canvas id="classCategoryChart"></canvas>
+        </div>
+
+        <div class="div2">
+            <canvas id="eventTypeChart"></canvas>
+        </div>
+
+        <div class="div3">
+            <canvas id="eventChart"></canvas>
+        </div>
+
+        <div id="total-volunteers-container" class="dashboard-item">
+            <div class="item-title">Total Volunteers</div>
+            <div class="item-value">250</div>
+        </div>
+
+        <div id="active-volunteers-container" class="dashboard-item">
+            <div class="item-title">Active Volunteers</div>
+            <div class="item-value">180</div>
+        </div>
+
+        <div id="growth-rate-container" class="dashboard-item">
+            <div class="item-title">Growth Rate</div>
+            <div class="item-value">+12%</div>
+        </div>
+
+        <div id="average-attendance-container" class="dashboard-item">
+            <div class="item-title">Avg Attendance</div>
+            <div class="item-value">85%</div>
+        </div>
+
+        <div id="event-success-rate-container" class="dashboard-item">
+            <div class="item-title">Event Success Rate</div>
+            <div class="item-value">92%</div>
+        </div>
+
+        <!-- ACTIONS DROPDOWN -->
+        <div class="dashboard-item" id="actions-item-container">
+            
+            <div class="item-title">
+                <i class="fa-solid fa-book fa-xl"></i>
+                Dashboard Actions
+            </div>
+
+            <div class="dropdown" id="actions-dropdown-container">
+                <button class="control-btn dropdown-toggle" id="actionsDropdownToggle">
+                    <i class="fa-solid fa-gear"></i> Print & Export Options
+                </button>
+
+                <div class="dropdown-menu" id="actionsDropdownMenu">
+
+                    <div class="dropdown-section">
+                        <label for="year-filter" class="dropdown-label">Sort By Year:</label>
+                        <select id="year-filter" name="year-filter" class="dropdown-select">
+                            <option value="" disabled selected>Select Year</option>
+                            <option value="2025">2025</option>
+                            <option value="2024">2024</option>
+                            <option value="2023">2023</option>
+                        </select>
+                    </div>
+
+                    <div class="dropdown-divider"></div>
+
+                    <div class="dropdown-section">
+                        <label class="dropdown-label">Actions:</label>
+                    </div>
+
+                    <a href="#" class="dropdown-item" id="printDashboard">
+                        <i class="fa-solid fa-print"></i> Print Data Summary
+                    </a>
+
+                    <a href="#" class="dropdown-item" id="exportExcelPlaceholder">
+                        <i class="fa-solid fa-file-excel"></i> Export Data (Excel)
+                    </a>
+
+                    <a href="#" class="dropdown-item" id="exportPdf">
+                        <i class="fa-solid fa-file-pdf"></i> Export Data (PDF)
+                    </a>
+
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- SCRIPTS -->
+    <script src="script.js"></script>
+    <script src="bootstrap-5.0.2-dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>

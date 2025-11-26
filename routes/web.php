@@ -9,6 +9,7 @@ use App\Http\Controllers\CreateEventController;
 use App\Http\Controllers\VolunteerListController;
 use App\Http\Controllers\VolunteerProfileController;
 use App\Http\Controllers\EventDetailsController;
+use App\Http\Controllers\EventManagerController;
 
 Route::get('/', function () {
     return redirect()->route('auth.login');
@@ -88,7 +89,25 @@ Route::middleware(['auth:admin'])->group(function () {
 
         Route::post('/store', [CreateEventController::class, 'store'])
             ->name('events.store');
+
+        Route::get('/events/{event_id}', [EventDetailsController::class, 'show'])
+        ->name('event.details.show');
+
+        Route::post('/{event_id}/add-volunteers', 
+            [EventDetailsController::class, 'addVolunteers']
+        )->name('events.addVolunteers');
+
     });
+
+    /* ------------------ EVENT MANAGER ROUTES ------------------ */
+
+    Route::get('/events/manage', [EventManagerController::class, 'index'])
+        ->name('events.manage');
+
+    /* See Details (already works) */
+    Route::get('/events/{event_id}', [EventDetailsController::class, 'show'])
+        ->name('event.details.show');
+
 
     /* ------------------ VOLUNTEER LIST ------------------ */
     Route::get('/volunteers_list', [VolunteerListController::class, 'index'])->name('volunteers.list');
@@ -100,7 +119,4 @@ Route::middleware(['auth:admin'])->group(function () {
     /* ------------------ VOLUNTEER Profile ------------------ */
     Route::get('/volunteer-profile/{id}', [VolunteerProfileController::class, 'show'])
         ->name('volunteers.show');
-
-    /* ------------------ Event Details ------------------ */
-    Route::get('/event_details', [EventDetailsController::class, 'index'])->name('event.details');
 });

@@ -56,7 +56,7 @@
                 <span>New Event</span>
             </a>
 
-            <a href="{{ url('Event_Manager/Event-Manager') }}" class="card manage-events" data-tooltip="Edit, update, or delete existing events.">
+            <a href="{{ route('events.manage') }}" class="card manage-events" data-tooltip="Edit, update, or delete existing events.">
                 <i class="fa-solid fa-calendar-days fa-3x"></i>
                 <span>Manage Events</span>
             </a>
@@ -78,19 +78,49 @@
                             <div class="event-header">
                                 <h3>{{ $event->title }}</h3>
                             </div>
+
                             <div class="event-details">
-                                <p><i class="fas fa-calendar-alt"></i> {{ \Carbon\Carbon::parse($event->start_date)->format('F j, Y') }} – {{ \Carbon\Carbon::parse($event->end_date)->format('F j, Y') }}</p>
-                                <p><i class="fas fa-clock"></i> {{ $event->start_time }} - {{ $event->end_time }}</p>
-                                <p><i class="fas fa-map-marker-alt"></i> {{ $event->location }}</p>
-                                <p><i class="fas fa-users"></i> <strong>{{ $event->volunteers_count }}/{{ $event->volunteers_needed }} Volunteers</strong></p>
-                                <a class="detail-link" href="{{ url('Event_Details/' . $event->id) }}">See Details</a>
+
+                                {{-- DATE RANGE --}}
+                                <p>
+                                    <i class="fas fa-calendar-alt"></i>
+                                    {{ \Carbon\Carbon::parse($event->start_datetime)->format('F j, Y') }}
+                                    –
+                                    {{ \Carbon\Carbon::parse($event->end_datetime)->format('F j, Y') }}
+                                </p>
+
+                                {{-- TIME RANGE --}}
+                                <p>
+                                    <i class="fas fa-clock"></i>
+                                    {{ $event->start_datetime ? \Carbon\Carbon::parse($event->start_datetime)->format('h:i A') : '' }}
+                                    -
+                                    {{ $event->end_datetime ? \Carbon\Carbon::parse($event->end_datetime)->format('h:i A') : '' }}
+                                </p>
+
+                                {{-- LOCATION --}}
+                                <p>
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    {{ $event->location?->barangay ?? 'No location' }}
+                                </p>
+
+                                {{-- VOLUNTEER COUNT --}}
+                                <p>
+                                    <i class="fas fa-users"></i>
+                                    <strong>{{ $event->expectedVolunteers->count() }} Volunteers Expected</strong>
+                                </p>
+
+                                {{-- DETAILS PAGE BUTTON --}}
+                                <a class="detail-link" href="{{ route('event.details.show', $event->event_id) }}">
+                                    See Details
+                                </a>
                             </div>
-
-
                         </div>
                     @empty
-                        <p class="no-events"><i class="fas fa-hourglass-half" style="margin-right: 8px;"></i>No ongoing events</p>
+                        <p class="no-events">
+                            <i class="fas fa-hourglass-half me-2"></i>No ongoing events
+                        </p>
                     @endforelse
+
                 </div>
             </div>
 
@@ -109,17 +139,42 @@
                             <div class="event-header">
                                 <h3>{{ $event->title }}</h3>
                             </div>
+
                             <div class="event-details">
-                                <p><i class="fas fa-calendar-alt"></i> {{ \Carbon\Carbon::parse($event->start_date)->format('F j, Y') }}</p>
-                                <p><i class="fas fa-clock"></i> {{ $event->start_time }} - {{ $event->end_time }}</p>
-                                <p><i class="fas fa-map-marker-alt"></i> {{ $event->location }}</p>
-                                <p><i class="fas fa-users"></i> <strong>{{ $event->volunteers_count }}/{{ $event->volunteers_needed }} Volunteers</strong></p>
-                                <a class="detail-link" href="{{ url('Event_Details/' . $event->id) }}">See Details</a>
+
+                                <p>
+                                    <i class="fas fa-calendar-alt"></i>
+                                    {{ \Carbon\Carbon::parse($event->start_datetime)->format('F j, Y') }}
+                                </p>
+
+                                <p>
+                                    <i class="fas fa-clock"></i>
+                                    {{ $event->start_datetime ? \Carbon\Carbon::parse($event->start_datetime)->format('h:i A') : '' }}
+                                    -
+                                    {{ $event->end_datetime ? \Carbon\Carbon::parse($event->end_datetime)->format('h:i A') : '' }}
+                                </p>
+
+                                <p>
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    {{ $event->location?->barangay ?? 'No location' }}
+                                </p>
+
+                                <p>
+                                    <i class="fas fa-users"></i>
+                                    <strong>{{ $event->expectedVolunteers->count() }} Expected</strong>
+                                </p>
+
+                                <a class="detail-link" href="{{ route('event.details.show', $event->event_id) }}">
+                        See Details
+                    </a>
                             </div>
                         </div>
                     @empty
-                        <p class="no-events"><i class="fas fa-calendar-times" style="margin-right: 8px;"></i>No upcoming events.</p>
+                        <p class="no-events">
+                            <i class="fas fa-calendar-times me-2"></i>No upcoming events.
+                        </p>
                     @endforelse
+
                 </div>
             </div>
         </div>

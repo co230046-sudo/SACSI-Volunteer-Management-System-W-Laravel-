@@ -56,9 +56,7 @@
                         <!-- Count label -->
                         <div id="grid-count" class="grid-count mt-2"></div>
 
-                       
-                        </div>
-                         <!-- Navigation Arrows -->
+                        <!-- Navigation Arrows -->
                         <div class="navigation d-flex flex-row justify-content-end align-items-center gap-3 mt-3">
 
                             <button id="arrow-up" class="btn arrow-btn" aria-pressed="false">
@@ -78,6 +76,7 @@
                                     </path>
                                 </svg>
                             </button>
+                        </div>
                     </div>
                 </div>
             </div> <!-- .container -->
@@ -90,114 +89,6 @@
 <!-- Load Bootstrap JS bundle (needed for modal)-->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ asset('assets/volunteer_list/js/script.js') }}"></script> 
-
-<!-- Add Student Modal -->
-<div class="modal fade" id="addStudentModal" tabindex="-1" aria-labelledby="addStudentModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-            <form method="POST" action="{{ url('/volunteers') }}" enctype="multipart/form-data">
-                @csrf
-                <div class="modal-header">
-                    <h5 class="modal-title" id="addStudentModalLabel">Add Student</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-
-                <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-md-8">
-                            <div class="mb-3">
-                                <label class="form-label">Full name <span class="text-danger">*</span></label>
-                                <input name="full_name" required type="text" class="form-control" placeholder="Juan Dela Cruz">
-                            </div>
-
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">ID number</label>
-                                    <input name="id_number" type="text" class="form-control" placeholder="230123">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Year level</label>
-                                    <input name="year_level" type="text" class="form-control" placeholder="3">
-                                </div>
-                            </div>
-
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Email</label>
-                                    <input name="email" type="email" class="form-control" placeholder="juan@adzu.edu.com">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Contact number</label>
-                                    <input name="contact_number" type="text" class="form-control" placeholder="09xxxxxxxxx">
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Emergency contact</label>
-                                <input name="emergency_contact" type="text" class="form-control" placeholder="Parent / Guardian contact">
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Facebook messenger</label>
-                                <input name="fb_messenger" type="text" class="form-control" value="No FB messenger">
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Notes</label>
-                                <textarea name="notes" class="form-control" rows="2" placeholder="Optional notes"></textarea>
-                            </div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <div class="mb-3 text-center">
-                                <label class="form-label d-block">Profile picture</label>
-                                <img src="/storage/defaults/default_user.png" alt="avatar" class="img-fluid rounded mb-2" style="max-height:120px;">
-                                <input name="profile_picture" type="file" accept="image/*" class="form-control">
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Course</label>
-                                @if(isset($courses) && count($courses))
-                                    <select name="course_id" class="form-select">
-                                        <option value="">-- Select course --</option>
-                                        @foreach($courses as $c)
-                                            <option value="{{ $c->course_id }}">{{ $c->course_name }}</option>
-                                        @endforeach
-                                    </select>
-                                @else
-                                    <input name="course_name" type="text" class="form-control" placeholder="Course name (optional)">
-                                @endif
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Barangay</label>
-                                <input name="barangay" type="text" class="form-control" placeholder="Barangay">
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">District</label>
-                                <input name="district" type="text" class="form-control" placeholder="District">
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Status</label>
-                                <select name="status" class="form-select">
-                                    <option value="active" selected>Active</option>
-                                    <option value="inactive">Inactive</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-danger">Save student</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
 </html>
 

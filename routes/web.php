@@ -89,7 +89,25 @@ Route::middleware(['auth:admin'])->group(function () {
 
         Route::post('/store', [CreateEventController::class, 'store'])
             ->name('events.store');
+
+        Route::get('/events/{event_id}', [EventDetailsController::class, 'show'])
+        ->name('event.details.show');
+
+        Route::post('/{event_id}/add-volunteers', 
+            [EventDetailsController::class, 'addVolunteers']
+        )->name('events.addVolunteers');
+
     });
+
+    /* ------------------ EVENT MANAGER ROUTES ------------------ */
+
+    Route::get('/events/manage', [EventManagerController::class, 'index'])
+        ->name('events.manage');
+
+    /* See Details (already works) */
+    Route::get('/events/{event_id}', [EventDetailsController::class, 'show'])
+        ->name('event.details.show');
+
 
     /* ------------------ VOLUNTEER LIST ------------------ */
     Route::get('/volunteers_list', [VolunteerListController::class, 'index'])->name('volunteers.list');

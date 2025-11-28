@@ -1,393 +1,472 @@
-/* General Reset & Body */
+/* ============================================================
+   GLOBAL LAYOUT
+============================================================ */
 body {
-    font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+    font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, Arial;
     background: #f7f7f7;
-    padding-top: 80px; /* space for header */
+    padding-top: 80px;
     margin: 0;
 }
 
-/* Main container */
 main.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 15px;
+    max-width: 1800px !important;
+    padding: 0 20px !important;
 }
 
-/* Event Header Card */
-.event-top {
-    background: #ffffff; /* clean white card */
-    border-radius: 12px;
-    border: none;
-    padding: 28px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    box-shadow: 0 8px 20px rgba(15,15,15,0.06);
-    border-left: 6px solid rgba(178,0,12,0.12); /* subtle red accent */
-    position: relative; /* needed so .event-actions can be absolutely positioned */
+/* Column spacing */
+.row.g-4 {
+    --bs-gutter-x: 1.4rem !important;
 }
 
-.event-top .d-flex {
-    flex-direction: column;
-    gap: 16px;
-}
+/* Column ratios */
+.col-lg-7 { flex: 0 0 58% !important; }
+.col-lg-5 { flex: 0 0 42% !important; }
 
-/* Event title styling — make it prominent and heavy */
-.event-title {
-    font-size: clamp(1.9rem, 4.5vw, 3.2rem);
-    font-weight: 800; /* bold/heavy */
-    color: #0f1720; /* near-black */
-    margin-bottom: 6px;
-    line-height: 1.02;
-    letter-spacing: -0.01em;
-}
-@media (min-width: 768px){
-    .event-top .d-flex {
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: start;
+@media (max-width: 992px) {
+    .col-lg-7,
+    .col-lg-5 {
+        flex: 0 0 100% !important;
     }
 }
 
-/* Event meta info */
-.event-title-container { max-width: 72%; }
+/* ============================================================
+   EVENT DETAILS CARD
+============================================================ */
+.event-top {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 38px 40px 34px 40px;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.05);
+    border-left: 6px solid rgba(178,0,12,0.32);
+    position: relative;
+}
 
-/* Event Badges */
-.event-top .badges {
-    margin-top: 10px;
+/* Big academic title */
+.event-title {
+    font-size: clamp(2.4rem, 4vw, 3.3rem);
+    font-weight: 900;
+    color: #7d0000;
+    letter-spacing: -0.6px;
+    margin-bottom: 6px;
+    line-height: 1.05;
+}
+
+/* Badge row */
+.badges {
+    margin-top: 12px;
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
+    gap: 10px 12px;
 }
 
-.event-top .badges {
-    margin-top: 8px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-}
-.event-top .badges .badge {
-    font-size: 0.8rem; /* compact badges */
-    padding: 0.35em 0.65em;
-    border-radius: 999px; /* pill */
-    color: #333;
-    background-color: #f4f5f7; /* subtle grey chip */
-    border: 1px solid rgba(0,0,0,0.06);
-    transition: transform 0.15s, box-shadow 0.15s;
-}
-
-.event-top .badges .badge.bg-light {
-    background-color: #f4f5f7; /* grey chip */
-    color: #333;
-    border: 1px solid rgba(0,0,0,0.06);
-}
-
-/* Modal: split lists for attendees */
-.add-student-modal .split { gap: 20px; }
-.add-student-modal .left-list, .add-student-modal .right-list {
-    background: #fff;
-    border: 1px solid rgba(0,0,0,0.06);
+/* Generic badge style */
+.badges .badge {
+    background: #fff5f5 !important;
+    border: 1px solid #d02727 !important;
+    color: #7d0000 !important;
+    font-weight: 600;
+    padding: 7px 10px;
     border-radius: 8px;
-    padding: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: 0.2s ease;
 }
-.add-student-modal .student-card.modal-student {
-    background: #fafafa;
-    border: 1px solid rgba(0,0,0,0.04);
-    color: #111;
-}
-.add-student-modal .selected-list .student-card {
-    background: transparent;
-    border: none;
-    padding: 6px 0;
-}
-.add-student-modal h6 { margin: 0 0 8px 0; font-weight: 700; }
-.add-student-modal .list-scroll { max-height: 320px; overflow-y: auto; padding-right: 6px; }
-.add-student-modal .student-item { cursor: pointer; }
-.add-student-modal .student-item .avatar { width:44px; height:44px; object-fit:cover; border-radius:50%; }
-.add-student-modal .selected-list .student-item { background: transparent; border: none; }
-.add-student-modal .selected-list .student-item .form-check-input { display: none; }
-.add-student-modal .student-item .name { font-weight: 600; }
-.add-student-modal .student-item + .student-item { margin-top: 6px; }
 
-/* Grid layout for Available list: show a 3x4 set of cards */
-.add-student-modal .left-list .list-scroll {
+.badges .badge i {
+    color: #b2000c !important;
+    font-size: 0.9rem;
+}
+
+/* Hover animation */
+.badges .badge:hover {
+    background: #ffeaea !important;
+    border-color: #b2000c !important;
+    transform: translateY(-2px);
+    box-shadow: 0 3px 8px rgba(178,0,12,0.18);
+}
+
+.badges .badge:hover i {
+    transform: scale(1.15);
+}
+
+/* Status badge override (keep readable) */
+.status-badge {
+    background: #7d0000 !important;
+    border-color: #7d0000 !important;
+    color: #fff !important;
+}
+
+/* Icons inside event-top text */
+.event-top i {
+    color: #b2000c !important;
+}
+
+/* ============================================================
+   ACTION BUTTONS (TOP RIGHT)
+============================================================ */
+.event-actions {
+    position: absolute;
+    top: 32px;
+    right: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+@media (max-width: 768px) {
+    .event-actions {
+        position: static;
+        margin-top: 16px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+}
+
+.btn-action {
+    min-width: 160px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(178,0,12,0.25);
+    background: #ffffff;
+    color: #b2000c !important;
+    outline: #b2000c solid 1px;
+    font-weight: 600;
+    box-shadow: 0 3px 8px rgba(178,0,12,0.10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: 0.25s ease;
+}
+
+.btn-action i {
+    font-size: 0.95rem;
+    color: #b2000c !important;
+    transition: 0.25s ease;
+}
+
+.btn-action:hover {
+    transform: translateY(-2px);
+    background: #fff4f4;
+    border-color: #b2000c;
+    box-shadow: 0 4px 12px rgba(178,0,12,0.22);
+}
+
+.btn-action:hover i {
+    transform: scale(1.12);
+}
+
+/* Variants (optional tint) */
+.btn-summary { background: #fff7f7; }
+.btn-import  { background: #ffecec; }
+
+/* ============================================================
+   ORGANIZERS CARD
+============================================================ */
+.organizer-card {
+    background: #ffffff;
+    border-radius: 12px;
+    border-left: 5px solid rgba(178,0,12,0.32);
+    border-top: 1px solid #f0f0f0;
+    border-right: 1px solid #f0f0f0;
+    border-bottom: 1px solid #f0f0f0;
+    padding: 12px 14px !important;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.06);
+}
+
+.avatar-circle {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: #b2000c;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #ffffff;
+}
+
+/* ============================================================
+   RIGHT COLUMN — EXPECTED VOLUNTEERS CARD
+============================================================ */
+.attendees-card {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 26px 30px;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.05);
+    border-left: 6px solid rgba(178,0,12,0.32);
+}
+
+.attendees-header {
+    margin-bottom: 14px;
+}
+
+.attendees-header h3 {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #7d0000;
+}
+
+/* Search input on right card */
+.expected-search-input {
+    max-width: 230px;
+    font-size: 0.85rem;
+}
+
+/* ============================================================
+   STUDENT CARDS (MAIN GRID)
+============================================================ */
+.cards-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-    max-height: 520px; /* approx 4 rows of cards */
+    grid-template-columns: repeat(2, minmax(230px, 1fr));
+    gap: 14px;
+    max-height: calc(100vh - 330px);
     overflow-y: auto;
     padding-right: 6px;
 }
 
-.add-student-modal .left-list .student-card.modal-student {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 10px;
-    min-height: 110px;
-}
-
-.add-student-modal .left-list .student-card .avatar {
-    width: 56px;
-    height: 56px;
-    margin-bottom: 8px;
-    border-radius: 50%;
-}
-
-.add-student-modal .left-list .student-card .meta .name {
-    font-size: 0.95rem;
-}
-.add-student-modal .left-list .student-card .meta .course {
-    font-size: 0.8rem;
-    color: #6b7280;
-}
-
-/* make controls sit nicely */
-.add-student-modal .controls .btn { min-width: 110px; }
-
-
-
-/* Adaptive badge sizing */
-@media (max-width: 768px) {
-    .event-top .badges .badge {
-        font-size: 0.9rem;
-        padding: 0.5em 0.8em;
+@media (max-width: 1200px) {
+    .cards-grid {
+        grid-template-columns: 1fr;
     }
 }
 
-/* Align Bootstrap Buttons */
-.event-actions {
-    display: flex;
-    gap: 8px;
-    align-items: flex-start;
-    justify-content: flex-end;
-}
-
-/* place action buttons absolutely at the top-right of the card on larger screens */
-@media (min-width: 768px) {
-    .event-actions {
-        position: absolute;
-        top: 18px;
-        right: 18px;
-        z-index: 12;
-        margin: 0; /* reset any spacing from flow */
-    }
-    /* avoid overlap with the title by adding right padding to the title container */
-    .event-title-container { padding-right: 220px; }
-    /* stack the action buttons vertically on desktop so the second button sits below the first.
-       Use higher-specificity override to beat Bootstrap utility classes (e.g. flex-sm-row). */
-    .event-top .event-actions { flex-direction: column !important; align-items: flex-end; gap: 10px; }
-}
-
-/* on small screens, keep buttons in normal flow below/next to the title */
-@media (max-width: 767px) {
-    .event-actions {
-        position: static;
-        width: 100%;
-        justify-content: flex-end;
-        margin-top: 8px;
-    }
-    .event-title-container { padding-right: 0; }
-}
-
-.event-actions .btn {
-    background: #fafafa;
-    border-radius: 10px;
-    padding: 8px 12px;
-    min-width: 110px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.06);
-    border: 1px solid #dee2e6;
-    color: #B2000C; /* red text accent */
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-.event-actions .btn.btn-danger {
-    background: #fff0f0; /* very light red tint */
-    border-color: rgba(178,0,12,0.12);
-    color: #B2000C;
-}
-.event-actions .btn.btn-secondary {
-    background: #fafafa;
-    color: #6b7280;
-    border-color: #dee2e6;
-}
-.event-actions .btn:hover {
-    background: #f2f5f8;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
-    color: #8a0000;
-}
-
-/* Icon color + hover effect similar to volunteer profile info-card */
-.event-actions .btn i {
-    color: #B2000C;
-    font-size: 1.05rem;
-    transition: transform 0.25s ease, color 0.25s ease;
-}
-.event-actions .btn:hover i {
-    transform: rotate(-8deg) scale(1.05);
-    color: #8a0000;
-}
-
-@media (max-width: 768px) {
-    .event-top .ms-auto {
-        flex-direction: row;
-        flex-wrap: wrap;
-        justify-content: flex-start;
-        align-items: center;
-    }
-    .event-top .ms-auto .btn {
-        flex: 1 1 auto;
-        min-width: 120px;
-    }
-}
-
-/* Red/Grey buttons */
-.btn-outline-primary {
-    color: #B2000C;
-    border-color: #B2000C;
-}
-
-.btn-outline-primary:hover {
-    color: #fff;
-    background-color: #B2000C;
-    border-color: #8f000a;
-}
-
-.btn-secondary {
-    background-color: #6c757d;
-    border-color: #6c757d;
-    color: #fff;
-}
-
-.btn-secondary:hover {
-    background-color: #5a6268;
-    border-color: #545b62;
-}
-
-/* Event actions */
-.event-top .btn { min-width: 110px; }
-
-@media (min-width: 768px) {
-    .event-actions { align-items: flex-start; }
-}
-
-@media (max-width: 768px) {
-    .event-actions { flex-wrap: wrap; }
-    .event-actions .btn { min-width: 96px; }
-}
-
-/* Event description */
-.event-top p { color: #333; margin-top: 12px; line-height: 1.5; }
-
-/* Attendees Section */
-.attendees {
-    margin-top: 20px;
-}
-.attendees h3 { font-size: 1.25rem; margin-bottom: 4px; }
-.attendees .text-muted { font-size: 0.9rem; }
-
-/* Cards grid */
-.grid-container {
-    margin-top: 12px;
-    max-height: 500px;
-    overflow-y: auto;
-    padding: 12px;
-    background: transparent;
-}
-.cards-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 12px;
-}
-
-/* Attendee Card */
 .student-card {
     display: flex;
-    gap: 12px;
     align-items: center;
-    padding: 14px;
-    background: #B2000C;
-    color: #fff;
-    border-radius: 8px;
+    gap: 14px;
+    padding: 15px 16px;
+    background: #8d0000;
+    color: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    transition: 0.25s ease;
     text-decoration: none;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+
 .student-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+    box-shadow: 0 7px 18px rgba(0,0,0,0.22);
+    color: #ffffff;
 }
+
 .student-card .avatar {
-    width: 64px;
-    height: 64px;
+    width: 54px;
+    height: 54px;
     border-radius: 50%;
     object-fit: cover;
 }
-.student-card .meta {
-    display: flex;
-    flex-direction: column;
-}
-.student-card .meta .name { font-weight: 700; font-size: 1rem; }
-.student-card .meta .course { font-size: 0.9rem; opacity: 0.9; }
 
-/* Add Student grey card styles */
-.add-student-card {
-    background: #efefef;
-    color: #222;
-    border: 1px dashed rgba(0,0,0,0.08);
-}
-.add-student-card .name { color: #B2000C; font-weight: 800; }
-.add-student-card .course { color: #666; opacity: 1; }
-.add-student-card .add-avatar{
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    background: #fff;
-    color: #B2000C;
+.student-card .meta .name {
     font-weight: 700;
-    font-size: 28px;
 }
 
-/* (no placeholder/debug styles in original file) */
+.student-card .meta .course {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
 
-/* Navigation buttons */
+/* ============================================================
+   HORIZONTAL PAGINATION ARROWS
+============================================================ */
 .navigation {
-    display: flex;
-    justify-content: left;
-    align-items: center;
-    gap: 8px;
     margin-top: 16px;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
 }
 
-/* Sticky navigation under grid */
-.grid-container + .navigation {
-    position: sticky;
-    bottom: 8px;
-    z-index: 5;
+.pager-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    border: 1px solid #d2d2d2;
+    background: #ffffff;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: 0.2s ease;
 }
 
-.event-top .event-meta { max-width: 100%; }
-/* Responsive */
-@media (max-width: 900px){
-    .cards-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
-    .event-title-container { max-width: 100%; }
-    .event-title { font-size: 1.8rem; }
+.pager-btn:hover:not(:disabled) {
+    background: #f3f3f3;
+    transform: translateY(-2px);
 }
-@media (max-width: 550px){
-    .event-title { font-size: 1.5rem; }
+
+.pager-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
-@media (max-width: 550px){
-    .event-top { padding: 16px; }
-    .student-card .avatar { width: 56px; height: 56px; }
-    .event-title { font-size: 1.4rem; }
-    .event-top .btn { min-width: 120px; }
+
+/* ============================================================
+   MODAL — CONTAINER
+============================================================ */
+#addStudentModal .modal-content {
+    border-radius: 14px;
+    border-left: 6px solid rgba(178,0,12,0.32);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.12);
+    overflow: hidden;
+}
+
+#addStudentModal .modal-header {
+    background: #fafafa;
+    border-bottom: 1px solid #eee;
+    padding: 18px 26px;
+}
+
+#addStudentModal .modal-title {
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: #7d0000;
+    letter-spacing: -0.3px;
+}
+
+#addStudentModal .modal-body {
+    padding: 24px 28px;
+}
+
+/* Two-column split in modal */
+.add-student-modal .split {
+    gap: 24px;
+}
+
+.add-student-modal h6 {
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: #7d0000;
+    font-size: 1.02rem;
+}
+
+/* Modal search input */
+.modal-search-input {
+    max-width: 260px;
+}
+
+/* Scroll areas */
+.list-scroll {
+    max-height: 420px;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+.list-scroll::-webkit-scrollbar {
+    width: 8px;
+}
+
+.list-scroll::-webkit-scrollbar-thumb {
+    background: #bbb;
+    border-radius: 4px;
+}
+
+/* ============================================================
+   MODAL STUDENT CARDS
+============================================================ */
+.modal-student,
+.selected-list .student-card {
+    background: #ffffff;
+    border-radius: 10px;
+    border: 1px solid #e8e8e8;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    padding: 10px 12px;
+    transition: 0.2s ease;
+    color: #333333;          /* FIX: text dark on white */
+}
+
+.modal-student:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+}
+
+.modal-student .avatar,
+.selected-list .student-card .avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+/* Override text inside modal cards */
+.modal-student .name,
+.selected-list .student-card .name {
+    font-weight: 700;
+    font-size: 0.96rem;
+    color: #222222;
+}
+
+.modal-student .course,
+.selected-list .student-card .course {
+    font-size: 0.85rem;
+    color: #777777 !important;
+}
+
+/* Checkbox */
+.available-check {
+    transform: scale(1.15);
+    margin-right: 14px !important;
+}
+
+/* Remove button */
+.remove-added {
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    border-radius: 6px;
+}
+
+/* Empty state text */
+.selected-list .empty {
+    padding: 14px 4px;
+    text-align: center;
+    color: #999999 !important;
+}
+
+/* ============================================================
+   MODAL BUTTONS
+============================================================ */
+#add-selected-btn,
+#save-student-btn,
+#addStudentModal .btn-secondary {
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+/* "Add selected" */
+#add-selected-btn {
+    background: #ffffff;
+    color: #b2000c;
+    border: 1px solid #b2000c;
+    transition: 0.25s ease;
+}
+
+#add-selected-btn:hover {
+    background: #fff4f4;
+    transform: translateY(-2px);
+}
+
+/* "Save" */
+#save-student-btn {
+    background: #b2000c;
+    color: #ffffff;
+    border: none;
+    box-shadow: 0 4px 10px rgba(178,0,12,0.2);
+}
+
+#save-student-btn:hover {
+    background: #7d0000;
+    transform: translateY(-2px);
+}
+
+/* "Cancel" */
+#addStudentModal .btn-secondary {
+    background: #eeeeee;
+    border: none;
+}
+
+#addStudentModal .btn-secondary:hover {
+    background: #dddddd;
+    transform: translateY(-2px);
 }

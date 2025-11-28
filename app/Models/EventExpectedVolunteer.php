@@ -5,10 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class ExpectedVolunteer extends Model
+class EventExpectedVolunteer extends Model
 {
-    use HasFactory;
-
     protected $table = 'event_expected_volunteers';
     protected $primaryKey = 'id';
     public $incrementing = true;
@@ -20,15 +18,15 @@ class ExpectedVolunteer extends Model
         'status',
     ];
 
-    // Relation: Belongs to Event
     public function event()
     {
-        return $this->belongsTo(Event::class, 'event_id', 'event_id');
+        return $this->belongsTo(Event::class, 'event_id');
     }
 
-    // Relation: Belongs to VolunteerProfile
     public function volunteer()
     {
-        return $this->belongsTo(VolunteerProfile::class, 'volunteer_id', 'volunteer_id');
+        return $this->belongsTo(VolunteerProfile::class, 'volunteer_id');
     }
 }
+
+

@@ -30,67 +30,92 @@ class Event extends Model
     protected $casts = [
         'start_datetime' => 'datetime',
         'end_datetime'   => 'datetime',
+        'start_time'     => 'datetime:H:i',
+        'end_time'       => 'datetime:H:i',
     ];
+
+
+    /* ==========================================
+       ACCESSORS (VERY IMPORTANT)
+    ========================================== */
+
+    public function getStartTimeAttribute()
+    {
+        return $this->start_datetime
+            ? $this->start_datetime->format('H:i')
+            : null;
+    }
+
+    public function getEndTimeAttribute()
+    {
+        return $this->end_datetime
+            ? $this->end_datetime->format('H:i')
+            : null;
+    }
+
+    public function getEventDayAttribute()
+    {
+        return $this->start_datetime
+            ? $this->start_datetime->format('l')
+            : null;
+    }
 
     /* ==========================================
        RELATIONSHIPS
     ========================================== */
 
-    // Event creator (admin)
     public function creator()
     {
         return $this->belongsTo(AdminAccount::class, 'created_by', 'admin_id');
     }
 
-    // Event attendances
     public function attendances()
     {
         return $this->hasMany(EventAttendance::class, 'event_id', 'event_id');
     }
 
-    // Event feedbacks
     public function feedbacks()
     {
         return $this->hasMany(EventFeedback::class, 'event_id', 'event_id');
     }
 
-    // Event logs
     public function logs()
     {
         return $this->hasMany(EventLog::class, 'event_id', 'event_id');
     }
 
-    // Attendance import logs
     public function attendanceImports()
     {
         return $this->hasMany(AttendanceImportLog::class, 'event_id', 'event_id');
     }
 
-    // Event organizers
     public function organizers()
     {
         return $this->hasMany(EventOrganizer::class, 'event_id', 'event_id');
     }
 
-    // Expected volunteers
     public function expectedVolunteers()
     {
         return $this->hasMany(EventExpectedVolunteer::class, 'event_id', 'event_id');
     }
 
-    // Barangay (Location)
+    public function volunteers()
+    {
+        return $this->hasManyThrough(
+            VolunteerProfile::class,
+            EventExpectedVolunteer::class,
+            'event_id',
+            'volunteer_id',
+            'event_id',
+            'volunteer_id'
+        );
+    }
+
     public function location()
     {
         return $this->belongsTo(Location::class, 'location_id', 'location_id');
     }
 
-    // District (also from locations table)
-    public function district()
-    {
-        return $this->belongsTo(Location::class, 'district_id', 'district_id');
-    }
-
-    // Event Type
     public function eventType()
     {
         return $this->belongsTo(EventType::class, 'event_type_id', 'event_type_id');

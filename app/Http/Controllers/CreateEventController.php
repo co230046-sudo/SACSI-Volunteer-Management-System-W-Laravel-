@@ -107,21 +107,22 @@ class CreateEventController extends Controller
 
         /* ==============================
         CLEAR SAVED FORM DATA
-        ===============================*/
+        ==============================*/
         session()->forget('event_form_data');
 
         /* ==============================
-        SUCCESS MESSAGE
-        ===============================*/
-        return back()->with('submit_success', "
-            <div style='font-size:1.05rem; line-height:1.55;'>
-                ✔ <strong style='color:#28a745;'>Event Created Successfully</strong><br>
-                <strong>{$request->title}</strong> has been added.
-            </div>
-        ");
+        SUCCESS & REDIRECT TO EVENT DETAILS
+        ==============================*/
+        return redirect()
+            ->route('event.details.show', $event->event_id)
+            ->with('submit_success', "
+                <div style='font-size:1.05rem; line-height:1.55;'>
+                    ✔ <strong style='color:#28a745;'>Event Created Successfully</strong><br>
+                    <strong>{$request->title}</strong> has been added.
+                </div>
+            ");
+
     }
-
-
 
     /**
      * Centralized FactLog helper with auto entity type inference

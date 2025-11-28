@@ -9,7 +9,7 @@ use App\Http\Controllers\CreateEventController;
 use App\Http\Controllers\VolunteerListController;
 use App\Http\Controllers\VolunteerProfileController;
 use App\Http\Controllers\EventDetailsController;
-use App\Http\Controllers\EventManagerController;
+use App\Http\Controllers\VolunteerController;
 
 Route::get('/', function () {
     return redirect()->route('auth.login');
@@ -119,4 +119,10 @@ Route::middleware(['auth:admin'])->group(function () {
     /* ------------------ VOLUNTEER Profile ------------------ */
     Route::get('/volunteer-profile/{id}', [VolunteerProfileController::class, 'show'])
         ->name('volunteers.show');
+
+    // Receive Add Student form from modal
+    Route::post('/volunteers', [VolunteerController::class, 'store'])->name('volunteers.store');
+
+    /* ------------------ Event Details ------------------ */
+    Route::get('/event_details', [EventDetailsController::class, 'index'])->name('event.details');
 });

@@ -7,6 +7,57 @@ body {
     background-color: #f7f7f9 !important; /* soft academic gray */
 }
 
+/* ------------------------------------------------------
+   Student card: horizontal / landscape layout + badge row
+------------------------------------------------------- */
+@media (min-width: 768px) {
+    .student-card {
+        min-height: 180px; /* landscape feel */
+        align-items: center; /* vertically center avatar + meta */
+        padding: 20px 26px;
+    }
+
+    .student-card .meta {
+        align-items: flex-start; /* left-align name + badges */
+    }
+
+    .student-card .meta .name {
+        font-size: 1.75rem;
+        margin-bottom: 8px;
+        line-height: 1.05;
+    }
+
+    .badge-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        margin-top: 6px;
+        align-items: center;
+        max-width: none;
+    }
+
+    .badge {
+    
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    /* on small screens show badges inline but centered */
+    .badge-grid {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+        max-width: 100%;
+    }
+
+    .student-card .meta .name {
+        font-size: 1.25rem;
+    }
+}
+
 section.page-section {
     min-height: calc(100vh - 80px);
     width: 100%;
@@ -28,6 +79,11 @@ section.page-section.visible {
    OUTER CARD CONTAINER
 ------------------------------------------------------- */
 .outer-card {
+    /* Create a new block formatting context so the container
+       reliably contains its children (prevents height collapse).
+       This keeps the white card expanding to fit the grid and
+       navigation without clipping or needing clearfix hacks. */
+    display: flow-root;
     width: 95%;
     max-width: 1400px;
     margin: 0 auto;
@@ -65,6 +121,8 @@ section.page-section.visible {
     gap: 22px;
     padding: 10px 0;
     grid-template-columns: repeat(1, 1fr);
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
 /* Tablet (2 columns) */
@@ -94,13 +152,13 @@ section.page-section.visible {
 ------------------------------------------------------- */
 .student-card {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 26px;
 
     width: 100%;
     background: #A82020;
     color: #ffffff;
-    border-radius: 16px;
+    border-radius: 20px;
     padding: 26px;
 
     text-decoration: none;
@@ -117,10 +175,12 @@ section.page-section.visible {
    Avatar
 ------------------------------------------------------- */
 .student-card .avatar {
-    width: 140px;
-    height: 140px;
+    width: 160px;
+    height: 160px;
     border-radius: 14px;
     object-fit: cover;
+    object-position: center center;
+    display: block;
 
     background: #fff;
     border: 4px solid #fff;
@@ -207,6 +267,10 @@ section.page-section.visible {
         flex-direction: column;
         text-align: center;
         padding: 22px;
+        align-items: center; /* center avatar + meta when stacked */
+    }
+    .student-card .avatar {
+        margin: 0 auto; /* horizontally center avatar on mobile */
     }
     .badge-grid {
         grid-template-columns: repeat(1, 1fr); /* stack on mobile */
@@ -310,3 +374,4 @@ section.page-section.visible {
     40% { fill: #ff0000; }
     100% { fill: #888; }
 }
+

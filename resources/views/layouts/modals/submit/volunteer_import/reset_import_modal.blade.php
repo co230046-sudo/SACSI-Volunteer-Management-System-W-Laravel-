@@ -193,6 +193,9 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
 
+    /* ==========================
+       CONFIRM RESET MODAL
+    ========================== */
     const resetModal = document.getElementById('resetImportModal');
     const resetOverlay = document.getElementById('resetModalOverlay');
     const openResetBtn = document.getElementById('openResetModal');
@@ -204,13 +207,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const validCount     = {{ session()->has('validEntries') ? count(session('validEntries')) : 0 }};
         const invalidCount   = {{ session()->has('invalidEntries') ? count(session('invalidEntries')) : 0 }};
         const duplicateCount = {{ session()->has('duplicateEntries') ? count(session('duplicateEntries')) : 0 }};
-
         const total = validCount + invalidCount + duplicateCount;
 
         resetModalMessage.innerHTML = `
             Are you sure you want to clear all imported entries?<br>
             <strong>This action cannot be undone.</strong><br><br>
-
             <span style="color:#B2000C; font-weight:700; font-size:1.05rem;">
                 Rows to clear: ${total}
             </span>
@@ -222,10 +223,8 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
-        confirmResetBtn.disabled = false;
         resetModal.classList.add('active');
     }
-
 
     function closeResetModal() { resetModal.classList.remove('active'); }
 
@@ -233,17 +232,13 @@ document.addEventListener('DOMContentLoaded', () => {
     cancelResetBtn?.addEventListener('click', closeResetModal);
     resetOverlay?.addEventListener('click', e => { if (e.target === resetOverlay) closeResetModal(); });
 
-    document.addEventListener('keydown', e => {
-        if (resetModal.classList.contains('active') && e.key === 'Escape') closeResetModal();
-        if (resetModal.classList.contains('active') && e.key === 'Enter') confirmResetBtn.click();
-    });
-
-
-    /* SUCCESS MODAL */
-    const successModal = document.getElementById('resetSuccessModal');
+    /* ==========================
+       RESET SUCCESS MODAL
+    ========================== */
+    const successModal   = document.getElementById('resetSuccessModal');
     const successOverlay = document.getElementById('resetSuccessOverlay');
     const successMessage = document.getElementById('resetSuccessMessage');
-    const successOkBtn = document.getElementById('resetSuccessOkBtn');
+    const successOkBtn   = document.getElementById('resetSuccessOkBtn');
 
     function showResetSuccess(msg) {
         successMessage.innerHTML = msg;
@@ -255,15 +250,30 @@ document.addEventListener('DOMContentLoaded', () => {
     successOkBtn?.addEventListener('click', closeSuccess);
     successOverlay?.addEventListener('click', e => { if (e.target === successOverlay) closeSuccess(); });
 
-    document.addEventListener('keydown', e => {
-        if (successModal.classList.contains('active') && e.key === 'Escape') closeSuccess();
-        if (successModal.classList.contains('active') && e.key === 'Enter') closeSuccess();
-    });
-
-    /* TRIGGER SUCCESS AFTER REDIRECT */
+    /* =====================================================
+       AUTO SHOW RESET SUCCESS (Redirect)
+    ===================================================== */
     @if(session('resetSuccess'))
         showResetSuccess(`{!! session('resetSuccess') !!}`);
     @endif
+
+    /* =====================================================
+       FLASH BAR “SHOW DETAILS” → OPEN RESET SUCCESS MODAL
+    ===================================================== */
+    document.addEventListener('click', function (e) {
+        const link = e.target.closest('.reset-details-link');
+        if (!link) return;
+
+        e.preventDefault();
+
+        const encoded = link.getAttribute('data-details');
+        if (!encoded) return;
+
+        const decoded = atob(encoded);  // decode details
+
+        successMessage.innerHTML = decoded;  // insert HTML
+        successModal.classList.add('active'); // open reset modal
+    });
 
 });
 </script>

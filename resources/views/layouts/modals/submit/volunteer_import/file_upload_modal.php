@@ -208,162 +208,215 @@
         </div>
     </div>
 </div>
+
+<!-- ===========================================================
+     PREVIEW DETAILS MODAL
+=========================================================== -->
+<div id="previewModal" class="file-modal">
+    <div class="file-modal-overlay">
+        <div class="file-modal-box">
+
+            <div class="file-modal-header">
+                <i class="fa-solid fa-circle-info file-modal-icon"></i>
+                <h2>Preview Summary</h2>
+            </div>
+
+            <hr class="file-modal-separator">
+
+            <div id="previewModalContent" class="file-modal-text" style="max-height:300px; overflow-y:auto;"></div>
+
+            <div class="file-modal-buttons">
+                <button type="button" class="file-btn-red" id="previewModalCloseBtn">
+                    <i class="fa-solid fa-check"></i> Close
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener("DOMContentLoaded", () => {
 
-/* ==========================  
-   FILE MODAL ELEMENTS
-========================== */
-const fileModal = document.getElementById("fileModal");
-const fileIcon = document.getElementById("fileModalIcon");
-const fileTitle = document.getElementById("fileModalTitle");
-const fileText = document.getElementById("fileModalText");
-const fileBtns = document.getElementById("fileModalButtons");
+    /* ==========================  
+       FILE MODAL ELEMENTS
+    ========================== */
+    const fileModal      = document.getElementById("fileModal");
+    const fileIcon       = document.getElementById("fileModalIcon");
+    const fileTitle      = document.getElementById("fileModalTitle");
+    const fileText       = document.getElementById("fileModalText");
+    const fileBtns       = document.getElementById("fileModalButtons");
 
-/* SUCCESS MODAL */
-const fileSuccessModal = document.getElementById("fileSuccessModal");
-const fileSuccessText = document.getElementById("fileSuccessText");
-const fileSuccessOk = document.getElementById("fileSuccessOkBtn");
+    /* SUCCESS MODAL (UPLOAD SUCCESS ONLY) */
+    const fileSuccessModal = document.getElementById("fileSuccessModal");
+    const fileSuccessText  = document.getElementById("fileSuccessText");
+    const fileSuccessOk    = document.getElementById("fileSuccessOkBtn");
 
-function openFileModal() { fileModal.classList.add("active"); }
-function closeFileModal() { fileModal.classList.remove("active"); }
+    /* PREVIEW SUMMARY MODAL (VALID/INVALID/DUPES DETAILS) */
+    const previewModal     = document.getElementById("previewModal");
+    const previewContent   = document.getElementById("previewModalContent");
+    const previewClose     = document.getElementById("previewModalCloseBtn");
 
-function showFileNotice(msg) {
-    fileIcon.className = "fa-solid fa-circle-exclamation file-modal-icon";
-    fileTitle.textContent = "Notice";
-    fileText.innerHTML = msg;
-    fileBtns.innerHTML = `<button class="file-btn-red"><i class="fa-solid fa-check"></i> Ok</button>`;
-    fileBtns.querySelector("button").onclick = closeFileModal;
-    openFileModal();
-}
+    /* ==========================
+       GENERIC MODAL FUNCTIONS
+    ========================== */
+    function openFileModal()  { fileModal.classList.add("active"); }
+    function closeFileModal() { fileModal.classList.remove("active"); }
 
-function showFileError(msg) {
-    fileIcon.className = "fa-solid fa-circle-xmark file-modal-icon";
-    fileTitle.textContent = "Error";
-    fileText.innerHTML = msg;
-    fileBtns.innerHTML = `<button class="file-btn-red">OK</button>`;
-    fileBtns.querySelector("button").onclick = closeFileModal;
-    openFileModal();
-}
-
-function showFileConfirm(msg, yesCallback) {
-    fileIcon.className = "fa-solid fa-circle-question file-modal-icon";
-    fileTitle.textContent = "Confirm";
-    fileText.innerHTML = msg;
-    fileBtns.innerHTML = `
-        <button class="file-btn-gray"><i class="fa-solid fa-xmark" style="margin-right:6px;"></i> No</button>
-        <button class="file-btn-red"><i class="fa-solid fa-check" style="margin-right:6px;"></i> Yes</button>
-    `;
-    fileBtns.querySelector(".file-btn-gray").onclick = closeFileModal;
-    fileBtns.querySelector(".file-btn-red").onclick = () => {
-        closeFileModal();
-        yesCallback?.();
-    };
-    openFileModal();
-}
-
-function showFileSuccess(msg) {
-    fileSuccessText.innerHTML = msg;
-    fileSuccessModal.classList.add("active");
-}
-
-fileSuccessOk.onclick = () => fileSuccessModal.classList.remove("active");
-
-if (sessionStorage.getItem("file-upload-success")) {
-    showFileSuccess(sessionStorage.getItem("file-upload-success"));
-    sessionStorage.removeItem("file-upload-success");
-}
-
-/* ==========================  
-   FILE UPLOAD LOGIC
-========================== */
-const fileInput = document.getElementById("file-upload");
-const filePath = document.getElementById("file-path");
-const uploadBtn = document.getElementById("file-upload-button");
-const importBtn = document.querySelector(".uploader-info .import-btn");
-const uploaderField = document.querySelector(".uploader-info .form-control");
-
-if (!fileInput) return;
-
-/* SAFE highlight logic */
-function applyUploadHighlight() {
-    importBtn.classList.add("file-selected");
-    uploaderField.classList.add("file-selected");
-}
-
-/* After confirm → persist uploading-as highlight */
-function keepOnlyUploaderHighlight() {
-    importBtn.classList.remove("file-selected");
-    uploaderField.classList.add("file-selected");
-}
-
-/* On refresh: restore highlight */
-if (sessionStorage.getItem("upload-highlight") === "1") {
-    uploaderField.classList.add("file-selected");
-}
-
-/* Choose File */
-uploadBtn.onclick = () => {
-    fileInput.value = "";
-    fileInput.click();
-};
-
-/* When file selected */
-fileInput.onchange = () => {
-    if (!fileInput.files.length) return;
-
-    const name = fileInput.files[0].name;
-    filePath.textContent = name;
-
-    applyUploadHighlight();
-
-    showFileNotice(`
-        Selected File:<br>
-        <strong style="color:#B2000C">${name}</strong>
-    `);
-};
-
-/* Submit confirmation */
-importBtn.form.addEventListener("submit", (e) => {
-    e.preventDefault();
-
-    if (!fileInput.files.length) {
-        showFileError("No file selected.");
-        return;
+    function showFileNotice(msg) {
+        fileIcon.className = "fa-solid fa-circle-exclamation file-modal-icon";
+        fileTitle.textContent = "Notice";
+        fileText.innerHTML = msg;
+        fileBtns.innerHTML = `<button class="file-btn-red"><i class="fa-solid fa-check"></i> Ok</button>`;
+        fileBtns.querySelector("button").onclick = closeFileModal;
+        openFileModal();
     }
 
-    const name = fileInput.files[0].name;
+    function showFileError(msg) {
+        fileIcon.className = "fa-solid fa-circle-xmark file-modal-icon";
+        fileTitle.textContent = "Error";
+        fileText.innerHTML = msg;
+        fileBtns.innerHTML = `<button class="file-btn-red">OK</button>`;
+        fileBtns.querySelector("button").onclick = closeFileModal;
+        openFileModal();
+    }
 
-    showFileConfirm(
-        `Upload File:<br><strong style="color:#B2000C">${name}</strong>?`,
-        () => {
-            keepOnlyUploaderHighlight();
+    function showFileConfirm(msg, yesCallback) {
+        fileIcon.className = "fa-solid fa-circle-question file-modal-icon";
+        fileTitle.textContent = "Confirm";
+        fileText.innerHTML = msg;
+        fileBtns.innerHTML = `
+            <button class="file-btn-gray">
+                <i class="fa-solid fa-xmark" style="margin-right:6px;"></i> No
+            </button>
+            <button class="file-btn-red">
+                <i class="fa-solid fa-check" style="margin-right:6px;"></i> Yes
+            </button>
+        `;
+        fileBtns.querySelector(".file-btn-gray").onclick = closeFileModal;
+        fileBtns.querySelector(".file-btn-red").onclick = () => {
+            closeFileModal();
+            yesCallback?.();
+        };
+        openFileModal();
+    }
 
-            sessionStorage.setItem("upload-highlight", "1");
-            sessionStorage.setItem(
-                "file-upload-success",
-                `File "<strong style="color:#B2000C">${name}</strong>" uploaded successfully.`
-            );
+    function showFileSuccess(msg) {
+        fileSuccessText.innerHTML = msg;
+        fileSuccessModal.classList.add("active");
+    }
 
-            importBtn.form.submit();
+    /* ==========================
+       UPLOAD SUCCESS MODAL
+    ========================== */
+    if (sessionStorage.getItem("file-upload-success")) {
+        showFileSuccess(sessionStorage.getItem("file-upload-success"));
+        sessionStorage.removeItem("file-upload-success");
+    }
+
+    fileSuccessOk.onclick = () => fileSuccessModal.classList.remove("active");
+
+    /* ==========================  
+       FILE UPLOAD LOGIC
+    ========================== */
+    const fileInput     = document.getElementById("file-upload");
+    const filePath      = document.getElementById("file-path");
+    const uploadBtn     = document.getElementById("file-upload-button");
+    const importBtn     = document.querySelector(".uploader-info .import-btn");
+    const uploaderField = document.querySelector(".uploader-info .form-control");
+
+    // ⚠️ Do NOT return early here anymore – we still need the Show Details handler.
+    if (fileInput && uploadBtn && filePath && uploaderField) {
+
+        // Highlight logic (guard importBtn because it might not exist after import)
+        function applyUploadHighlight() {
+            if (importBtn) importBtn.classList.add("file-selected");
+            uploaderField.classList.add("file-selected");
         }
-    );
-});
 
-/* ================================
-   PREVIEW DETAILS → OPEN MODAL
-================================ */
-document.querySelectorAll('.preview-details-link').forEach(link => {
-    link.addEventListener('click', function (e) {
+        function keepOnlyUploaderHighlight() {
+            if (importBtn) importBtn.classList.remove("file-selected");
+            uploaderField.classList.add("file-selected");
+        }
+
+        if (sessionStorage.getItem("upload-highlight") === "1") {
+            uploaderField.classList.add("file-selected");
+        }
+
+        // Choose file
+        uploadBtn.onclick = () => {
+            fileInput.value = "";
+            fileInput.click();
+        };
+
+        // File chosen
+        fileInput.onchange = () => {
+            if (!fileInput.files.length) return;
+
+            const name = fileInput.files[0].name;
+            filePath.textContent = name;
+
+            applyUploadHighlight();
+
+            showFileNotice(`
+                Selected File:<br>
+                <strong style="color:#B2000C">${name}</strong>
+            `);
+        };
+
+        // Submit / Upload confirm — only if the Import button exists
+        if (importBtn && importBtn.form) {
+            importBtn.form.addEventListener("submit", (e) => {
+                e.preventDefault();
+
+                if (!fileInput.files.length) {
+                    showFileError("No file selected.");
+                    return;
+                }
+
+                const name = fileInput.files[0].name;
+
+                showFileConfirm(
+                    `Upload File:<br><strong style="color:#B2000C">${name}</strong>?`,
+                    () => {
+                        keepOnlyUploaderHighlight();
+
+                        sessionStorage.setItem("upload-highlight", "1");
+                        sessionStorage.setItem(
+                            "file-upload-success",
+                            `File "<strong style="color:#B2000C">${name}</strong>" uploaded successfully.`
+                        );
+
+                        importBtn.form.submit();
+                    }
+                );
+            });
+        }
+    }
+
+    /* =================================================
+       PREVIEW DETAILS → WHEN "Show Details" CLICKED
+    ================================================= */
+    document.addEventListener('click', function(e) {
+        const link = e.target.closest(".move-details-link");
+        if (!link) return;
+
         e.preventDefault();
 
-        const details = this.dataset.details || "";
-        if (!details.trim()) return;
+        const encoded = link.getAttribute("data-details");
+        if (!encoded) return;
 
-        // We only escaped quotes on the backend, so HTML tags are still real.
-        fileSuccessText.innerHTML = details;
-        fileSuccessModal.classList.add("active");
+        // these already exist above
+        previewContent.innerHTML = atob(encoded);
+        previewModal.classList.add("active");
     });
-});
+
+    // (optional) close button for the preview modal
+    if (previewClose) {
+        previewClose.addEventListener("click", () => {
+            previewModal.classList.remove("active");
+        });
+    }
+
 });
 </script>

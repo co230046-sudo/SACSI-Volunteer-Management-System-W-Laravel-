@@ -1607,9 +1607,6 @@
                   </span>
               </div>
           </div>
-
-
-          
         @endif
 
         <!-- Buttons -->
@@ -1626,376 +1623,836 @@
 
     </div>
 </div>
+
+<!-- ✅ ADD THIS (or paste into your existing CSS at the VERY BOTTOM to override reds + style dropdown-search) -->
+<style>
+  :root{
+    /* toned-down red palette */
+    --accent: #b23a48;       /* main */
+    --accent-dark: #8f2c37;  /* hover/active */
+    --accent-soft: rgba(178, 58, 72, .18);
+  }
+
+  /* replace harsh reds with the new palette (override only) */
+  .search-box input:focus { border-color: var(--accent) !important; box-shadow: none !important; }
+  .search-box:focus-within .icon,
+  .search-box input:focus + .icon { color: var(--accent) !important; }
+
+  .sort-options { outline-color: var(--accent) !important; }
+  .sort-by.active { background: var(--accent) !important; }
+  .sort-options i:hover { color: var(--accent-dark) !important; }
+
+  .custom-select.open .custom-select-trigger { border-color: var(--accent) !important; }
+  .custom-options { border-color: var(--accent) !important; }
+  .custom-options::-webkit-scrollbar-thumb { background-color: var(--accent) !important; }
+
+  .custom-option:hover { background: var(--accent) !important; }
+  .custom-select-trigger:hover { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-soft) !important; }
+
+  .apply-btn { background: var(--accent) !important; }
+  .apply-btn:hover { background: var(--accent-dark) !important; }
+
+  /* Dropdown search input (inside Course + Barangay dropdowns) */
+  .custom-options .dropdown-search-wrap{
+    position: sticky;
+    top: 0;
+    background: #fff;
+    padding: 8px;
+    border-bottom: 1px solid #e6e6e6;
+    z-index: 1;
+  }
+  .custom-options input.dropdown-search{
+    width: 100%;
+    padding: 8px 10px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    outline: none;
+    font-size: 0.9rem;
+  }
+  .custom-options input.dropdown-search:focus{
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .custom-options .no-option-match{
+    display:none;
+    padding: 8px;
+    color:#777;
+    font-size:.9rem;
+  }
+</style>
+
+<!-- ✅ Only JS changes (kept your structure). Adds:
+     1) Prefix matching: "BS INFORMATION TECHNOLOGY" will match "BSIT" (and vice-versa)
+     2) Better fuzzy for abbreviations + tokens
+     3) "No matches" message inside Course/Barangay dropdown search when zero results
+-->
 <script>
 (function () {
+  function universalSearchEngine(container) {
+    const tableId = container.dataset.targetTable;
+    const table = document.getElementById(tableId);
+    if (!table) return;
 
-    function universalSearchEngine(container) {
+    const tbody = table.querySelector("tbody");
+    if (!tbody) return;
 
-        const tableId = container.dataset.targetTable;
-        const table = document.getElementById(tableId);
-        if (!table) return;
+    // IMPORTANT: recalc rows each time (if your table updates/paginates dynamically)
+    function getAllRows() {
+      return Array.from(tbody.querySelectorAll("tr:not(.no-search-results)"));
+    }
+    const noResultsRow = tbody.querySelector(".no-search-results");
 
-        const tbody = table.querySelector("tbody");
-        const allRows = Array.from(tbody.querySelectorAll("tr:not(.no-search-results)"));
-        const noResultsRow = tbody.querySelector(".no-search-results");
+    const searchInput   = container.querySelector(".table-search");
+    const resultsCount  = container.querySelector(".results-count");
+    const sortBtn       = container.querySelector(".sort-by");
+    const sortPanel     = container.querySelector(".sort-options");
+    const customSelects = container.querySelectorAll(".custom-select");
 
-        const searchInput   = container.querySelector(".table-search");
-        const resultsCount  = container.querySelector(".results-count");
-        const sortBtn       = container.querySelector(".sort-by");
-        const sortPanel     = container.querySelector(".sort-options");
-        const customSelects = container.querySelectorAll(".custom-select");
+    // ============================
+    // Disable TOP search while filter panel/dropdowns are open (avoid conflicts)
+    // ============================
+    function setTopSearchEnabled(enabled) {
+      if (!searchInput) return;
+      searchInput.disabled = !enabled;
+      searchInput.classList.toggle("is-disabled", !enabled);
+      if (!enabled) searchInput.blur();
+    }
 
-        // Map fields from dropdowns → column indexes per table
-        const FIELD_TO_COL =
-            tableId === "import-logs-table"
-                ? {
-                    filename:      2,
-                    uploaded_by:   3,
-                    uploaded_at:   4,
-                    total_records: 5,
-                    valid_count:   6,
-                    invalid_count: 7,
-                    duplicate_count: 8,
-                    status:        9   // <- status column
-                  }
-                : {
-                    fullname:  2,
-                    idnum:     3,
-                    course:    4,
-                    year:      5,
-                    contact:   6,
-                    email:     7,
-                    emergency: 8,
-                    fb:        9,
-                    barangay:  10,
-                    district:  11,
-                    schedule:  12
-                  };
+    const FIELD_TO_COL =
+      tableId === "import-logs-table"
+        ? {
+            filename:        2,
+            uploaded_by:     3,
+            uploaded_at:     4,
+            total_records:   5,
+            valid_count:     6,
+            invalid_count:   7,
+            duplicate_count: 8,
+            status:          9
+          }
+        : {
+            fullname:  3,
+            idnum:     4,
+            course:    5,
+            year:      6,
+            contact:   7,
+            email:     8,
+            emergency: 9,
+            fb:        10,
+            barangay:  11,
+            district:  12,
+            schedule:  13
+          };
 
-        // Current filters/sort
-        let activeFilters = {};  // per column index
-        let activeSort = null;   // { colIndex, direction, type }
+    let activeFilters = {};   // colIndex -> string
+    let activeSort = null;
 
-        // -------- helpers --------
+    // ----------------------------
+    // Normalization + helpers
+    // ----------------------------
+    function normalize(s) {
+      return (s || "")
+        .toString()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/&/g, " and ")
+        .replace(/[^a-z0-9\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+    function compact(s){ return normalize(s).replace(/\s+/g, ""); }
 
-        function getCellValue(cell, type) {
-            if (!cell) {
-                return type === "number" || type === "date" ? 0 : "";
-            }
+    function getCellText(cell) {
+      if (!cell) return "";
+      const raw = cell.dataset.value !== undefined ? cell.dataset.value : cell.innerText;
+      return (raw || "").toString().trim();
+    }
 
-            // Prefer data-value, fall back to text
-            let raw = cell.dataset.value !== undefined ? cell.dataset.value : cell.innerText;
-            raw = (raw || "").trim();
+    function isSubsequence(q, t) {
+      let ti = 0;
+      for (let qi = 0; qi < q.length; qi++) {
+        const ch = q[qi];
+        if (ch === " ") continue;
+        ti = t.indexOf(ch, ti);
+        if (ti === -1) return false;
+        ti++;
+      }
+      return true;
+    }
 
-            if (type === "number") {
-                const n = parseFloat(raw.replace(/[^0-9.-]/g, ""));
-                return isNaN(n) ? 0 : n;
-            }
+    function isShortCode(qRaw) {
+      const c = compact(qRaw);
+      return /^[a-z]{2,10}$/.test(c); // bsit, bscs, bsa, etc.
+    }
 
-            if (type === "date") {
-                const d = new Date(raw);
-                return isNaN(d.getTime()) ? 0 : d.getTime();
-            }
+    function makeAcronym(str) {
+      const stop = new Set(["and","of","the","in","for","to","on","at","with","a","an","major","certificate"]);
+      const toks = normalize(str).split(" ").filter(Boolean).filter(t => !stop.has(t));
+      return toks.map(t => t[0]).join("");
+    }
 
-            return raw.toLowerCase();
+    // ✅ Course-aware acronym:
+    // "BS Information Technology" => "bsit"
+    // "Bachelor of Science in Information Technology" => "bsit"
+    // "BSIT" => "bsit"
+    function courseAcronym(str) {
+      const t = normalize(str);
+      if (!t) return "";
+
+      // already an acronym/shortcode like BSIT, BSCpE...
+      if (isShortCode(str)) return compact(t);
+
+      const toks = t.split(" ").filter(Boolean);
+      if (!toks.length) return "";
+
+      // degree prefixes: preserve whole first token instead of only its first letter
+      const PREFIXES = new Set([
+        "bs","ba","bse","bsc","bsa","bshm","bstm","bsed","beed",
+        "bscs","bsit","bscpe","bsce","bsee","bsece"
+      ]);
+
+      const first = toks[0];
+      const rest = toks.slice(1);
+
+      if (PREFIXES.has(first)) {
+        const restInit = rest.map(w => w[0]).join("");
+        return compact(first + restInit);
+      }
+
+      return compact(makeAcronym(t));
+    }
+
+    function acr(str){ return compact(makeAcronym(str)); } // generic acronym
+
+    function fuzzyMatch(qRaw, textRaw) {
+      const q = normalize(qRaw);
+      const t = normalize(textRaw);
+      if (!q) return true;
+      if (!t) return false;
+
+      const qc = compact(q);
+      const tc = compact(t);
+
+      // direct contains
+      if (t.includes(q) || tc.includes(qc)) return true;
+
+      // token prefix: every query token must match start of some text token
+      const qToks = q.split(" ").filter(Boolean);
+      const tToks = t.split(" ").filter(Boolean);
+      if (qToks.length) {
+        const ok = qToks.every(qTok => tToks.some(tTok => tTok.startsWith(qTok)));
+        if (ok) return true;
+      }
+
+      // acronym compare (generic)
+      if (isShortCode(qRaw)) {
+        const a = acr(t);
+        if (a && (a === qc || a.startsWith(qc))) return true;
+      } else {
+        const qA = acr(q);
+        const tA = acr(t);
+        if (qA && tA && (tA === qA || tA.startsWith(qA))) return true;
+      }
+
+      // compact prefix
+      if (tc.startsWith(qc) || qc.startsWith(tc)) return true;
+
+      // subsequence
+      return isSubsequence(qc, tc);
+    }
+
+    // ----------------------------
+    // ✅ Course smart synonyms (BSIT/BSCS etc.)
+    // ----------------------------
+    const COURSE_NORMALIZE_MAP = [
+      { keys: ["bsit","bs it","bs-it","it","information technology","info tech"], canon: "bs information technology" },
+      { keys: ["bscs","bs cs","bs-cs","cs","computer science","comp sci"], canon: "bs computer science" },
+      { keys: ["bsac","bsa","accountancy","bs accountancy"], canon: "bs accountancy" },
+    ].map(x => ({
+      keys: x.keys.map(normalize),
+      canon: normalize(x.canon),
+      canonA: courseAcronym(x.canon) // ✅ "bs information technology" => "bsit"
+    }));
+
+    function expandCourseQuery(qRaw) {
+      const q = normalize(qRaw);
+      const c = compact(q);
+      const set = new Set([q, c]);
+
+      const qCourseA = courseAcronym(qRaw);
+      if (qCourseA) set.add(qCourseA);
+
+      for (const rule of COURSE_NORMALIZE_MAP) {
+        const hit = rule.keys.some(k => q.includes(k) || k.includes(q) || compact(k) === c);
+        if (hit) {
+          set.add(rule.canon);   // full canonical
+          set.add(rule.canonA);  // acronym canonical (bsit)
+        }
+      }
+      return Array.from(set).filter(Boolean);
+    }
+
+    // ----------------------------
+    // Logs smart: status + date parsing
+    // ----------------------------
+    const STATUS_SYNONYMS = {
+      pending:   ["pending","awaiting","queued","queue"],
+      completed: ["completed","complete","done","success","successful","finished"],
+      cancelled: ["cancelled","canceled","void"],
+      reset:     ["reset","restarted","rerun","re-run"],
+      failed:    ["failed","error","errored","crashed"],
+      abandoned: ["abandoned","stopped","dropped"]
+    };
+
+    function normalizeStatusFromQuery(qRaw){
+      const q = normalize(qRaw);
+      for (const [status, keys] of Object.entries(STATUS_SYNONYMS)) {
+        if (q === status) return status;
+        if (keys.some(k => q.includes(normalize(k)))) return status;
+      }
+      return null;
+    }
+
+    function startOfDayMs(d){
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    }
+
+    function parseQueryDateToDayMs(qRaw){
+      const q = normalize(qRaw);
+      if (!q) return null;
+
+      const now = new Date();
+      if (q === "today") return startOfDayMs(now);
+      if (q === "yesterday") {
+        const d = new Date(now);
+        d.setDate(d.getDate() - 1);
+        return startOfDayMs(d);
+      }
+
+      // YYYY-MM-DD
+      let m = q.match(/\b(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})\b/);
+      if (m) {
+        const d = new Date(+m[1], +m[2]-1, +m[3]);
+        return isNaN(d.getTime()) ? null : startOfDayMs(d);
+      }
+
+      // MM/DD/YYYY or DD/MM/YYYY (try both)
+      m = q.match(/\b(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})\b/);
+      if (m) {
+        const a = +m[1], b = +m[2], y = +m[3];
+        const d1 = new Date(y, a-1, b);
+        const d2 = new Date(y, b-1, a);
+        const t1 = isNaN(d1.getTime()) ? null : startOfDayMs(d1);
+        const t2 = isNaN(d2.getTime()) ? null : startOfDayMs(d2);
+        return t1 ?? t2;
+      }
+
+      // Month name formats: "Dec 2 2025"
+      const months = {
+        jan:0,january:0,feb:1,february:1,mar:2,march:2,apr:3,april:3,may:4,
+        jun:5,june:5,jul:6,july:6,aug:7,august:7,sep:8,september:8,oct:9,october:9,
+        nov:10,november:10,dec:11,december:11
+      };
+      const parts = q.split(" ").filter(Boolean);
+      if (parts.length >= 2 && months[parts[0]] != null) {
+        const mi = months[parts[0]];
+        const day = parseInt(parts[1], 10);
+        const year = parts[2] ? parseInt(parts[2], 10) : now.getFullYear();
+        const d = new Date(year, mi, day);
+        return isNaN(d.getTime()) ? null : startOfDayMs(d);
+      }
+
+      return null;
+    }
+
+    function rowCellDateToDayMs(cellText){
+      const raw = (cellText || "").trim();
+      if (!raw) return null;
+      const d = new Date(raw);
+      return isNaN(d.getTime()) ? null : startOfDayMs(d);
+    }
+
+    // ----------------------------
+    // ✅ Smart row match for TOP SEARCH
+    // ----------------------------
+    function smartRowMatch(row, qRaw) {
+      const q = normalize(qRaw);
+      if (!q) return true;
+
+      // 1) If any cell contains it directly
+      const rowText = normalize(row.innerText);
+      if (rowText.includes(q)) return true;
+
+      // 2) Volunteers: course + barangay smart
+      if (tableId !== "import-logs-table") {
+        const courseText = getCellText(row.children[FIELD_TO_COL.course]);
+        const brgyText   = getCellText(row.children[FIELD_TO_COL.barangay]);
+
+        // ✅ course expansions: match by fuzzy AND course acronym both ways
+        const expanded = expandCourseQuery(qRaw);
+        const courseA  = courseAcronym(courseText);
+
+        if (expanded.some(eq => {
+          const eqN = normalize(eq);
+          const eqC = compact(eq);
+          return (
+            fuzzyMatch(eq, courseText) ||
+            (courseA && (courseA === eqC || courseA.startsWith(eqC) || eqC.startsWith(courseA)))
+          );
+        })) return true;
+
+        // barangay
+        if (fuzzyMatch(qRaw, brgyText)) return true;
+
+        return false;
+      }
+
+      // 3) Logs: status + date + filename/uploader + counts
+      const statusText = getCellText(row.children[FIELD_TO_COL.status]);
+      const dateText   = getCellText(row.children[FIELD_TO_COL.uploaded_at]);
+      const fileText   = getCellText(row.children[FIELD_TO_COL.filename]);
+      const byText     = getCellText(row.children[FIELD_TO_COL.uploaded_by]);
+
+      const qStatus = normalizeStatusFromQuery(qRaw);
+      if (qStatus && normalize(statusText).includes(qStatus)) return true;
+
+      const qDay = parseQueryDateToDayMs(qRaw);
+      if (qDay != null) {
+        const rowDay = rowCellDateToDayMs(dateText);
+        if (rowDay != null && rowDay === qDay) return true;
+      }
+
+      if (fuzzyMatch(qRaw, fileText) || fuzzyMatch(qRaw, byText)) return true;
+
+      if (/\d/.test(qRaw)) {
+        const qDigits = (qRaw.match(/\d+/g) || []).join("");
+        const cols = [FIELD_TO_COL.total_records, FIELD_TO_COL.valid_count, FIELD_TO_COL.invalid_count, FIELD_TO_COL.duplicate_count];
+        if (qDigits) {
+          for (const c of cols) {
+            const v = getCellText(row.children[c]).replace(/[^\d]/g,"");
+            if (v && v.includes(qDigits)) return true;
+          }
+        }
+      }
+
+      return false;
+    }
+
+    // ----------------------------
+    // Sorting
+    // ----------------------------
+    function getCellValue(cell, type) {
+      const raw = getCellText(cell);
+
+      if (type === "number") {
+        const n = parseFloat(raw.replace(/[^0-9.-]/g, ""));
+        return isNaN(n) ? 0 : n;
+      }
+      if (type === "date") {
+        const d = new Date(raw);
+        return isNaN(d.getTime()) ? 0 : d.getTime();
+      }
+      return raw.toLowerCase();
+    }
+
+    function detectType(colIndex) {
+      if (tableId === "import-logs-table") {
+        if ([1,5,6,7,8].includes(colIndex)) return "number";
+        if (colIndex === 4) return "date";
+        return "string";
+      }
+      if ([1,3,5].includes(colIndex)) return "number";
+      return "string";
+    }
+
+    // ----------------------------
+    // Dropdown search (Course + Barangay)
+    // ----------------------------
+    const searchableFields = new Set(["course", "barangay"]);
+
+    function ensureDropdownSearch(select) {
+      const field = select.dataset.field;
+      if (!searchableFields.has(field)) return;
+
+      const optionsWrap = select.querySelector(".custom-options");
+      if (!optionsWrap) return;
+      if (optionsWrap.querySelector("input.dropdown-search")) return;
+
+      const wrap = document.createElement("div");
+      wrap.className = "dropdown-search-wrap";
+
+      const label = field === "course" ? "course" : "barangay";
+      wrap.innerHTML = `
+        <input class="dropdown-search" type="text" placeholder="Search ${label}..." />
+        <div class="no-option-match">No ${label} found</div>
+      `;
+
+      optionsWrap.insertBefore(wrap, optionsWrap.firstChild);
+
+      const input = wrap.querySelector(".dropdown-search");
+      const noMatch = wrap.querySelector(".no-option-match");
+
+      const optionEls = Array.from(optionsWrap.querySelectorAll(".custom-option"))
+        .filter(el => (el.dataset.value || "") !== "remove");
+
+      function runFilter() {
+        const qRaw = input.value || "";
+        if (!qRaw.trim()) {
+          optionEls.forEach(el => (el.style.display = ""));
+          noMatch.style.display = "none";
+          return;
         }
 
-        function detectType(colIndex) {
-            if (tableId === "import-logs-table") {
-                if ([1,5,6,7,8].includes(colIndex)) return "number"; // #, Total, Valid, Invalid, Duplicate
-                if (colIndex === 4) return "date";                   // Uploaded At
-                return "string";
-            }
+        let shown = 0;
+        optionEls.forEach(el => {
+          // ✅ IMPORTANT: textContent contains icon junk; use data-value first
+          const valueText = (el.getAttribute("data-value") || "").trim();
+          const labelText = (el.textContent || "").trim();
 
-            // Valid / Invalid tables
-            if ([1,3,5].includes(colIndex)) return "number"; // #, School ID, Year
-            return "string";
-        }
+          let ok = false;
 
-        // ------------- core engine -------------
-
-        function applySearchAndFilterAndSort() {
-            let visibleRows = allRows.slice();
-
-            // SEARCH
-            const query = searchInput ? searchInput.value.trim().toLowerCase() : "";
-            if (query) {
-                visibleRows = visibleRows.filter(row =>
-                    row.innerText.toLowerCase().includes(query)
-                );
-            }
-
-            // FILTERS (by column index)
-            Object.keys(activeFilters).forEach(colIdxStr => {
-                const colIdx = parseInt(colIdxStr, 10);
-                const filterVal = activeFilters[colIdxStr];
-                if (!filterVal || filterVal === "remove") return;
-
-                visibleRows = visibleRows.filter(row => {
-                    const cell = row.children[colIdx];
-                    const cellVal = (cell?.dataset.value || cell?.innerText || "")
-                        .trim()
-                        .toLowerCase();
-                    return cellVal === filterVal.toLowerCase();
-                });
+          if (field === "course") {
+            const expanded = expandCourseQuery(qRaw);
+            const optA = courseAcronym(valueText || labelText);
+            ok = expanded.some(eq => {
+              const eqC = compact(eq);
+              return (
+                fuzzyMatch(eq, valueText) ||
+                fuzzyMatch(eq, labelText) ||
+                (optA && (optA === eqC || optA.startsWith(eqC) || eqC.startsWith(optA)))
+              );
             });
+          } else {
+            ok = fuzzyMatch(qRaw, valueText) || fuzzyMatch(qRaw, labelText);
+          }
 
-            // SORT
-            if (activeSort && activeSort.colIndex != null) {
-                const { colIndex, direction, type } = activeSort;
-
-                visibleRows.sort((a, b) => {
-                    const A = getCellValue(a.children[colIndex], type);
-                    const B = getCellValue(b.children[colIndex], type);
-
-                    if (direction === "az")   return A.localeCompare(B);
-                    if (direction === "za")   return B.localeCompare(A);
-                    if (direction === "asc")  return A - B;
-                    if (direction === "desc") return B - A;
-
-                    return 0;
-                });
-            }
-
-            // HIDE ALL
-            allRows.forEach(r => r.classList.add("d-none"));
-
-            // NO RESULTS
-            if (!visibleRows.length) {
-                if (noResultsRow) {
-                    noResultsRow.classList.remove("d-none");
-                    tbody.appendChild(noResultsRow);
-                }
-                if (resultsCount) resultsCount.innerText = "0 Results";
-                return;
-            }
-
-            if (noResultsRow) {
-                noResultsRow.classList.add("d-none");
-            }
-
-            // RE-APPEND IN SORTED ORDER + RENUMBER
-            let counter = 1;
-            visibleRows.forEach(row => {
-                row.classList.remove("d-none");
-                if (row.children[1]) {
-                    row.children[1].innerText = counter++;
-                }
-                tbody.appendChild(row);
-            });
-
-            // Keep no-results row at the end
-            if (noResultsRow) {
-                tbody.appendChild(noResultsRow);
-            }
-
-            if (resultsCount) {
-                resultsCount.innerText = `${visibleRows.length} Results`;
-            }
-        }
-
-        // ---------- search input ----------
-
-        if (searchInput) {
-            searchInput.addEventListener("input", applySearchAndFilterAndSort);
-        }
-
-        // ---------- dropdown sort panel ----------
-
-        if (sortBtn && sortPanel) {
-            sortBtn.addEventListener("click", e => {
-                e.stopPropagation();
-                const wasOpen = sortPanel.classList.contains("open");
-
-                customSelects.forEach(s => s.classList.remove("open"));
-
-                if (wasOpen) {
-                    sortPanel.classList.remove("open");
-                    sortBtn.classList.remove("active");
-                } else {
-                    sortPanel.classList.add("open");
-                    sortBtn.classList.add("active");
-                }
-            });
-        }
-
-        document.addEventListener("click", e => {
-            const clickInside = container.contains(e.target);
-
-            if (!clickInside) {
-                if (sortPanel) sortPanel.classList.remove("open");
-                if (sortBtn)   sortBtn.classList.remove("active");
-                customSelects.forEach(s => s.classList.remove("open"));
-                return;
-            }
-
-            if (!e.target.closest(".custom-select")) {
-                customSelects.forEach(s => s.classList.remove("open"));
-            }
+          el.style.display = ok ? "" : "none";
+          if (ok) shown++;
         });
 
-        // ---------- custom select dropdowns ----------
+        noMatch.style.display = shown === 0 ? "block" : "none";
+      }
+
+      input.addEventListener("input", runFilter);
+
+      select.addEventListener("dropdown:open", () => {
+        input.value = "";
+        optionEls.forEach(el => (el.style.display = ""));
+        noMatch.style.display = "none";
+        setTimeout(() => input.focus(), 0);
+      });
+
+      optionsWrap.addEventListener("click", (e) => {
+        const opt = e.target.closest(".custom-option");
+        if (!opt) return;
+        input.value = "";
+        optionEls.forEach(el => (el.style.display = ""));
+        noMatch.style.display = "none";
+      });
+    }
+
+    // ----------------------------
+    // Apply search + filter + sort
+    // ----------------------------
+    function applySearchAndFilterAndSort() {
+      const allRows = getAllRows();
+      let visibleRows = allRows.slice();
+
+      const queryRaw = searchInput ? searchInput.value.trim() : "";
+      if (queryRaw) visibleRows = visibleRows.filter(row => smartRowMatch(row, queryRaw));
+
+      // filters: fuzzy instead of strict equality
+      Object.keys(activeFilters).forEach(colIdxStr => {
+        const colIdx = parseInt(colIdxStr, 10);
+        const filterVal = activeFilters[colIdxStr];
+        if (!filterVal || filterVal === "remove") return;
+
+        visibleRows = visibleRows.filter(row => {
+          const cellVal = getCellText(row.children[colIdx]);
+          return fuzzyMatch(filterVal, cellVal);
+        });
+      });
+
+      // sort
+      if (activeSort && activeSort.colIndex != null) {
+        const { colIndex, direction, type } = activeSort;
+
+        visibleRows.sort((a, b) => {
+          const A = getCellValue(a.children[colIndex], type);
+          const B = getCellValue(b.children[colIndex], type);
+
+          if (direction === "az")   return A.localeCompare(B);
+          if (direction === "za")   return B.localeCompare(A);
+          if (direction === "asc")  return A - B;
+          if (direction === "desc") return B - A;
+          return 0;
+        });
+      }
+
+      // hide all
+      allRows.forEach(r => r.classList.add("d-none"));
+
+      // no results
+      if (!visibleRows.length) {
+        if (noResultsRow) {
+          noResultsRow.classList.remove("d-none");
+          tbody.appendChild(noResultsRow);
+        }
+        if (resultsCount) resultsCount.innerText = "0 Results";
+        return;
+      }
+
+      if (noResultsRow) noResultsRow.classList.add("d-none");
+
+      // show + re-number col[1] if exists
+      let counter = 1;
+      visibleRows.forEach(row => {
+        row.classList.remove("d-none");
+        if (row.children[1]) row.children[1].innerText = counter++;
+        tbody.appendChild(row);
+      });
+
+      if (noResultsRow) tbody.appendChild(noResultsRow);
+      if (resultsCount) resultsCount.innerText = `${visibleRows.length} Results`;
+    }
+
+    // ----------------------------
+    // Events
+    // ----------------------------
+    if (searchInput) searchInput.addEventListener("input", applySearchAndFilterAndSort);
+
+    if (sortBtn && sortPanel) {
+      sortBtn.addEventListener("click", e => {
+        e.stopPropagation();
+        const willOpen = !sortPanel.classList.contains("open");
+
+        customSelects.forEach(s => s.classList.remove("open"));
+        sortPanel.classList.toggle("open", willOpen);
+        sortBtn.classList.toggle("active", willOpen);
+
+        setTopSearchEnabled(!willOpen);
+      });
+    }
+
+    // ✅ allow clicking Apply/Reset without closing the panel
+    function isInsideActions(target){
+      return !!target.closest(".actions") || !!target.closest(".apply-btn") || !!target.closest(".reset-btn");
+    }
+
+    document.addEventListener("click", e => {
+      const clickInside = container.contains(e.target);
+      if (!clickInside) {
+        if (sortPanel) sortPanel.classList.remove("open");
+        if (sortBtn) sortBtn.classList.remove("active");
+        customSelects.forEach(s => s.classList.remove("open"));
+        setTopSearchEnabled(true);
+        return;
+      }
+
+      // don't collapse dropdowns when pressing apply/reset area
+      if (isInsideActions(e.target)) return;
+
+      if (!e.target.closest(".custom-select")) {
+        customSelects.forEach(s => s.classList.remove("open"));
+      }
+    });
+
+    // Custom select open logic + option select
+    customSelects.forEach(select => {
+      const trigger = select.querySelector(".custom-select-trigger");
+      const options = select.querySelectorAll(".custom-option");
+      if (!trigger) return;
+
+      ensureDropdownSearch(select);
+
+      trigger.addEventListener("click", e => {
+        e.stopPropagation();
+        const wasOpen = select.classList.contains("open");
+        customSelects.forEach(s => s.classList.remove("open"));
+
+        if (!wasOpen) {
+          select.classList.add("open");
+          setTopSearchEnabled(false);
+          select.dispatchEvent(new Event("dropdown:open"));
+        } else {
+          select.classList.remove("open");
+        }
+      });
+
+      options.forEach(opt => {
+        opt.addEventListener("click", () => {
+          trigger.innerHTML = opt.innerHTML;
+          select.dataset.selected = opt.dataset.value;
+          select.classList.remove("open");
+          if (!sortPanel || !sortPanel.classList.contains("open")) setTopSearchEnabled(true);
+        });
+      });
+    });
+
+    // Apply / Reset
+    const applyBtn = container.querySelector(".apply-btn");
+    const resetBtn = container.querySelector(".reset-btn");
+
+    if (applyBtn) {
+      applyBtn.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation(); // ✅ keep panel open
+
+        activeFilters = {};
+        activeSort = null;
 
         customSelects.forEach(select => {
-            const trigger = select.querySelector(".custom-select-trigger");
-            const options = select.querySelectorAll(".custom-option");
+          const selected = select.dataset.selected;
+          const field = select.dataset.field;
+          if (!selected || selected === "remove") return;
+          if (FIELD_TO_COL[field] === undefined) return;
 
-            if (!trigger) return;
+          const colIndex = FIELD_TO_COL[field];
 
-            trigger.addEventListener("click", e => {
-                e.stopPropagation();
-
-                const wasOpen = select.classList.contains("open");
-                customSelects.forEach(s => s.classList.remove("open"));
-                if (!wasOpen) {
-                    select.classList.add("open");
-                }
-            });
-
-            options.forEach(opt => {
-                opt.addEventListener("click", () => {
-                    trigger.innerHTML = opt.innerHTML;
-                    select.dataset.selected = opt.dataset.value;   // <-- this is what we read later
-                    select.classList.remove("open");
-                });
-            });
-        });
-
-        // ---------- APPLY from dropdowns ----------
-
-        const applyBtn = container.querySelector(".apply-btn");
-        const resetBtn = container.querySelector(".reset-btn");
-
-        if (applyBtn) {
-            applyBtn.addEventListener("click", e => {
-                e.preventDefault();
-
-                activeFilters = {};
-                activeSort = null;
-
-                customSelects.forEach(select => {
-                    const selected = select.dataset.selected;
-                    const field    = select.dataset.field;
-
-                    if (!selected || selected === "remove") return;
-                    if (!FIELD_TO_COL[field]) return;
-
-                    const colIndex = FIELD_TO_COL[field];
-
-                    // STRING SORTS (name, filename, uploaded_by) — NOT STATUS
-                    if (["fullname", "filename", "uploaded_by"].includes(field)) {
-                        if (selected.endsWith("-az")) {
-                            activeSort = { colIndex, direction: "az", type: "string" };
-                        } else if (selected.endsWith("-za")) {
-                            activeSort = { colIndex, direction: "za", type: "string" };
-                        }
-                    }
-                    // NUMBER SORT (ID, counts, totals)
-                    else if (["idnum", "total_records", "valid_count", "invalid_count", "duplicate_count"]
-                             .includes(field)) {
-                        if (selected.endsWith("-asc")) {
-                            activeSort = { colIndex, direction: "asc", type: "number" };
-                        } else if (selected.endsWith("-desc")) {
-                            activeSort = { colIndex, direction: "desc", type: "number" };
-                        }
-                    }
-                    // DATE SORT
-                    else if (field === "uploaded_at") {
-                        if (selected === "date-asc") {
-                            activeSort = { colIndex, direction: "asc", type: "date" };
-                        } else if (selected === "date-desc") {
-                            activeSort = { colIndex, direction: "desc", type: "date" };
-                        }
-                    }
-                    // EVERYTHING ELSE = FILTER (Course, Year, Barangay, District, Status, etc.)
-                    else {
-                        activeFilters[colIndex] = selected;
-                    }
-                });
-
-                applySearchAndFilterAndSort();
-            });
-        }
-
-        // ---------- RESET from dropdowns ----------
-
-        if (resetBtn) {
-            resetBtn.addEventListener("click", e => {
-                e.preventDefault();
-
-                if (searchInput) searchInput.value = "";
-                activeFilters = {};
-                activeSort = null;
-
-                customSelects.forEach(sel => {
-                    const trigger = sel.querySelector(".custom-select-trigger");
-                    if (trigger && trigger.dataset.originalText) {
-                        trigger.innerHTML = trigger.dataset.originalText;
-                    }
-                    sel.removeAttribute("data-selected");
-                });
-
-                applySearchAndFilterAndSort();
-            });
-        }
-
-        // ---------- HEADER CLICK SORT ----------
-
-        const headerCells = table.querySelectorAll("thead th");
-
-        headerCells.forEach((th, index) => {
-            // Skip the first column (checkbox)
-            if (index === 0) return;
-
-            th.style.cursor = "pointer";
-
-            th.addEventListener("click", function () {
-                const type = detectType(index);
-
-                // Toggle direction on repeated click
-                const previousDir = th.dataset.sortDirection || "none";
-                const newDir = previousDir === "asc" ? "desc" : "asc";
-
-                // Clear sort indicators on other headers
-                headerCells.forEach(h => {
-                    if (h !== th) {
-                        delete h.dataset.sortDirection;
-                    }
-                });
-
-                th.dataset.sortDirection = newDir;
-
-                activeSort = {
-                    colIndex: index,
-                    direction: newDir,
-                    type
-                };
-
-                applySearchAndFilterAndSort();
-            });
-        });
-
-        // init originalText for triggers, then run once
-        container.querySelectorAll(".custom-select-trigger").forEach(t => {
-            if (!t.dataset.originalText) {
-                t.dataset.originalText = t.innerHTML;
-            }
+          if (["fullname", "filename", "uploaded_by"].includes(field)) {
+            if (selected.endsWith("-az")) activeSort = { colIndex, direction: "az", type: "string" };
+            else if (selected.endsWith("-za")) activeSort = { colIndex, direction: "za", type: "string" };
+          }
+          else if (["idnum", "total_records", "valid_count", "invalid_count", "duplicate_count"].includes(field)) {
+            if (selected.endsWith("-asc")) activeSort = { colIndex, direction: "asc", type: "number" };
+            else if (selected.endsWith("-desc")) activeSort = { colIndex, direction: "desc", type: "number" };
+          }
+          else if (field === "uploaded_at") {
+            if (selected === "date-asc") activeSort = { colIndex, direction: "asc", type: "date" };
+            else if (selected === "date-desc") activeSort = { colIndex, direction: "desc", type: "date" };
+          }
+          else {
+            activeFilters[colIndex] = selected;
+          }
         });
 
         applySearchAndFilterAndSort();
+        // ✅ DO NOT close filter panel here
+      });
     }
 
-    function initAll() {
-        document.querySelectorAll(".search-container").forEach(container => {
-            universalSearchEngine(container);
+    if (resetBtn) {
+      resetBtn.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation(); // ✅ keep panel open
+
+        if (searchInput) searchInput.value = "";
+        activeFilters = {};
+        activeSort = null;
+
+        customSelects.forEach(sel => {
+          const trigger = sel.querySelector(".custom-select-trigger");
+          if (trigger && trigger.dataset.originalText) trigger.innerHTML = trigger.dataset.originalText;
+          sel.removeAttribute("data-selected");
+          sel.querySelectorAll(".custom-option").forEach(o => (o.style.display = ""));
+          const noMatch = sel.querySelector(".no-option-match");
+          if (noMatch) noMatch.style.display = "none";
+          const dd = sel.querySelector("input.dropdown-search");
+          if (dd) dd.value = "";
         });
+
+        applySearchAndFilterAndSort();
+        // ✅ DO NOT close filter panel here
+      });
     }
 
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", initAll);
-    } else {
-        initAll();
-    }
+    // Header click sort
+    const headerCells = table.querySelectorAll("thead th");
+    headerCells.forEach((th, index) => {
+      if (index === 0) return;
+      th.style.cursor = "pointer";
+      th.addEventListener("click", function () {
+        const type = detectType(index);
+        const previousDir = th.dataset.sortDirection || "none";
+        const newDir = previousDir === "asc" ? "desc" : "asc";
 
+        headerCells.forEach(h => { if (h !== th) delete h.dataset.sortDirection; });
+        th.dataset.sortDirection = newDir;
+
+        activeSort = { colIndex: index, direction: newDir, type };
+        applySearchAndFilterAndSort();
+      });
+    });
+
+    // store original trigger html
+    container.querySelectorAll(".custom-select-trigger").forEach(t => {
+      if (!t.dataset.originalText) t.dataset.originalText = t.innerHTML;
+    });
+
+    applySearchAndFilterAndSort();
+  }
+
+  function initAll() {
+    document.querySelectorAll(".search-container").forEach(container => {
+      universalSearchEngine(container);
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initAll);
+  } else {
+    initAll();
+  }
 })();
 </script>
+
+
+<style>
+  /* Make status option icon inherit the option color */
+  .custom-select[data-field="status"] .custom-option,
+  .custom-select[data-field="status"] .custom-option i{
+    color: inherit !important;
+  }
+
+  .custom-select[data-field="status"] .custom-option{
+    border-radius: 10px;
+    margin: 4px 6px;
+    padding: 8px 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Pending = BLUE */
+  .custom-select[data-field="status"] .custom-option[data-value="pending"]{
+    background: #e7f0ff;
+    color: #1d4ed8 !important;
+  }
+
+  /* Completed = GREEN */
+  .custom-select[data-field="status"] .custom-option[data-value="completed"]{
+    background: #e9f8ef;
+    color: #15803d !important;
+  }
+
+  /* Cancelled = GRAY */
+  .custom-select[data-field="status"] .custom-option[data-value="cancelled"]{
+    background: #f1f5f9;
+    color: #475569 !important;
+  }
+
+  /* Reset = PURPLE */
+  .custom-select[data-field="status"] .custom-option[data-value="reset"]{
+    background: #f2eaff;
+    color: #7c3aed !important;
+  }
+
+  /* Failed = ORANGE/RED */
+  .custom-select[data-field="status"] .custom-option[data-value="failed"]{
+    background: #ffefe8;
+    color: #c2410c !important;
+  }
+
+  /* Abandoned = BLACK with white text */
+  .custom-select[data-field="status"] .custom-option[data-value="abandoned"]{
+    background: #0f172a;
+    color: #ffffff !important;
+  }
+
+  /* Keep hover nice without killing color */
+  .custom-select[data-field="status"] .custom-option:hover{
+    filter: brightness(0.95);
+  }
+</style>

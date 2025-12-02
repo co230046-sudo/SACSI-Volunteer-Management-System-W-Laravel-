@@ -102,11 +102,11 @@
     <p>Are you sure you want to log out of your account?</p>
 
     <div class="logout-modal-buttons">
+      <button type="button" class="cancel-btn" onclick="closeLogoutModal()">Cancel</button>
       <form id="logoutForm" action="{{ route('logout') }}" method="POST">
         @csrf
         <button type="submit" class="confirm-btn">Yes, Log Out</button>
       </form>
-      <button type="button" class="cancel-btn" onclick="closeLogoutModal()">Cancel</button>
     </div>
   </div>
 </div>

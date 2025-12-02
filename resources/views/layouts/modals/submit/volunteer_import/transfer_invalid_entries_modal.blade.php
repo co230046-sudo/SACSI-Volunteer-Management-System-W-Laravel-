@@ -1,207 +1,329 @@
 <style>
-  .custom-modal-overlay {
+/* ============================================================
+   UNIVERSAL WRAPPER
+============================================================ */
+.move-modal-wrapper {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
     display: none;
     justify-content: center;
     align-items: center;
-    z-index: 10000;
-  }
-
-  .custom-modal-overlay.active {
+    padding: 20px;
+    z-index: 99999;
+}
+.move-modal-wrapper.active {
     display: flex;
-    animation: fadeIn 0.25s ease;
-  }
+}
 
-  .custom-modal {
+.move-modal-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+}
+
+/* ============================================================
+   MODAL BOX
+============================================================ */
+.move-modal-box {
+    position: relative;
     background: #fff;
     border-radius: 16px;
-    padding: 2rem;
-    width: 90%;
-    max-width: 450px;
+    width: 100%;
+    max-width: 480px;
+    padding: 26px 32px 22px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+    animation: modalIn .25s ease;
+}
+@keyframes modalIn {
+    from { opacity:0; transform: translateY(-16px) scale(.96); }
+    to   { opacity:1; transform: translateY(0) scale(1); }
+}
+
+/* ============================================================
+   HEADER TEXT + CENTERING
+============================================================ */
+.move-modal-box h2 {
     text-align: center;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.25);
-    animation: slideIn 0.3s ease forwards;
-  }
-
-  .custom-modal.confirm-modal h3 {
-    color: #dc3545 !important;
-    font-size: 1.4rem;
-    margin-bottom: 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-  }
-
-  .custom-modal.confirm-modal h3 i {
-    color: #dc3545 !important;
-  }
-
-  .custom-modal.success-modal h3 {
-      color: #28a745 !important;
-      font-size: 1.6rem;
-      margin-bottom: 1rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.6rem;
-  }
-
-  .custom-modal.success-modal h3 i {
-      color: #28a745 !important;
-      font-size: 2rem;
-  }
-
-  .custom-modal p {
-    color: #555;
-    font-size: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .modal-actions {
-    display: flex;
-    justify-content: center;
-    gap: 1rem;
-  }
-
-  .modal-actions .btn {
-    padding: 0.6rem 1.4rem;
-    border: none;
-    border-radius: 8px;
+    margin: 0 0 6px;
     font-weight: 600;
+}
+.move-modal-box h2 i {
+    margin-right: 6px;
+}
+
+/* ============================================================
+   HEADER COLORS
+============================================================ */
+.move-modal-header-success { color: #28a745 !important; }
+.move-modal-header-error   { color: #B2000C !important; }
+.move-modal-header-info    { color: #1565c0 !important; }
+.move-modal-header-warn    { color: #B2000C !important; }
+
+/* Icon color matching headers */
+.move-modal-header-success i { color: #28a745 !important; }
+.move-modal-header-error   i { color: #B2000C !important; }
+.move-modal-header-info    i { color: #1565c0 !important; }
+.move-modal-header-warn    i { color: #B2000C !important; }
+
+
+/* ============================================================
+   CONTENT TEXT
+============================================================ */
+.move-modal-text {
+    font-size: 1.02rem;
+    line-height: 1.55;
+    margin-bottom: 18px;
+    font-weight: 400;
+}
+
+/* ============================================================
+   ROW LISTS
+============================================================ */
+.move-scroll-list {
+    max-height: 260px;
+    overflow-y: auto;
+    padding-right: 6px;
+    margin-top: 4px;
+}
+
+.move-row {
+    border-bottom: 1px dashed #d7d7d7;
+    padding: 10px 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.move-row:last-child { border-bottom: none; }
+
+.move-row a {
+    color: #1565c0;
+    font-weight: 500;
+    text-decoration: underline;
+}
+
+/* ============================================================
+   HR STYLING
+============================================================ */
+.move-modal-box hr {
+    width: 85%;
+    height: 1px;
+    background: #ececec;
+    margin: 1rem auto;
+}
+
+/* ============================================================
+   BUTTONS
+============================================================ */
+.move-modal-btn {
+    border: none;
+    padding: 10px 22px;
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.25s ease;
+    font-size: 1rem;
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-  }
+    gap: 8px;
+}
 
-  .modal-actions .btn.btn-primary {
-    background-color: #b2000c  !important;
-    color: #fff !important;
-  }
-
-  .modal-actions .btn.btn-primary:hover {
-    background-color: #b2000c !important;
+.move-modal-btn-confirm {
+    background: #B2000C;
+    color: #fff;
+}
+.move-modal-btn-confirm:hover {
+    background: #7F0008;
     transform: translateY(-2px);
-  }
+}
 
-  .modal-actions .btn.btn-secondary {
-    background-color: #e5e5e5;
+.move-modal-btn-cancel {
+    background: #e4e4e4;
     color: #333;
-  }
-
-  .modal-actions .btn.btn-secondary:hover {
-    background-color: #d0d0d0;
+}
+.move-modal-btn-cancel:hover {
+    background: #d6d6d6;
     transform: translateY(-2px);
-  }
+}
 
-  #successOkBtn {
-      background-color: #b2000c !important;
-      color: #fff !important;
-      border: none !important;
-  }
+.move-modal-button-row {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 8px;
+}
 
-  #successOkBtn:hover {
-      background-color: #8a0009 !important;
-      transform: translateY(-2px);
-  }
-
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateY(-20px) scale(0.96); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
 </style>
 
-<!-- Confirm Move Modal -->
-<div id="modal2" class="custom-modal-overlay">
-  <div class="custom-modal confirm-modal">
-    <h3>
-      <i class="fa-solid fa-exclamation-triangle"></i> Confirm Move
-    </h3>
-    <p id="modalRowCount">Do you want to move selected entries to the Verified list?</p>
+<!-- ============================================================
+     CONFIRM MOVE – RED
+============================================================ -->
+<div id="moveConfirmModal" class="move-modal-wrapper">
+    <div class="move-modal-overlay"></div>
+    <div class="move-modal-box">
 
-    <div class="modal-actions">
-      <button class="btn btn-primary" id="confirmMoveBtn">
-        <i class="fa-solid fa-check"></i> Yes, Move
-      </button>
+        <h2 class="move-modal-header-warn">
+            <i class="fa-solid fa-circle-exclamation"></i> Confirm Move
+        </h2>
+        <hr>
 
-      <button class="btn btn-secondary" id="cancelMoveBtn">
-        <i class="fa-solid fa-xmark"></i> Cancel
-      </button>
+        <div id="moveConfirmText" class="move-modal-text move-text-error"></div>
+
+        <div class="move-modal-button-row">
+            <button class="move-modal-btn move-modal-btn-cancel" id="cancelMoveBtn">Cancel</button>
+            <button class="move-modal-btn move-modal-btn-confirm" id="confirmMoveBtn">Yes, Move</button>
+        </div>
     </div>
-  </div>
 </div>
 
-<!-- Success Modal -->
-<div id="successModal" class="custom-modal-overlay">
-  <div class="custom-modal success-modal">
-    <h3>
-      <i class="fa-solid fa-circle-check"></i> Success!
-    </h3>
-    <p id="successModalMessage">{{ session('success') }}</p>
+<!-- ============================================================
+     SUCCESS – GREEN
+============================================================ -->
+<div id="moveSuccessModal" class="move-modal-wrapper">
+    <div class="move-modal-overlay"></div>
+    <div class="move-modal-box">
 
-    <div class="modal-actions">
-      <button class="btn btn-primary" id="successOkBtn">
-          OK
-      </button>
+        <h2 class="move-modal-header-success">
+            <i class="fa-solid fa-circle-check"></i> Success
+        </h2>
+        <hr>
+
+        <div id="moveSuccessMessage" class="move-modal-text move-text-success"></div>
+
+        <div class="move-modal-button-row">
+            <button class="move-modal-btn move-modal-btn-confirm" id="moveSuccessOkBtn">OK</button>
+        </div>
     </div>
-  </div>
 </div>
 
-<!-- No Entries Modal -->
-<div id="noEntryModal" class="custom-modal-overlay">
-  <div class="custom-modal confirm-modal">
-    <h3>
-      <i class="fa-solid fa-circle-xmark"></i> Nothing to Move
-    </h3>
-    <p>No invalid entries are available to move.</p>
+<!-- ============================================================
+     ERROR – RED
+============================================================ -->
+<div id="moveErrorModal" class="move-modal-wrapper">
+    <div class="move-modal-overlay"></div>
+    <div class="move-modal-box">
 
-    <div class="modal-actions">
-      <button class="btn btn-secondary" id="noEntryOkBtn">
-        <i class="fa-solid fa-check"></i> OK
-      </button>
+        <h2 class="move-modal-header-error">
+            <i class="fa-solid fa-circle-xmark"></i> Cannot Move
+        </h2>
+        <hr>
+
+        <div id="moveErrorMessage" class="move-modal-text move-text-error"></div>
+
+        <div class="move-modal-button-row">
+            <button class="move-modal-btn move-modal-btn-confirm" id="moveErrorOkBtn">OK</button>
+        </div>
     </div>
-  </div>
 </div>
 
-@if(session('show_success_modal') && session('success'))
+
+<!-- ============================================================
+     NOTHING TO MOVE – RED
+============================================================ -->
+<div id="moveNothingModal" class="move-modal-wrapper">
+    <div class="move-modal-overlay"></div>
+    <div class="move-modal-box">
+
+        <h2 class="move-modal-header-error">
+            <i class="fa-solid fa-ban"></i> Nothing to Move
+        </h2>
+        <hr>
+
+        <div class="move-modal-text move-text-error">
+            No invalid entries were selected.
+        </div>
+
+        <div class="move-modal-button-row">
+            <button class="move-modal-btn move-modal-btn-confirm" id="moveNothingOkBtn">OK</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     MISSING FIELDS – BLUE
+============================================================ -->
+<div id="moveMissingModal" class="move-modal-wrapper">
+    <div class="move-modal-overlay"></div>
+    <div class="move-modal-box">
+
+        <h2 class="move-modal-header-info">
+            <i class="fa-solid fa-circle-info"></i> Missing Fields
+        </h2>
+        <hr>
+
+        <div id="moveMissingContent" class="move-modal-text move-scroll-list move-text-info"></div>
+
+        <div class="move-modal-button-row">
+            <button class="move-modal-btn move-modal-btn-cancel" id="moveMissingCloseBtn">Close</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ============================
+     GLOBAL VARIABLES (CONTROLLER → JS)
+=============================== -->
 <script>
-    window.serverSuccessMessage = `{!! session('success') !!}`;
-</script>
-@endif
+window.showSuccessModal = {{ session('show_success_modal') ? 'true' : 'false' }};
+window.showErrorModal   = {{ session('show_error_modal') ? 'true' : 'false' }};
+window.showNothingModal = {{ session('show_nothing_modal') ? 'true' : 'false' }};
 
+window.successModalMessage = `{!! session('success_modal_message') !!}`;
+window.errorModalMessage   = `{!! session('error_modal_message') !!}`;
+
+window.failedEntriesJson = @json(session('failed_entries_json', []));
+window.redirect_anchor = "{{ session('redirect_anchor') }}";
+</script>
+
+
+<!-- ============================
+     FINAL WORKING JS
+=============================== -->
 <script>
 document.addEventListener("DOMContentLoaded", () => {
 
-    const moveModal      = document.getElementById("modal2");
-    const successModal   = document.getElementById("successModal");
-    const noEntryModal   = document.getElementById("noEntryModal");
+    /** ============================================================
+     *  MODALS
+     * ============================================================ */
+    const confirmModal = document.getElementById("moveConfirmModal");
+    const successModal = document.getElementById("moveSuccessModal");
+    const errorModal   = document.getElementById("moveErrorModal");
+    const nothingModal = document.getElementById("moveNothingModal");
+    const missingModal = document.getElementById("moveMissingModal");
 
-    const openMoveBtn    = document.getElementById("openMoveModalBtn");
-    const confirmMoveBtn = document.getElementById("confirmMoveBtn");
-    const cancelMoveBtn  = document.getElementById("cancelMoveBtn");
+    /** TEXT BLOCKS */
+    const confirmText  = document.getElementById("moveConfirmText");
+    const successText  = document.getElementById("moveSuccessMessage");
+    const errorText    = document.getElementById("moveErrorMessage");
+    const missingText  = document.getElementById("moveMissingContent");
 
-    const successOkBtn   = document.getElementById("successOkBtn");
-    const noEntryOkBtn   = document.getElementById("noEntryOkBtn");
+    /** BUTTONS */
+    const confirmBtn       = document.getElementById("confirmMoveBtn");
+    const cancelBtn        = document.getElementById("cancelMoveBtn");
+    const successOkBtn     = document.getElementById("moveSuccessOkBtn");
+    const errorOkBtn       = document.getElementById("moveErrorOkBtn");
+    const nothingOkBtn     = document.getElementById("moveNothingOkBtn");
+    const missingCloseBtn  = document.getElementById("moveMissingCloseBtn");
 
-    const modalRowCount  = document.getElementById("modalRowCount");
-    const successMessage = document.getElementById("successModalMessage");
+    /** OTHER ELEMENTS */
+    const openMoveBtn = document.getElementById("openMoveModalBtn");
+    const hiddenForm  = document.getElementById("moveToVerifiedForm");
 
-    const hiddenForm     = document.getElementById("moveToVerifiedForm");
+    /** FAILED ENTRIES FROM CONTROLLER */
+    const failedEntries = Array.isArray(window.failedEntriesJson)
+        ? window.failedEntriesJson
+        : [];
 
-    if (!hiddenForm) return;
+    /** FLAG: did Missing open from Error? */
+    let reopenErrorAfterMissing = false;
 
-    /* Helpers */
+    /** ============================================================
+     *  HELPERS
+     * ============================================================ */
+    const openModal  = m => m?.classList.add("active");
+    const closeModal = m => m?.classList.remove("active");
+
     const getInvalidCheckboxes = () =>
-        document.querySelectorAll('#invalid-entries-table tbody input[name="selected_invalid[]"]');
+        document.querySelectorAll(
+            '#invalid-entries-table tbody input[name="selected_invalid[]"]'
+        );
 
     const resetHiddenForm = () => {
         const token = hiddenForm.querySelector('input[name="_token"]');
@@ -209,108 +331,244 @@ document.addEventListener("DOMContentLoaded", () => {
         if (token) hiddenForm.appendChild(token);
     };
 
+    /** ============================================================
+     *  OPEN CONFIRM MOVE
+     * ============================================================ */
+    openMoveBtn?.addEventListener("click", () => {
 
-    /* 1. Move ALL invalid → open modal */
-    if (openMoveBtn) {
-        openMoveBtn.addEventListener("click", () => {
-            const boxes = getInvalidCheckboxes();
+        const boxes = getInvalidCheckboxes();
 
-            if (boxes.length === 0) {
-                noEntryModal.classList.add("active");
-                return;
-            }
+        if (boxes.length === 0) {
+            openModal(nothingModal);
+            return;
+        }
 
-            boxes.forEach(cb => cb.checked = true);
+        boxes.forEach(b => b.checked = true);
 
-            modalRowCount.innerHTML = 
-                `Move <strong style="color:#bc3000">${boxes.length} entr${boxes.length>1?"ies":"y"}</strong> to the Verified list?`;
+        confirmText.innerHTML =
+            `Move <strong>${boxes.length}</strong> entr${boxes.length > 1 ? "ies" : "y"}?`;
 
-            moveModal.classList.add("active");
-        });
-    }
+        openModal(confirmModal);
+    });
+
+    cancelBtn?.addEventListener("click", () => closeModal(confirmModal));
 
 
-    /* 2. Confirm move */
-    confirmMoveBtn?.addEventListener("click", () => {
+    /** ============================================================
+     *  CONFIRM MOVE SUBMIT
+     * ============================================================ */
+    confirmBtn?.addEventListener("click", () => {
 
         const boxes = getInvalidCheckboxes();
         resetHiddenForm();
 
+        let selected = 0;
+
         boxes.forEach(cb => {
             if (cb.checked) {
-                const i = document.createElement("input");
-                i.type = "hidden";
-                i.name = "selected_invalid[]";
-                i.value = cb.value;
-                hiddenForm.appendChild(i);
+                selected++;
+                const input = document.createElement("input");
+                input.type = "hidden";
+                input.name = "selected_invalid[]";
+                input.value = cb.value;
+                hiddenForm.appendChild(input);
             }
         });
+
+        if (selected === 0) {
+            closeModal(confirmModal);
+            openModal(nothingModal);
+            return;
+        }
 
         hiddenForm.submit();
     });
 
 
-    /* 3. Cancel modal */
-    cancelMoveBtn?.addEventListener("click", () => moveModal.classList.remove("active"));
-
-    /* 4. Close empty modal */
-    noEntryOkBtn?.addEventListener("click", () => noEntryModal.classList.remove("active"));
-
-
-    /* 5. SUCCESS MODAL — highlight only important parts */
-    if (window.serverSuccessMessage && successMessage) {
-
-        let msg = window.serverSuccessMessage;
-
-        // CONDITION: If message contains comma-separated entries → treat as "Move ALL"
-        if (msg.includes("Moved Volunteer Entry") && msg.includes(",")) {
-            const count = msg.split("Moved Volunteer Entry").length - 1;
-            msg = `${count} entries successfully moved to Verified.`;
-        }
-
-        // highlight names & entry numbers like "#3 John"
-        msg = msg.replace(/(Entry\s?#?\d+[^,]*)/gi,
-            `<span style="color:#b2000c; font-weight:600;">$1</span>`
-        );
-
-        // Set formatted HTML
-        successMessage.innerHTML = msg;
-
-        successModal.classList.add("active");
+    /** ============================================================
+     *  AUTO-SHOW SUCCESS MODAL
+     * ============================================================ */
+    if (window.showSuccessModal) {
+        successText.innerHTML = window.successModalMessage;
+        openModal(successModal);
     }
 
-    successOkBtn?.addEventListener("click", () => successModal.classList.remove("active"));
+    successOkBtn?.addEventListener("click", () => closeModal(successModal));
+
+
+    /** ============================================================
+     *  AUTO-SHOW ERROR MODAL
+     * ============================================================ */
+    if (window.showErrorModal) {
+        errorText.innerHTML = window.errorModalMessage;
+        openModal(errorModal);
+    }
+
+    errorOkBtn?.addEventListener("click", () => closeModal(errorModal));
+
+
+    /** ============================================================
+     *  AUTO-SHOW NOTHING MODAL
+     * ============================================================ */
+    if (window.showNothingModal) {
+        openModal(nothingModal);
+    }
+
+    nothingOkBtn?.addEventListener("click", () => closeModal(nothingModal));
+
+
+    /** ============================================================
+     *  OPTIONAL AUTO SCROLL HANDLING FROM CONTROLLER
+     * ============================================================ */
+    if (window.redirect_anchor) {
+        setTimeout(() => {
+            window.location.hash = window.redirect_anchor;
+        }, 80);
+    }
+
+
+    /** ============================================================
+     *  FLASH BAR: SHOW DETAILS (SUCCESS)
+     * ============================================================ */
+    document.addEventListener("click", e => {
+        const link = e.target.closest(".success-details-link");
+        if (!link) return;
+
+        e.preventDefault();
+        successText.innerHTML = window.successModalMessage;
+        openModal(successModal);
+    });
+
+
+    /** ============================================================
+     *  FLASH BAR: SHOW DETAILS (ERROR)
+     * ============================================================ */
+    document.addEventListener("click", e => {
+        const link = e.target.closest(".error-details-link");
+        if (!link) return;
+
+        e.preventDefault();
+        errorText.innerHTML = window.errorModalMessage;
+        openModal(errorModal);
+    });
+
+
+    /** ============================================================
+     *  SHOW MISSING FIELD POPUP
+     * ============================================================ */
+    document.addEventListener("click", e => {
+        const link = e.target.closest(".show-missing-link");
+        if (!link) return;
+
+        e.preventDefault();
+
+        const id = link.getAttribute("data-id");
+        const entry = failedEntries[id];
+        if (!entry) return;
+
+        let html = `
+            <h4 style="margin-bottom:10px;">
+                Entry #${entry.index} – ${entry.name}
+            </h4>
+        `;
+
+        Object.entries(entry.errors).forEach(([field, msgs]) => {
+            const label = field.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+            // Convert non-array messages into array
+            let arr = Array.isArray(msgs) ? msgs : [msgs];
+
+            // === FIELD-SPECIFIC DEFAULT MESSAGES (used when msgs == true) ===
+            const defaultMessages = {
+                full_name: "Full Name is required and must contain letters only.",
+                id_number: "School ID must be 6 or 7 digits.",
+                course: "Course is required.",
+                year_level: "Year Level must be between 1 and 4.",
+                contact_number: "Contact Number must be a valid PH mobile number.",
+                emergency_contact: "Emergency Contact must be valid and different from Contact Number.",
+                email: "Email must be valid and end with @gmail.com or @adzu.edu.ph.",
+                barangay: "Barangay is required or not recognized.",
+                district: "District is required.",
+                profile_picture: "Profile picture link is invalid.",
+                profile_picture_local: "Unable to load profile picture.",
+                fb_messenger: "FB/Messenger link must be a valid Facebook URL.",
+
+                // Schedules (day-specific)
+                monday: "Invalid or conflicting Monday schedule.",
+                tuesday: "Invalid or conflicting Tuesday schedule.",
+                wednesday: "Invalid or conflicting Wednesday schedule.",
+                thursday: "Invalid or conflicting Thursday schedule.",
+                friday: "Invalid or conflicting Friday schedule.",
+                saturday: "Invalid or conflicting Saturday schedule.",
+            };
+
+            // Convert TRUE/FALSE → readable field-specific message
+            arr = arr.map(v => {
+                if (v === true || v === false) {
+                    return defaultMessages[field] || "Invalid or missing value.";
+                }
+                return v;
+            });
+
+            html += `
+                <div style="margin-bottom:10px;">
+                    <strong style="color:#B2000C;">${label}</strong><br>
+                    ${arr.join("<br>")}
+                </div>
+            `;
+        });
+
+
+        missingText.innerHTML = html;
+
+        // 🔥 Remember if Error was open, then temporarily hide it
+        reopenErrorAfterMissing = errorModal.classList.contains("active");
+        if (reopenErrorAfterMissing) {
+            closeModal(errorModal);
+        }
+
+        openModal(missingModal);
+    });
+
+    /** ============================================================
+     *  CLOSE MISSING MODAL (AND OPTIONALLY REOPEN ERROR)
+     * ============================================================ */
+    missingCloseBtn?.addEventListener("click", () => {
+        closeModal(missingModal);
+
+        // If Missing came from Error, bring Error back
+        if (reopenErrorAfterMissing) {
+            openModal(errorModal);
+            reopenErrorAfterMissing = false;
+        }
+    });
 });
 
 
-/* 6. Instant move single row */
-function submitMoveToValid(button) {
-    const row = button.closest("tr");
-    if (!row) return;
+/** ============================================================
+ *  MOVE SINGLE ENTRY
+ * ============================================================ */
+function submitMoveToValid(btn) {
+    const row = btn.closest("tr");
+    const cb  = row?.querySelector('input[name="selected_invalid[]"]');
+    if (!cb) return;
 
-    const checkbox = row.querySelector('input[name="selected_invalid[]"]');
-    if (!checkbox) return;
-
-    const form = document.getElementById("moveToVerifiedForm");
-    if (!form) return;
-
+    const form  = document.getElementById("moveToVerifiedForm");
     const token = form.querySelector('input[name="_token"]');
+
     form.innerHTML = "";
     if (token) form.appendChild(token);
 
-    const hidden = document.createElement("input");
-    hidden.type = "hidden";
-    hidden.name = "selected_invalid[]";
-    hidden.value = checkbox.value;
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "selected_invalid[]";
+    input.value = cb.value;
 
-    form.appendChild(hidden);
+    form.appendChild(input);
     form.submit();
 }
 
-
-/* 7. Move VALID → INVALID */
 function moveToInvalid(index) {
-    window.location.href =
-        `/volunteer-import/move-valid-to-invalid/${index}#invalid-entries-table`;
+    window.location.href = `/volunteer-import/move-valid-to-invalid/${index}`;
 }
 </script>

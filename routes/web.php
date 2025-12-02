@@ -39,9 +39,6 @@ Route::middleware(['auth:admin'])->group(function () {
         Route::post('/validate-save', [VolunteerImportController::class, 'validateAndSave'])
             ->name('volunteer.import.validateSave');
 
-        Route::post('/clear-invalid', [VolunteerImportController::class, 'clearInvalid'])
-            ->name('volunteer.import.clearInvalid');
-
         Route::post('/reset', [VolunteerImportController::class, 'resetImports'])
             ->name('volunteer.import.reset');
 
@@ -90,14 +87,12 @@ Route::middleware(['auth:admin'])->group(function () {
         Route::post('/store', [CreateEventController::class, 'store'])
             ->name('events.store');
 
-        Route::get('/events/{event_id}', [EventDetailsController::class, 'show'])
-        ->name('event.details.show');
-
         Route::post('/{event_id}/add-volunteers', 
             [EventDetailsController::class, 'addVolunteers']
         )->name('events.addVolunteers');
 
     });
+
 
     /* ------------------ EVENT MANAGER ROUTES ------------------ */
 

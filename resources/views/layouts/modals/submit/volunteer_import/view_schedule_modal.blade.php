@@ -1,61 +1,5 @@
-<!-- Class Schedule Modal -->
-<div class="modal fade" id="classScheduleModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered modal-xl">
-    <div class="modal-content custom-schedule-modal">
-
-      <!-- Modal Header -->
-      <div class="modal-header custom-modal-header d-flex justify-content-between align-items-center">
-        <h5 class="modal-title"><i class="fa-solid fa-calendar-days me-2"></i> Class Schedule</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-
-      <!-- Modal Body -->
-      <div class="modal-body custom-modal-body">
-        <div class="weekly-schedule">
-          <table class="table schedule-table text-center">
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Monday</th>
-                <th>Tuesday</th>
-                <th>Wednesday</th>
-                <th>Thursday</th>
-                <th>Friday</th>
-                <th>Saturday</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="scheduleContent"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Modal Footer -->
-      <div class="modal-footer custom-modal-footer d-flex justify-content-between">
-        <div>
-          <button type="button" class="btn btn-danger me-2" id="addRowBtnFooter">
-            <i class="fa-solid fa-plus me-1"></i> Add Row
-          </button>
-        </div>
-        <div>
-          <button type="button" class="btn btn-secondary" id="editScheduleBtn">
-            <i class="fa-solid fa-pen-to-square me-1"></i> Edit
-          </button>
-          <button type="button" class="btn btn-success d-none" id="saveScheduleBtn">
-            <i class="fa-solid fa-save me-1"></i> Save
-          </button>
-          <button type="button" class="btn btn-danger" data-bs-dismiss="modal">
-            <i class="fa-solid fa-xmark me-1"></i> Close
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-
 <style>
-/* Overlay */
+/* Overlay (if you use it elsewhere) */
 .schedule-modal-overlay {
   position: fixed;
   inset: 0;
@@ -66,43 +10,15 @@
   z-index: 10000;
 }
 
-/* Modal box */
-/* Modal box with dynamic width */
-.schedule-modal {
-  background: #fff;
-  border-radius: 8px;
-  padding: 1rem 1.5rem;
-  width: max-content; /* width adjusts to content */
-  max-width: 90vw;    /* prevent overflow on small screens */
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-sizing: border-box; /* include padding in width */
-}
-
-
-/* Modal title */
-.schedule-modal .modal-title {
-  text-align: center; /* title centered */
-  margin-bottom: 0.5rem;
-}
-
-/* Content wrapper for scrolling */
+/* Generic message modal scroll styling (if you reuse it) */
 .modal-content-wrapper {
   flex: 1 1 auto;
   overflow-y: auto;
   margin: 0.5rem 0 1rem;
-  word-break: break-word; /* wrap long lines */
-  text-align: left; /* message text left-aligned */
+  word-break: break-word;
+  text-align: left;
 }
 
-/* Buttons */
-.modal-buttons {
-  text-align: right;
-}
-
-/* Optional: scrollbar styling */
 .modal-content-wrapper::-webkit-scrollbar {
   width: 8px;
 }
@@ -117,444 +33,828 @@
 .modal-content-wrapper::-webkit-scrollbar-thumb:hover {
   background: #c9302c;
 }
+
+/* ======= CLASS SCHEDULE MODAL (SCOPED) ======= */
+
+.custom-schedule-modal {
+  border-radius: 15px;
+  font-family: 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+}
+
+/* Header – less red, no solid red background */
+#classScheduleModal .custom-modal-header {
+  background-color: #ffffff;
+  color: #b71c1c;
+  font-weight: 600;
+  border-bottom: 1px solid #f1c0c3;
+}
+
+#classScheduleModal .custom-modal-header .fa-calendar-days {
+  color: #c82333;
+}
+
+#classScheduleModal .custom-modal-body {
+  background-color: #fff5f5;
+  padding: 1rem 1.5rem;
+}
+
+#classScheduleModal .schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+#classScheduleModal .schedule-table th,
+#classScheduleModal .schedule-table td {
+  border: 1px solid #f1c0c3;
+  padding: 0.5rem;
+}
+
+#classScheduleModal .schedule-table th {
+  background-color: #e4606d;
+  color: white;
+  font-weight: 600;
+}
+
+#classScheduleModal .schedule-table tbody tr:nth-child(even) {
+  background-color: #ffe5e8;
+}
+
+#classScheduleModal .schedule-table tbody tr:hover {
+  background-color: #f9b2bc;
+}
+
+#classScheduleModal .schedule-time {
+  font-weight: 600;
+  color: #b71c1c;
+}
+
+/* Static cell look in view mode */
+#classScheduleModal .schedule-entry {
+  font-weight: 500;
+  color: #4d0000;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  background-color: #f8d0d5;
+  margin: 2px 0;
+}
+
+/* ===== Red-themed select, scoped ONLY to this modal ===== */
+#classScheduleModal .schedule-select {
+  height: 30px;
+  padding: 0 0.5rem;
+  font-size: 0.85rem;
+  background-color: #fff;
+  border: 1px solid #e3342f;
+  color: #e3342f;
+  border-radius: 0.25rem;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+#classScheduleModal .schedule-select:hover,
+#classScheduleModal .schedule-select:focus {
+  border-color: #c53030;
+  box-shadow: 0 0 0 2px rgba(227,52,47,0.2);
+  outline: none;
+}
+
+#classScheduleModal .schedule-select option {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  background-color: #fff;
+  color: #e3342f;
+}
+
+#classScheduleModal .schedule-select option:disabled {
+  color: #aaa;
+  font-style: italic;
+}
+
+/* Custom scrollbar for dropdown (Webkit only) */
+#classScheduleModal .schedule-select::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+#classScheduleModal .schedule-select::-webkit-scrollbar-track {
+  background: #fee2e2;
+  border-radius: 4px;
+}
+#classScheduleModal .schedule-select::-webkit-scrollbar-thumb {
+  background: #e3342f;
+  border-radius: 4px;
+}
+#classScheduleModal .schedule-select::-webkit-scrollbar-thumb:hover {
+  background: #c53030;
+}
+
+/* ===== SUCCESS MODAL WRAPPER ===== */
+.reset-import-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+}
+
+.reset-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* ===== BOX ===== */
+.reset-modal-box {
+    width: 420px;
+    max-width: 650px;
+    background: #fff;
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem 1.75rem;
+    text-align: center;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    animation: fadeInScale 0.25s ease;
+}
+
+@keyframes fadeInScale {
+    from { transform: scale(0.92); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+}
+
+/* HEADER */
+.reset-modal-header {
+    text-align: center;
+    margin-bottom: 0.8rem;
+}
+.reset-success-icon {
+    font-size: 2.4rem;
+    color: #28a745;
+    margin-bottom: 0.4rem;
+}
+.reset-success-title {
+    margin: 0;
+    font-weight: 700;
+    font-size: 1.4rem;
+    color: #28a745;
+}
+
+/* SEPARATOR */
+.reset-modal-separator {
+    width: 88%;
+    height: 1px;
+    background: #e5e5e5;
+    margin: 1rem auto;
+}
+
+/* MESSAGE BLOCK */
+.reset-text-block {
+    text-align: left !important;
+    margin: 0.5rem auto 1.25rem;
+    padding: 0 0.75rem;
+    font-size: 1.05rem;
+    color: #333;
+    line-height: 1.55;
+}
+
+.reset-success-text {
+    white-space: normal;
+}
+
+/* BUTTONS */
+.reset-modal-buttons {
+    display: flex;
+    justify-content: center;
+    margin-top: 1.2rem;
+}
+
+.reset-btn-confirm {
+    background-color: #b2000c;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 28px;
+    font-size: .95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.reset-btn-confirm:hover {
+    background-color: #8e0009;
+}
 </style>
 
+<!-- Class Schedule Modal -->
+<div class="modal fade" id="classScheduleModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
+    <div class="modal-content custom-schedule-modal">
+
+      <!-- Modal Header -->
+      <div class="modal-header custom-modal-header d-flex justify-content-between align-items-center">
+        <h5 class="modal-title mb-0">
+          <i class="fa-solid fa-calendar-days me-2"></i> Class Schedule
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body custom-modal-body">
+        <div class="text-start small text-muted mb-2">
+          Hint: In <strong>Edit</strong> mode, focus a dropdown and press <kbd>Ctrl</kbd> + <kbd>Z</kbd> to undo its last change for that day.
+        </div>
+        <div class="weekly-schedule">
+          <table class="table schedule-table text-center align-middle mb-0">
+            <thead>
+              <tr>
+                <th style="width:40px;">#</th>
+                <th>Monday</th>
+                <th>Tuesday</th>
+                <th>Wednesday</th>
+                <th>Thursday</th>
+                <th>Friday</th>
+                <th>Saturday</th>
+                <th style="width:70px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="scheduleContent"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer custom-modal-footer d-flex justify-content-between">
+        <div>
+          <button type="button" class="btn btn-danger btn-sm" id="addRowBtnFooter">
+            <i class="fa-solid fa-plus me-1"></i> Add Row
+          </button>
+        </div>
+        <div>
+          <button type="button" class="btn btn-secondary btn-sm" id="editScheduleBtn">
+            <i class="fa-solid fa-pen-to-square me-1"></i> Edit
+          </button>
+          <button type="button" class="btn btn-success btn-sm d-none" id="saveScheduleBtn">
+            <i class="fa-solid fa-save me-1"></i> Save
+          </button>
+          <button type="button" class="btn btn-danger btn-sm" data-bs-dismiss="modal">
+            <i class="fa-solid fa-xmark me-1"></i> Close
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- SUCCESS MODAL -->
+<div id="resetSuccessModal" class="reset-import-modal">
+    <div class="reset-modal-overlay">
+        <div class="reset-modal-box">
+
+            <div class="reset-modal-header">
+                <i class="fa-solid fa-circle-check reset-success-icon"></i>
+                <h2 class="reset-success-title">Success</h2>
+            </div>
+
+            <hr class="reset-modal-separator">
+
+            <div id="resetSuccessMessage" class="reset-text-block reset-success-text"></div>
+
+            <div class="reset-modal-buttons">
+                <button type="button" class="reset-btn-confirm" id="resetSuccessOkBtn">
+                    <i class="fa-solid fa-check"></i> OK
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
 
 <!-- Hidden form for PUT submission -->
 <form id="updateScheduleForm" method="POST" style="display:none;">
     @csrf
     @method('PUT')
     <input type="hidden" name="schedule" id="scheduleInput">
+    <input type="hidden" name="type" id="scheduleType">  <!-- 👈 ADD THIS -->
 </form>
+
 <script>
+document.addEventListener("DOMContentLoaded", () => {
+
+    @if(session('success_schedule'))
+        const msg = {!! json_encode(session('success_schedule')) !!};
+        const modal = document.getElementById('resetSuccessModal');
+        const text = document.getElementById('resetSuccessMessage');
+        const okBtn = document.getElementById('resetSuccessOkBtn');
+
+        text.innerHTML = msg;
+        modal.style.display = "block";
+
+        okBtn.addEventListener("click", () => {
+            modal.style.display = "none";
+        });
+    @endif
+
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+    // 1. Auto-open modal from controller
+    @if(session('success_schedule'))
+        showSuccessScheduleModal({!! json_encode(session('success_schedule')) !!});
+
+    @endif
+
+    // 2. Flash message “Show Details” → reopen modal
+    const flash = document.querySelector(".action-message .message-text");
+
+    if (flash) {
+        flash.addEventListener("click", e => {
+            if (e.target.classList.contains("show-modal-details")) {
+                e.preventDefault();
+                showSuccessScheduleModal({!! json_encode(session('success_schedule')) !!});
+
+            }
+        });
+    }
+
+    // 3. Modal helper
+    function showSuccessScheduleModal(html) {
+        document.getElementById("resetSuccessMessage").innerHTML = html;
+        const modal = document.getElementById("resetSuccessModal");
+        modal.style.display = "block";
+
+        document.getElementById("resetSuccessOkBtn").onclick = () =>
+            modal.style.display = "none";
+    }
+
+});
+</script>
+
+
+<script>
+/* ============================================================
+   GLOBAL CONSTANTS
+   ============================================================ */
 const MAX_ROWS = 6;
+const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
-/**
- * Official time slots with AM/PM semantics & 24h start/end
- * Keys are the REAL stored values ("7:30-8:20", etc.)
- */
 const timeMeta = {
-  // Morning (AM)
-  "7:30-8:20":  { label: "7:30-8:20 AM", group: "AM", start: 7*60+30,  end: 8*60+20  },
-  "8:00-9:20":  { label: "8:00-9:20 AM", group: "AM", start: 8*60,     end: 9*60+20  },
-  "8:00-10:50": { label: "8:00-10:50 AM",group: "AM", start: 8*60,     end:10*60+50  },
-  "8:30-9:50":  { label: "8:30-9:50 AM", group: "AM", start: 8*60+30,  end: 9*60+50  },
-  "8:30-11:30": { label: "8:30-11:30 AM",group: "AM", start: 8*60+30,  end:11*60+30  },
-  "9:30-10:50": { label: "9:30-10:50 AM",group: "AM", start: 9*60+30,  end:10*60+50  },
-  "11:00-12:20":{ label: "11:00-12:20 AM",group:"AM", start:11*60,     end:12*60+20  },
+    // Morning
+    "7:30-8:20":  { label:"7:30–8:20 AM",  group:"AM", start:450,  end:500 },
+    "8:00-9:20":  { label:"8:00–9:20 AM",  group:"AM", start:480,  end:560 },
+    "8:00-10:50": { label:"8:00–10:50 AM", group:"AM", start:480,  end:650 },
+    "8:30-9:50":  { label:"8:30–9:50 AM",  group:"AM", start:510,  end:590 },
+    "8:30-11:30": { label:"8:30–11:30 AM", group:"AM", start:510,  end:690 },
+    "9:30-10:50": { label:"9:30–10:50 AM", group:"AM", start:570,  end:650 },
+    "11:00-12:20":{ label:"11:00–12:20 PM",group:"AM", start:660,  end:740 },
 
-  // Afternoon / Evening (PM)
-  "12:30-1:50": { label: "12:30-1:50 PM", group: "PM", start:12*60+30, end:13*60+50  },
-  "12:30-2:50": { label: "12:30-2:50 PM", group: "PM", start:12*60+30, end:14*60+50  },
-  "2:00-3:20":  { label: "2:00-3:20 PM",  group: "PM", start:14*60,    end:15*60+20  },
-  "2:00-4:50":  { label: "2:00-4:50 PM",  group: "PM", start:14*60,    end:16*60+50  },
-  "3:30-4:50":  { label: "3:30-4:50 PM",  group: "PM", start:15*60+30, end:16*60+50  },
-  "5:00-6:20":  { label: "5:00-6:20 PM",  group: "PM", start:17*60,    end:18*60+20  },
-  "6:30-7:20":  { label: "6:30-7:20 PM",  group: "PM", start:18*60+30, end:19*60+20  },
-  "6:30-8:50":  { label: "6:30-8:50 PM",  group: "PM", start:18*60+30, end:20*60+50  },
-  "7:30-8:50":  { label: "7:30-8:50 PM",  group: "PM", start:19*60+30, end:20*60+50  },
+    // Afternoon / Evening
+    "12:30-1:50": { label:"12:30–1:50 PM", group:"PM", start:750,  end:830 },
+    "12:30-2:50": { label:"12:30–2:50 PM", group:"PM", start:750,  end:890 },
+    "2:00-3:20":  { label:"2:00–3:20 PM",  group:"PM", start:840,  end:920 },
+    "2:00-4:50":  { label:"2:00–4:50 PM",  group:"PM", start:840,  end:1010},
+    "3:30-4:50":  { label:"3:30–4:50 PM",  group:"PM", start:930,  end:1010},
+    "5:00-6:20":  { label:"5:00–6:20 PM",  group:"PM", start:1020, end:1100},
+    "6:30-7:20":  { label:"6:30–7:20 PM",  group:"PM", start:1110, end:1160},
+    "6:30-8:50":  { label:"6:30–8:50 PM",  group:"PM", start:1110, end:1250},
+    "7:30-8:50":  { label:"7:30–8:50 PM",  group:"PM", start:1170, end:1250}
 };
 
 const timeOptions = Object.keys(timeMeta);
 
 let currentType = null;
 let currentIndex = null;
-let currentVolunteerId = null;
-let isEditing = false; 
-const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-
-// ----- Style for disabled options -----
-const style = document.createElement('style');
-style.innerHTML = `select option:disabled { color: #aaa; font-style: italic; }`;
-document.head.appendChild(style);
+let isEditing = false;
 
 /* ============================================================
    TIME HELPERS
    ============================================================ */
 
-function normalizeTimeRange(timeStr) {
-    if (!timeStr) return "";
+function normalizeTimeRange(str) {
+    if (!str) return "";
+    str = str.replace(/[,;]+/g," ").trim();
 
-    timeStr = timeStr.replace(/[,;]+/g, ' ').trim();
-    const parts = timeStr.split('-').map(p => p.trim());
+    const p = str.split("-").map(s => s.trim());
+    if (p.length !== 2) return str;
 
-    if (parts.length !== 2) return timeStr;
+    const fix = t => /^\d{1,2}$/.test(t) ? t+":00" : t;
+    const n = `${fix(p[0])}-${fix(p[1])}`;
 
-    const fix = p => /^\d{1,2}$/.test(p) ? p + ":00" : p;
-    const normalized = `${fix(parts[0])}-${fix(parts[1])}`;
-
-    if (timeMeta[normalized]) return normalized;
-
-    return normalized;
+    return timeMeta[n] ? n : n;
 }
 
-function parseRange(rangeStr) {
-    const key = normalizeTimeRange(rangeStr);
-    if (!key || !key.includes('-')) return null;
+function parseRange(str) {
+    const key = normalizeTimeRange(str);
+    if (!key.includes("-")) return null;
 
-    if (timeMeta[key]) {
-        return { start: timeMeta[key].start, end: timeMeta[key].end };
-    }
+    if (timeMeta[key]) return { start: timeMeta[key].start, end: timeMeta[key].end };
 
-    const [start, end] = key.split('-').map(s => s.trim());
-    if (!start.includes(':') || !end.includes(':')) return null;
+    const [s,e] = key.split("-");
+    const [sh,sm] = s.split(":").map(Number);
+    const [eh,em] = e.split(":").map(Number);
+    if ([sh,sm,eh,em].some(isNaN)) return null;
 
-    const [sh, sm] = start.split(':').map(Number);
-    const [eh, em] = end.split(':').map(Number);
-    if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return null;
-
-    return { start: sh*60 + sm, end: eh*60 + em };
+    return { start: sh*60+sm, end: eh*60+em };
 }
 
-function rangesOverlap(aStr, bStr) {
-    const a = parseRange(aStr);
-    const b = parseRange(bStr);
-    if (!a || !b) return false;
-    return a.start < b.end && b.start < a.end;
+function rangesOverlap(a,b) {
+    a = parseRange(a);
+    b = parseRange(b);
+    return a && b && a.start < b.end && b.start < a.end;
 }
 
 /* ============================================================
-   👉 LIVE SORTING (FULL FIX APPLIED HERE)
+   BUILD SELECTED PER DAY FROM DOM
    ============================================================ */
 
-function sortRowsByEarliest() {
-    const container = document.getElementById('scheduleContent');
-    if (!container) return;
-
-    const rows = Array.from(container.querySelectorAll('tr'));
-
-    function getEarliestMinutes(row) {
-        const tds = row.querySelectorAll("td.schedule-entry");
-
-        for (let i = 0; i < days.length; i++) {
-            const td = tds[i];
-            if (!td) continue;
-
+function buildSelectedPerDay() {
+    const map = {};
+    days.forEach((day, di) => {
+        map[day] = [];
+        document.querySelectorAll("#scheduleContent tr").forEach(row => {
+            const td = row.querySelectorAll("td.schedule-entry")[di];
+            if (!td) return;
             const sel = td.querySelector("select");
             const val = sel ? sel.value.trim() : td.textContent.trim();
-
-            const r = parseRange(val);
-            if (r && !isNaN(r.start)) {
-
-                // ⭐⭐⭐ FIX: sort by day first, then by start time
-                return i * 2400 + r.start;
-            }
-        }
-
-        return Infinity;
-    }
-
-    rows.sort((a, b) => getEarliestMinutes(a) - getEarliestMinutes(b));
-
-    rows.forEach(r => container.appendChild(r));
-    updateRowNumbers();
+            if (val) map[day].push(normalizeTimeRange(val));
+        });
+    });
+    return map;
 }
 
 /* ============================================================
-   createSelectInCell()
+   REAPPLY CONFLICT DISABLES
    ============================================================ */
 
-function createSelectInCell(td, colIdx, selectedPerDay) {
-  const day = days[colIdx];
-  let currentValue = td.textContent.trim();
-  currentValue = normalizeTimeRange(currentValue);
-  td.textContent = '';
+function rebuildSelectedPerDay() {
+    const selected = buildSelectedPerDay();
+    const body = document.getElementById("scheduleContent");
 
-  const select = document.createElement("select");
-  select.classList.add("form-select","form-select-sm");
-  select.setAttribute('data-prev', currentValue);
+    body.querySelectorAll("tr").forEach(row => {
+        const cells = row.querySelectorAll("td.schedule-entry");
+        cells.forEach((td, di) => {
+            const sel = td.querySelector("select");
+            if (!sel) return;
+            const day = days[di];
 
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.text = "No Class";
-  select.appendChild(placeholder);
+            sel.querySelectorAll("option").forEach(opt => {
+                if (!opt.value) return;
 
-  const groups = {
-      AM: document.createElement("optgroup"),
-      PM: document.createElement("optgroup")
-  };
-  groups.AM.label = "⏰ Morning (AM)";
-  groups.PM.label = "🌆 Afternoon / Evening (PM)";
+                if (opt.value === sel.value) {
+                    opt.disabled = false;
+                    return;
+                }
 
-  timeOptions.forEach(opt => {
-    const meta = timeMeta[opt];
-    const groupKey = meta?.group || "AM";
-    const option = document.createElement("option");
-    option.value = opt;
-    option.text  = meta?.label || opt;
-
-    const conflict = selectedPerDay[day].some(v => {
-        if (!v) return false;
-        if (v === currentValue) return false;
-        return rangesOverlap(opt, v);
-    });
-    if (conflict) option.disabled = true;
-
-    groups[groupKey].appendChild(option);
-  });
-
-  select.appendChild(groups.AM);
-  select.appendChild(groups.PM);
-
-  if (!timeMeta[currentValue] && currentValue) {
-      const customOpt = document.createElement("option");
-      customOpt.value = currentValue;
-      customOpt.text  = currentValue + " (Custom)";
-      select.appendChild(customOpt);
-  }
-
-  select.value = currentValue || "";
-
-  select.addEventListener('change', e => {
-    const sel = e.target;
-    const oldVal = sel.getAttribute('data-prev') || '';
-    const newVal = sel.value;
-
-    const idx = selectedPerDay[day].indexOf(oldVal);
-    if (idx > -1) selectedPerDay[day].splice(idx, 1);
-    if (newVal) selectedPerDay[day].push(newVal);
-
-    sel.setAttribute('data-prev', newVal);
-
-    document.querySelectorAll("#scheduleContent tr").forEach(r => {
-      const cell = r.querySelectorAll("td.schedule-entry")[colIdx];
-      const otherSel = cell.querySelector("select");
-      if (otherSel && otherSel !== sel) {
-        otherSel.querySelectorAll("option").forEach(opt => {
-          if (!opt.value) return;
-          if (opt.value === otherSel.value) {
-            opt.disabled = false;
-            return;
-          }
-          const shouldDisable = selectedPerDay[day].some(v => v && rangesOverlap(opt.value, v));
-          opt.disabled = shouldDisable;
+                opt.disabled = selected[day].some(v => rangesOverlap(v, opt.value));
+            });
         });
-      }
+    });
+}
+
+/* ============================================================
+   PER-DAY SORTING (Option B)
+   ============================================================ */
+
+function sortColumn(colIdx) {
+    const body = document.getElementById("scheduleContent");
+    const rows = [...body.querySelectorAll("tr")];
+
+    const values = [];
+    rows.forEach(row => {
+        const td = row.querySelectorAll("td.schedule-entry")[colIdx];
+        if (!td) return;
+        const sel = td.querySelector("select");
+        const raw = sel ? sel.value.trim() : td.textContent.trim();
+        const norm = normalizeTimeRange(raw);
+        if (norm) values.push(norm);
     });
 
-    sortRowsByEarliest();
-  });
+    values.sort((a,b) => {
+        const ra = parseRange(a), rb = parseRange(b);
+        return (ra?.start || 0) - (rb?.start || 0);
+    });
 
-  td.appendChild(select);
+    let k = 0;
+    rows.forEach(row => {
+        const td = row.querySelectorAll("td.schedule-entry")[colIdx];
+        if (!td) return;
+        const sel = td.querySelector("select");
+        const val = k < values.length ? values[k++] : "";
+
+        if (sel) {
+            sel.value = val;
+            sel.dataset.current = val;
+        } else {
+            td.textContent = val;
+        }
+        td.style.backgroundColor = val ? "#d4edda" : "";
+    });
+
+    rebuildSelectedPerDay();
 }
+
+function sortAllColumns() {
+    for (let i = 0; i < days.length; i++) {
+        sortColumn(i);
+    }
+}
+
+/* ============================================================
+   CREATE SELECT CELL (WITH UNDO SUPPORT)
+   ============================================================ */
+
+function createSelectInCell(td, colIdx) {
+    const day = days[colIdx];
+    let cur = normalizeTimeRange(td.textContent.trim());
+    td.textContent = "";
+
+    const select = document.createElement("select");
+    select.className = "schedule-select form-select form-select-sm";
+    select.setAttribute("data-prev", "");
+    select.setAttribute("data-current", cur || "");
+
+    const blank = document.createElement("option");
+    blank.value = "";
+    blank.textContent = "No Class";
+    select.appendChild(blank);
+
+    const selectedPerDay = buildSelectedPerDay();
+
+    const groups = {
+        AM: document.createElement("optgroup"),
+        PM: document.createElement("optgroup")
+    };
+    groups.AM.label = "Morning";
+    groups.PM.label = "Afternoon / Evening";
+
+    timeOptions.forEach(opt => {
+        const meta = timeMeta[opt];
+        const og = groups[meta.group];
+
+        const option = document.createElement("option");
+        option.value = opt;
+        option.textContent = meta.label;
+
+        const conflict = selectedPerDay[day].some(v => v !== cur && rangesOverlap(v, opt));
+        if (conflict) option.disabled = true;
+
+        og.appendChild(option);
+    });
+
+    select.appendChild(groups.AM);
+    select.appendChild(groups.PM);
+
+    if (cur && !timeMeta[cur]) {
+        const c = document.createElement("option");
+        c.value = cur;
+        c.textContent = cur + " (Custom)";
+        select.appendChild(c);
+    }
+
+    select.value = cur || "";
+
+    select.addEventListener("change", () => {
+        const oldCurrent = select.dataset.current || "";
+        select.dataset.prev = oldCurrent;
+        select.dataset.current = select.value;
+
+        td.style.backgroundColor = select.value ? "#d4edda" : "";
+
+        sortColumn(colIdx); // sort this day only (continuous)
+    });
+
+    td.appendChild(select);
+}
+
+/* ============================================================
+   CTRL+Z UNDO FOR ACTIVE SELECT
+   ============================================================ */
+
+document.addEventListener("keydown", (e) => {
+    if (!e.ctrlKey || (e.key !== "z" && e.key !== "Z")) return;
+
+    const active = document.activeElement;
+    if (!active || active.tagName !== "SELECT" || !active.classList.contains("schedule-select")) return;
+
+    e.preventDefault();
+
+    const select = active;
+    const cur = select.dataset.current || "";
+    const prev = select.dataset.prev || "";
+
+    if (!prev) return; // nothing to undo
+
+    // swap
+    select.dataset.current = prev;
+    select.dataset.prev = cur;
+    select.value = prev;
+
+    const td = select.closest("td.schedule-entry");
+    if (!td) return;
+
+    const row = select.closest("tr");
+    const cells = [...row.querySelectorAll("td.schedule-entry")];
+    const colIdx = cells.indexOf(td);
+    if (colIdx === -1) return;
+
+    td.style.backgroundColor = prev ? "#d4edda" : "";
+
+    sortColumn(colIdx);
+});
 
 /* ============================================================
    OPEN MODAL
    ============================================================ */
 
-function openScheduleModal(scheduleString, type, index, volunteerId) {
-  currentType = type;
-  currentIndex = index;
-  currentVolunteerId = volunteerId;
-  isEditing = false;
+function openScheduleModal(scheduleString, type, index) {
+    currentType = type;
+    currentIndex = index;
+    isEditing = false;
 
-  document.getElementById('editScheduleBtn').classList.remove('d-none');
-  document.getElementById('saveScheduleBtn').classList.add('d-none');
+    const body = document.getElementById("scheduleContent");
+    body.innerHTML = "";
 
-  const container = document.getElementById('scheduleContent');
-  container.innerHTML = '';
+    const scheduleData = {};
+    days.forEach(day => {
+        const regex = new RegExp(`${day}:([^]*?)(?=Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|$)`,"i");
+        const match = scheduleString.match(regex);
+        let raw = match ? match[1].trim() : "";
+        raw = raw.replace(/No Class/gi,"").replace(/[,;]+/g," ").trim();
 
-  const scheduleData = {};
-  days.forEach(day => {
-    const regex = new RegExp(day+":\\s*([^]*?)(?=(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|$))","i");
-    const match = scheduleString.match(regex);
-    let raw = (match && match[1]) ? match[1].trim() : "";
-    raw = raw.replace(/No Class/gi,'').trim();
-    raw = raw.replace(/[,;]+/g, ' ');
+        scheduleData[day] = raw ? raw.split(/\s+/).map(normalizeTimeRange) : [];
 
-    scheduleData[day] = raw
-        ? raw.split(/\s+/)
-             .filter(Boolean)
-             .map(normalizeTimeRange)
-        : [];
-
-    scheduleData[day].sort((a,b) => {
-        const ra = parseRange(a);
-        const rb = parseRange(b);
-        if (!ra || !rb) return 0;
-        return ra.start - rb.start;
+        scheduleData[day].sort((a,b) => {
+            const ra = parseRange(a), rb = parseRange(b);
+            return (ra?.start||0) - (rb?.start||0);
+        });
     });
-  });
 
-  let numRows = Math.max(...days.map(day => scheduleData[day].length));
-  if (!Number.isFinite(numRows) || numRows <= 0) numRows = 1;
-  numRows = Math.min(MAX_ROWS, numRows);
+    let rows = Math.max(...days.map(d => scheduleData[d].length));
+    if (!rows || rows < 1) rows = 1;
+    rows = Math.min(rows, MAX_ROWS);
 
-  for (let r = 0; r < numRows; r++) {
-    const rowData = {};
-    days.forEach(day => rowData[day] = scheduleData[day][r] || "");
-    addScheduleRow(rowData);
-  }
+    for (let i=0;i<rows;i++) {
+        const row = {};
+        days.forEach(d => row[d] = scheduleData[d][i] || "");
+        addScheduleRow(row);
+    }
 
-  sortRowsByEarliest();
+    sortAllColumns();
 
-  document.getElementById('addRowBtnFooter').onclick = ()=>addScheduleRow();
-  new bootstrap.Modal(document.getElementById('classScheduleModal')).show();
+    document.getElementById("editScheduleBtn").classList.remove("d-none");
+    document.getElementById("saveScheduleBtn").classList.add("d-none");
+
+    document.getElementById("addRowBtnFooter").onclick = () => addScheduleRow();
+
+    new bootstrap.Modal(document.getElementById("classScheduleModal")).show();
 }
 
 /* ============================================================
    ADD ROW
    ============================================================ */
 
-function addScheduleRow(rowData=null){
-  const container=document.getElementById('scheduleContent');
-  if(container.children.length>=MAX_ROWS){
-    showMessageModal("You can only add up to "+MAX_ROWS+" rows."); 
-    return;
-  }
+function addScheduleRow(data={}) {
+    const body = document.getElementById("scheduleContent");
 
-  const tr=document.createElement('tr');
-  tr.innerHTML=`<td class="schedule-time">${container.children.length+1}</td>`;
+    if (body.children.length >= MAX_ROWS) {
+        showMessageModal("You can only add up to " + MAX_ROWS + " rows.");
+        return;
+    }
 
-  days.forEach(day=>{
-    const td=document.createElement('td');
-    td.classList.add('schedule-entry');
-    const value=rowData && rowData[day]?normalizeTimeRange(rowData[day]):"";
-    td.textContent=value;
-    td.style.backgroundColor=value?"#d4edda":"";
-    tr.appendChild(td);
-  });
+    const tr = document.createElement("tr");
 
-  const delTd=document.createElement('td');
-  const delBtn=document.createElement('button');
-  delBtn.type='button';
-  delBtn.className='btn btn-sm btn-danger delete-row-btn';
-  delBtn.innerHTML='<i class="fa-solid fa-trash"></i>';
-  delBtn.addEventListener("click",()=>{
-    tr.remove(); 
-    updateRowNumbers();
-    sortRowsByEarliest();
-  });
-  delTd.appendChild(delBtn);
-  tr.appendChild(delTd);
+    const idx = document.createElement("td");
+    idx.className = "schedule-time";
+    idx.textContent = body.children.length + 1;
+    tr.appendChild(idx);
 
-  container.appendChild(tr);
-
-  if(isEditing){
-    const selectedPerDay={};
-    days.forEach((day,idx)=>{
-      selectedPerDay[day]=[];
-      container.querySelectorAll("tr").forEach(row=>{
-        const val=row.querySelectorAll("td.schedule-entry")[idx].textContent.trim();
-        if(val) selectedPerDay[day].push(val);
-      });
+    days.forEach(day => {
+        const td = document.createElement("td");
+        td.className = "schedule-entry";
+        const val = normalizeTimeRange(data[day] || "");
+        td.textContent = val;
+        td.style.backgroundColor = val ? "#d4edda" : "";
+        tr.appendChild(td);
     });
-    tr.querySelectorAll("td.schedule-entry").forEach((td,colIdx)=>{
-      createSelectInCell(td,colIdx,selectedPerDay);
-    });
-  }
 
-  sortRowsByEarliest();
+    const tdDel = document.createElement("td");
+    const b = document.createElement("button");
+    b.className = "btn btn-sm btn-danger";
+    b.innerHTML = "<i class='fa-solid fa-trash'></i>";
+    b.onclick = () => {
+        tr.remove();
+        updateRowNumbers();
+        sortAllColumns();
+    };
+    tdDel.appendChild(b);
+    tr.appendChild(tdDel);
+
+    body.appendChild(tr);
+
+    if (isEditing) {
+        const cells = tr.querySelectorAll("td.schedule-entry");
+        cells.forEach((td, di) => createSelectInCell(td, di));
+        rebuildSelectedPerDay();
+    }
+
+    sortAllColumns();
 }
 
 /* ============================================================
    UPDATE ROW NUMBERS
    ============================================================ */
 
-function updateRowNumbers(){
-  document.querySelectorAll("#scheduleContent tr").forEach((row,idx)=>{
-    row.querySelector(".schedule-time").textContent = idx+1;
-  });
+function updateRowNumbers() {
+    document.querySelectorAll("#scheduleContent .schedule-time").forEach((c,i)=>{
+        c.textContent = i+1;
+    });
 }
 
 /* ============================================================
-   EDIT SCHEDULE
+   EDIT MODE
    ============================================================ */
 
-document.getElementById('editScheduleBtn').addEventListener('click',()=>{
-  isEditing = true;
-  const container=document.querySelector("#scheduleContent");
-  const selectedPerDay={};
+document.getElementById("editScheduleBtn").onclick = () => {
+    isEditing = true;
 
-  days.forEach((day,idx)=>{
-    selectedPerDay[day]=[];
-    container.querySelectorAll("tr").forEach(row=>{
-      const val=row.querySelectorAll("td.schedule-entry")[idx].textContent.trim();
-      if(val) selectedPerDay[day].push(val);
+    const body = document.getElementById("scheduleContent");
+    body.querySelectorAll("tr").forEach(row => {
+        row.querySelectorAll("td.schedule-entry").forEach((td, di) => {
+            createSelectInCell(td, di);
+        });
     });
-  });
 
-  container.querySelectorAll("tr").forEach(row=>{
-    row.querySelectorAll("td.schedule-entry").forEach((td,colIdx)=>{
-      createSelectInCell(td,colIdx,selectedPerDay);
-    });
-  });
+    sortAllColumns();
 
-  sortRowsByEarliest();
-
-  document.getElementById('editScheduleBtn').classList.add('d-none');
-  document.getElementById('saveScheduleBtn').classList.remove('d-none');
-});
+    document.getElementById("editScheduleBtn").classList.add("d-none");
+    document.getElementById("saveScheduleBtn").classList.remove("d-none");
+};
 
 /* ============================================================
-   SAVE SCHEDULE
+   SAVE MODE
    ============================================================ */
 
-document.getElementById('saveScheduleBtn').addEventListener('click',()=>{
-  sortRowsByEarliest();
+document.getElementById("saveScheduleBtn").onclick = () => {
+    sortAllColumns();
 
-  const updatedSchedule={};
-  days.forEach(day=>updatedSchedule[day]=[]);
+    const updated = {};
+    days.forEach(d => updated[d] = []);
 
-  document.querySelectorAll("#scheduleContent tr").forEach((row,rIdx)=>{
-    row.querySelectorAll("td.schedule-entry").forEach((td,cIdx)=>{
-      const sel=td.querySelector("select");
-      let val=sel?sel.value.trim():td.textContent.trim();
-      val = val.replace("(Custom)","").trim();
-      val = normalizeTimeRange(val);
-      updatedSchedule[days[cIdx]][rIdx]=val;
-      td.textContent=val;
-      td.style.backgroundColor=val?"#d4edda":"";
+    document.querySelectorAll("#scheduleContent tr").forEach((row, ri) => {
+        row.querySelectorAll("td.schedule-entry").forEach((td, di) => {
+            const sel = td.querySelector("select");
+            let val = sel ? sel.value.trim() : td.textContent.trim();
+
+            val = val.replace("(Custom)", "").trim();
+            val = normalizeTimeRange(val);
+
+            updated[days[di]][ri] = val;
+            td.textContent = val;
+            td.style.backgroundColor = val ? "#d4edda" : "";
+        });
     });
-  });
 
-  days.forEach(day=>{
-    updatedSchedule[day] = updatedSchedule[day]
-      .filter(v => v)
-      .sort((a,b)=>{
-        const ra = parseRange(a);
-        const rb = parseRange(b);
-        if (!ra || !rb) return 0;
-        return ra.start - rb.start;
-      });
-  });
+    days.forEach(d => {
+        updated[d] = updated[d].filter(v => v).sort((a,b)=>{
+            const ra = parseRange(a), rb = parseRange(b);
+            return (ra?.start||0)-(rb?.start||0);
+        });
+    });
 
-  const displaySchedule={};
-  days.forEach(day=>displaySchedule[day]=updatedSchedule[day].map(t=>t||"No Class"));
-  const scheduleStr=formatScheduleString(displaySchedule);
+    const final = formatSchedule(updated);
+    document.getElementById("scheduleInput").value = final;
 
-  const form=document.getElementById('updateScheduleForm');
-  document.getElementById('scheduleInput').value=scheduleStr;
+    // 🔴 ADD THIS:
+    document.getElementById("scheduleType").value = currentType; // "valid" or "invalid"
 
-  let typeInput=form.querySelector("input[name='type']");
-  if(!typeInput){
-    typeInput=document.createElement('input');
-    typeInput.type='hidden';
-    typeInput.name='type';
-    form.appendChild(typeInput);
-  }
-  typeInput.value=currentType;
+    const form = document.getElementById("updateScheduleForm");
+    form.action = `/volunteer-import/volunteers/${currentIndex}/update-schedule`;
+    form.submit();
 
-  form.action=`/volunteer-import/volunteers/${currentIndex}/update-schedule`;
-  form.submit();
+    document.getElementById("saveScheduleBtn").classList.add("d-none");
+    document.getElementById("editScheduleBtn").classList.remove("d-none");
+    isEditing = false;
+};
 
-  document.getElementById('saveScheduleBtn').classList.add('d-none');
-  document.getElementById('editScheduleBtn').classList.remove('d-none');
-  isEditing = false;
-});
 
 /* ============================================================
    FORMAT SCHEDULE STRING
    ============================================================ */
 
-function formatScheduleString(scheduleObj){
-  return Object.entries(scheduleObj).map(([day,times])=>{
-    return day+": "+(times.length?times.join(" "):"No Class");
-  }).join(' ');
+function formatSchedule(obj) {
+    return days.map(day => {
+        let arr = obj[day];
+        if (!arr.length) return `${day}: No Class`;
+        return `${day}: ${arr.join(" ")}`;
+    }).join(" ");
 }
 
 /* ============================================================
-   MODALS
+   MESSAGE MODALS (if you already have them)
    ============================================================ */
 
 function showMessageModal(msg){
@@ -567,199 +867,4 @@ function closeMessageModal(){
   const overlay=document.getElementById('messageModal');
   if(overlay) overlay.style.display='none';
 }
-
-function showScheduleMessageModal(message){
-  const overlay=document.getElementById('scheduleMessageModal');
-  const textEl=document.getElementById('scheduleMessageText');
-  textEl.innerHTML=message;
-  overlay.style.display='flex';
-}
-function closeScheduleMessageModal(){
-  const overlay=document.getElementById('scheduleMessageModal');
-  overlay.style.display='none';
-}
-
-document.getElementById('classScheduleModal').addEventListener('hidden.bs.modal',()=>{
-  document.getElementById('saveScheduleBtn').classList.add('d-none');
-  document.getElementById('editScheduleBtn').classList.remove('d-none');
-  isEditing = false;
-});
-
-document.addEventListener("DOMContentLoaded", function() {
-    @if(session('success') || session('info'))
-        const msg = {!! json_encode(session('success') ?? session('info')) !!};
-        showScheduleMessageModal(msg);
-    @endif
-});
 </script>
-
-
-
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    const persistKey = 'persistSection';
-    const defaultSectionId = 'import-Section-invalid';
-
-    // Check if there’s a redirect section from the server
-    @if(session('last_updated_table'))
-        const updatedSection = "{{ session('last_updated_table') }}"; // 'valid' or 'invalid'
-        const updatedId = updatedSection === 'valid' ? 'import-Section-valid' : defaultSectionId;
-
-        // Store in sessionStorage with persistence count
-        sessionStorage.setItem(persistKey, JSON.stringify({ section: updatedId, remaining: 2 }));
-    @endif
-
-    // Read from sessionStorage
-    let data = sessionStorage.getItem(persistKey);
-    let targetId = defaultSectionId;
-
-    if(data){
-        try {
-            data = JSON.parse(data);
-            if(data.remaining > 0){
-                targetId = data.section;
-                data.remaining--;
-                sessionStorage.setItem(persistKey, JSON.stringify(data));
-            } else {
-                sessionStorage.removeItem(persistKey);
-            }
-        } catch(e){
-            sessionStorage.removeItem(persistKey);
-        }
-    }
-
-    // Scroll to the target section
-    const targetEl = document.getElementById(targetId);
-    if(targetEl){
-        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        // Optional highlight
-        targetEl.style.transition = "background-color 0.5s";
-        targetEl.style.backgroundColor = "#fff3cd";
-        setTimeout(() => targetEl.style.backgroundColor = "", 2000);
-    }
-});
-</script>
-
-
-<style>/* ---- Red-themed Select ---- */
-.form-select.form-select-sm {
-  height: 30px;                 /* shorter height */
-  padding: 0 0.5rem;
-  font-size: 0.85rem;
-  background-color: #fff5f5;    /* light red background */
-  border: 1px solid #e3342f;    /* red border */
-  color: #e3342f;               /* red text */
-  border-radius: 0.25rem;
-  appearance: none;             /* remove default arrow */
-  cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-/* Hover / focus effect */
-.form-select.form-select-sm:hover,
-.form-select.form-select-sm:focus {
-  border-color: #c53030;
-  box-shadow: 0 0 0 2px rgba(227,52,47,0.2);
-  outline: none;
-}
-
-/* ---- Option styling ---- */
-.form-select.form-select-sm option {
-  padding: 0.25rem 0.5rem;     /* smaller padding */
-  font-size: 0.85rem;
-  background-color: #fff5f5;
-  color: #e3342f;
-}
-
-/* Disabled option style (already added) */
-.form-select.form-select-sm option:disabled {
-  color: #aaa;
-  font-style: italic;
-}
-
-/* ---- Custom scrollbar for dropdown (Webkit only) ---- */
-.form-select.form-select-sm::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.form-select.form-select-sm::-webkit-scrollbar-track {
-  background: #fee2e2;  /* light red track */
-  border-radius: 4px;
-}
-
-.form-select.form-select-sm::-webkit-scrollbar-thumb {
-  background: #e3342f;  /* red thumb */
-  border-radius: 4px;
-}
-
-.form-select.form-select-sm::-webkit-scrollbar-thumb:hover {
-  background: #c53030;
-}
-
-/* ---- Optional: smaller arrow indicator ---- */
-.form-select.form-select-sm::after {
-  border-color: #e3342f transparent transparent transparent;
-}
-</style>
-
-
-<!-- Custom CSS -->
-<style>
-.custom-schedule-modal {
-  border-radius: 15px;
-  font-family: 'Segoe UI', Roboto, sans-serif;
-  overflow: hidden;
-}
-
-.custom-modal-header {
-  background-color: #c82333;
-  color: white;
-  font-weight: 600;
-  border-bottom: none;
-}
-
-.custom-modal-body {
-  background-color: #fff5f5;
-  padding: 1rem 1.5rem;
-}
-
-.schedule-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-
-.schedule-table th, .schedule-table td {
-  border: 1px solid #f1c0c3;
-  padding: 0.5rem;
-}
-
-.schedule-table th {
-  background-color: #e4606d;
-  color: white;
-  font-weight: 600;
-}
-
-.schedule-table tbody tr:nth-child(even) {
-  background-color: #ffe5e8;
-}
-
-.schedule-table tbody tr:hover {
-  background-color: #f9b2bc;
-}
-
-.schedule-time {
-  font-weight: 600;
-  color: #b71c1c;
-}
-
-.schedule-entry {
-  font-weight: 500;
-  color: #4d0000;
-  padding: 0.25rem 0.5rem;
-  border-radius: 6px;
-  background-color: #f8d0d5;
-  margin: 2px 0;
-}
-</style>

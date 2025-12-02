@@ -112,6 +112,115 @@
 }
 
 /* ===========================================================
+   SUCCESS MODAL – CLEAN GREEN THEME
+=========================================================== */
+
+/* Wrapper */
+.submit-success-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    font-family: 'Segoe UI', Roboto, sans-serif;
+}
+.submit-success-modal.active {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Overlay */
+.submit-success-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Modal Box */
+.submit-success-box {
+    background: #fff;
+    border-radius: 18px;
+    width: 92%;
+    max-width: 520px;
+    padding: 2rem 2.2rem 2rem;
+    animation: fadeInUp 0.28s ease forwards;
+    box-shadow: 0 14px 45px rgba(0,0,0,0.35);
+    text-align: center;
+}
+
+/* HEADER */
+.submit-success-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: .6rem;
+    margin-bottom: .6rem;
+}
+
+.submit-success-header h2 {
+    font-size: 1.7rem;
+    margin: 0;
+    font-weight: 700;
+    color: #28a745 !important;   /* PURE GREEN */
+}
+
+.submit-success-icon {
+    font-size: 2rem;
+    color: #28a745 !important;    /* PURE GREEN */
+}
+
+/* Separator */
+.submit-success-separator {
+    width: 85%;
+    height: 1px;
+    background: #e3e3e3;
+    margin: 1rem auto;
+}
+
+/* Text */
+.submit-success-text {
+    text-align: left;
+    margin: 1rem auto 1.4rem;
+    font-size: 1.1rem;
+    line-height: 1.62;
+    color: #333;
+    padding: 0 0.75rem;
+}
+
+/* BUTTON ROW */
+.submit-success-buttons {
+    display: flex;
+    justify-content: center;
+    margin-top: 1.4rem;
+}
+
+/* Green Button (consistent theme) */
+.file-btn-green {
+    background: #28a745;
+    color: #fff;
+    padding: 10px 26px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: background .2s ease, transform .15s ease;
+}
+.file-btn-green:hover {
+    background: #1f8b39;
+    transform: translateY(-2px);
+}
+.file-btn-green:active {
+    transform: translateY(0);
+}
+
+/* ===========================================================
    ENTRY ERROR CARD STYLE (collapsible)
 =========================================================== */
 .entry-error-card {
@@ -136,6 +245,21 @@
     color:#B2000C;
     font-weight:600;
 }
+
+/* Make the ERROR MODAL scrollable when content is long */
+#errorModalBox {
+    max-height: 85vh;          /* prevents exploding beyond screen */
+    overflow-y: auto !important;
+    padding-right: 18px;       /* avoid content being hidden behind scrollbar */
+}
+
+/* Make entry list itself scroll if it becomes huge */
+#errorEntryList {
+    max-height: 45vh;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
 </style>
 
 
@@ -172,25 +296,24 @@
 
 
 <!-- ===========================================================
-     SUCCESS MODAL (RED THEME, ISOLATED ID)
+     SUCCESS MODAL (GREEN THEME)
 =========================================================== -->
 <div id="submitSuccessModal" class="submit-success-modal">
     <div class="submit-success-overlay">
         <div class="submit-success-box">
 
             <div class="submit-success-header">
-                <i class="fa-solid fa-circle-check submit-success-icon" 
-                   style="color:#28a745;"></i>
-                <h2 style="color:#B2000C;">Success</h2>
+                <i class="fa-solid fa-circle-check submit-success-icon"></i>
+                <h2>Success</h2>
             </div>
 
-            <hr class="submit-error-separator">
+            <hr class="submit-success-separator">
 
             <div id="submitSuccessModalMessage" class="submit-success-text"
-                 style="font-size:1.05rem; line-height:1.6; color:#333;"></div>
+                style="font-size:1.05rem; line-height:1.6; color:#333;"></div>
 
             <div class="submit-success-buttons" style="margin-top:1.7rem;">
-                <button type="button" id="closeSubmitSuccessModal" class="file-btn-red">
+                <button type="button" id="closeSubmitSuccessModal" class="file-btn-green">
                     <i class="fa-solid fa-check"></i> Ok
                 </button>
             </div>
@@ -198,6 +321,7 @@
         </div>
     </div>
 </div>
+
 
 <!-- ===========================================================
      ERROR MODAL

@@ -21,76 +21,76 @@ class AuthController extends Controller
         return view('authentication.admin.login');
     }
     /* ===========================
-   HANDLE LOGIN
-=========================== */
-public function login(Request $request)
-{
-    $request->validate([
-        'username' => 'required|string',
-        'password' => 'required|string',
-    ], [
-        'username.required' => 'Please enter your username, email, or full name.',
-        'password.required' => 'Please enter your password.',
-    ]);
+    HANDLE LOGIN
+    =========================== */
+    public function login(Request $request)
+    {
+        $request->validate([
+            'username' => 'required|string',
+            'password' => 'required|string',
+        ], [
+            'username.required' => 'Please enter your username, email, or full name.',
+            'password.required' => 'Please enter your password.',
+        ]);
 
-    $loginField = $request->input('username');
-    $password = $request->input('password');
-    $ip = $request->ip();
+        $loginField = $request->input('username');
+        $password = $request->input('password');
+        $ip = $request->ip();
 
-    // Attempt to find admin by username, email, or full_name
-    $admin = AdminAccount::where('username', $loginField)
-        ->orWhere('email', $loginField)
-        ->orWhere('full_name', $loginField)
-        ->first();
+        // Attempt to find admin by username, email, or full_name
+        $admin = AdminAccount::where('username', $loginField)
+            ->orWhere('email', $loginField)
+            ->orWhere('full_name', $loginField)
+            ->first();
 
-    // Check password manually
-    if ($admin && \Illuminate\Support\Facades\Hash::check($password, $admin->password)) {
-        // Login the admin
-        Auth::guard('admin')->login($admin);
-        $request->session()->regenerate();
+        // Check password manually
+        if ($admin && \Illuminate\Support\Facades\Hash::check($password, $admin->password)) {
+            // Login the admin
+            Auth::guard('admin')->login($admin);
+            $request->session()->regenerate();
 
-        // Log successful login
+            // Log successful login
+            AdminAuthenticateLog::create([
+                'admin_id' => $admin->admin_id,
+                'ip_address' => $ip,
+                'status' => 'success',
+                'reason' => null,
+                'login_time' => now(),
+            ]);
+
+            $this->logFact(
+                $admin->admin_id,
+                'admin_accounts',
+                $admin->admin_id,
+                'login',
+                'Admin logged in successfully'
+            );
+
+            return redirect()->route('home')
+                ->with('success', 'Welcome back, ' . ($admin->full_name ?? 'Admin') . '!');
+        }
+
+        // Log failed login (admin_id may be null if user not found)
         AdminAuthenticateLog::create([
-            'admin_id' => $admin->admin_id,
+            'admin_id' => $admin?->admin_id,
             'ip_address' => $ip,
-            'status' => 'success',
-            'reason' => null,
+            'status' => 'failed',
+            'reason' => 'Incorrect credentials',
             'login_time' => now(),
         ]);
 
         $this->logFact(
-            $admin->admin_id,
+            $admin?->admin_id,
             'admin_accounts',
-            $admin->admin_id,
-            'login',
-            'Admin logged in successfully'
+            $admin?->admin_id,
+            'failed_login',
+            'Incorrect username, email, or full name, or password'
         );
 
-        return redirect()->route('home')
-            ->with('success', 'Welcome back, ' . ($admin->full_name ?? 'Admin') . '!');
+        return back()
+            ->withInput($request->only('username'))
+            ->with('login_error', 'Incorrect username, email, or full name, or password.');
     }
-
-    // Log failed login (admin_id may be null if user not found)
-    AdminAuthenticateLog::create([
-        'admin_id' => $admin?->admin_id,
-        'ip_address' => $ip,
-        'status' => 'failed',
-        'reason' => 'Incorrect credentials',
-        'login_time' => now(),
-    ]);
-
-    $this->logFact(
-        $admin?->admin_id,
-        'admin_accounts',
-        $admin?->admin_id,
-        'failed_login',
-        'Incorrect username, email, or full name, or password'
-    );
-
-    return back()
-        ->withInput($request->only('username'))
-        ->with('login_error', 'Incorrect username, email, or full name, or password.');
-}
 
     /* ===========================
        SHOW REGISTER PAGE

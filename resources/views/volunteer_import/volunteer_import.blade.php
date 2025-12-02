@@ -1,6 +1,70 @@
 {{-- Declar Page Title --}}
 @php
     $pageTitle = 'Volunteer Imports';
+
+    // ===== helpers for counts (Invalid table pills) =====
+    $invalidEntries = $invalidEntries ?? session('invalidEntries', []);
+    $validEntries   = $validEntries ?? session('validEntries', []);
+
+    // ----------------------------
+    // Accurate detection helpers
+    // ----------------------------
+    $isDefaultPhoto = function($entry) {
+        $local = trim((string)($entry['profile_picture_local'] ?? ''));
+        // your controller uses this as fallback
+        return $local === 'defaults/default_user.png';
+    };
+
+    $hasRealPhoto = function($entry) use ($isDefaultPhoto) {
+        $local = trim((string)($entry['profile_picture_local'] ?? ''));
+        $url   = trim((string)($entry['profile_picture'] ?? ''));
+        // consider default as missing; either local non-default or a url counts as photo
+        if ($local && !$isDefaultPhoto($entry)) return true;
+        if ($url) return true;
+        return false;
+    };
+
+    $scheduleLooksEmpty = function($entry) {
+        $s = preg_replace('/\s+/', ' ', trim((string)($entry['class_schedule'] ?? '')));
+        if ($s === '' || strcasecmp($s, 'No class schedule') === 0) return true;
+
+        // your normalizeRow builds: "Monday: No Class Tuesday: No Class ..."
+        // treat as empty if ALL days are "No Class"
+        $days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        $allNoClass = true;
+        foreach ($days as $d) {
+            if (stripos($s, $d . ':') === false) { $allNoClass = false; break; }
+            if (preg_match('/' . preg_quote($d, '/') . ':\s*[^N].*/i', $s) && preg_match('/\d/', $s)) {
+                $allNoClass = false;
+                break;
+            }
+        }
+
+        // simplest + reliable: if schedule contains ANY digit, assume has a slot
+        if (preg_match('/\d/', $s)) return false;
+
+        return $allNoClass;
+    };
+
+    $invalidReadyCount = 0;
+    $invalidNeedsCount = 0;
+
+    foreach ($invalidEntries as $e) {
+        $hasErrors = !empty($e['errors']) && count($e['errors']) > 0;
+
+        $missingRequired = false;
+        foreach (['full_name','id_number','course','year_level','contact_number','email','barangay','district'] as $requiredField) {
+            if (empty(trim($e[$requiredField] ?? ''))) { $missingRequired = true; break; }
+        }
+
+        $scheduleOk = !$scheduleLooksEmpty($e);
+        $photoOk    = $hasRealPhoto($e);
+
+        $isReady = !$hasErrors && !$missingRequired && $scheduleOk && $photoOk;
+
+        if ($isReady) $invalidReadyCount++;
+        else $invalidNeedsCount++;
+    }
 @endphp
 
 <!DOCTYPE html>
@@ -10,10 +74,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Database Management - Import CSV, Invalid Entries & Import Logs</title>
 
-    {{-- Styles --}}
     <link rel="stylesheet" href="{{ asset('assets/volunteer_import/css/volunteer_import.css') }}">
-
-    {{-- Bootstrap & Font Awesome --}}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -22,6 +83,17 @@
     <meta id="lastUpdatedTable" content="{{ session('last_updated_table') ?? '' }}">
     <meta id="lastUpdatedIndices" content='@json(session("last_updated_indices") ?? [])'>
 
+    <style>
+      /* tiny header inside dropdown */
+      .entry-actions-header{
+        display:flex; align-items:center; justify-content:space-between;
+        padding:.35rem .5rem; gap:.5rem;
+      }
+      .entry-actions-header .title{ font-size:.82rem; font-weight:700; color:#6c757d; letter-spacing:.02em; }
+      .entry-actions-header .btn{
+        padding:.15rem .4rem; line-height:1; border-radius:.5rem;
+      }
+    </style>
 </head>
 
 <body>
@@ -63,6 +135,7 @@
                                             </span>
                                         </div>
                                     </div>
+
                                     {{-- Import Button --}}
                                     <div class="uploader-info">
                                         <input type="text" class="form-control" value="Uploading as {{ Auth::guard('admin')->user()->username ?? 'Guest' }}" readonly>
@@ -74,11 +147,11 @@
                                     </div>
                                 </div>
                             </form>
-                            
+
                             {{-- Reset Button --}}
                             @if(session()->exists('validEntries') || session()->exists('invalidEntries'))
-                                <button type="button" 
-                                        class="btn btn-outline-warning import-btn" 
+                                <button type="button"
+                                        class="btn btn-outline-warning import-btn"
                                         id="openResetModal"
                                         title="Clear all imported entries from preview">
                                     <i class="fa-solid fa-rotate-left me-1"></i> Clear Imports
@@ -86,10 +159,8 @@
                             @endif
                         </div>
 
-                        {{-- Divider/Line --}}
                         <hr class="red-hr">
 
-                        {{-- Invalid Data Table --}}
                         <div class="data-table-container">
                             {{-- Action Message --}}
                             <div class="action-message {{ session('success') ? 'text-success' : 'd-none' }}">
@@ -97,47 +168,59 @@
                                 <button type="button" class="close-message-btn">&times;</button>
                             </div>
 
-                            {{-- Table Actions --}}
+                            {{-- Table Controls --}}
                             <div class="table-controls mb-0">
                                 <div class="table-actions d-flex align-items-center justify-content-center gap-2">
                                     <h3>Invalid Entries</h3>
-                                    {{-- Toggle Edit Side Tool --}}
+
+                                    <span class="mini-badge ready"
+                                          data-bs-toggle="tooltip"
+                                          data-bs-title="Entries that are complete and can be validated">
+                                        <i class="fa-solid fa-circle-check"></i>
+                                        Ready {{ $invalidReadyCount }}
+                                    </span>
+
+                                    <span class="mini-badge needs"
+                                          data-bs-toggle="tooltip"
+                                          data-bs-title="Entries that still need fixes (missing fields / schedule / photo / errors)">
+                                        <i class="fa-solid fa-triangle-exclamation"></i>
+                                        Needs Edit {{ $invalidNeedsCount }}
+                                    </span>
+
                                     <button type="button" class="toggle-edit-btn btn btn-outline-secondary btn-sm">
                                         <i class="fa-solid fa-pen-to-square"></i> Edit Table
                                     </button>
 
-                                    {{-- Edit Table Buttons --}}
                                     <div class="hidden-actions">
-                                        {{-- Select All Button --}}
                                         <button type="button" class="btn btn-outline-primary btn-sm select-all-btn">
                                             <i class="fa-solid fa-check-double"></i> Select All
                                         </button>
-                                        {{-- Delete Button --}}
-                                        <button type="button" class="btn btn-outline-danger btn-sm delete-btn" data-action="{{ route('volunteer.deleteEntries') }}" data-table-type="invalid">
+                                        <button type="button" class="btn btn-outline-danger btn-sm delete-btn"
+                                                data-action="{{ route('volunteer.deleteEntries') }}"
+                                                data-table-type="invalid">
                                             <i class="fa-solid fa-trash-can"></i> Delete
                                         </button>
-                                        {{-- Copy Button --}}
                                         <button type="button" class="btn btn-outline-success btn-sm copy-btn">
                                             <i class="fa-solid fa-copy"></i> Copy
                                         </button>
                                     </div>
                                 </div>
 
-                                {{-- Invalid Section Searchbar --}}
                                 @include('layouts.search_bar.universal_search_bar', [
                                     'tableId'   => 'invalid-entries-table',
                                     'type'      => 'invalid',
                                     'placeholder' => 'Search invalid entries...'
                                 ])
                             </div>
-                            
-                            {{-- Invalid Section Table --}}
-                            <div class="table-responsive mt-3">
-                                <table id="invalid-entries-table" class="table table-hover table-striped volunteer-table">
+
+                            {{-- Invalid Table --}}
+                            <div class="table-responsive mt-3 table-responsive-safe">
+                                <table id="invalid-entries-table" class="table table-hover table-striped volunteer-table align-middle">
                                     <thead>
                                         <tr>
                                             <th><input type="checkbox" class="select-all-invalid"></th>
                                             <th>#</th>
+                                            <th>Status</th>
                                             <th>Full Name</th>
                                             <th>School ID</th>
                                             <th>Course</th>
@@ -148,169 +231,236 @@
                                             <th>FB/Messenger</th>
                                             <th>Barangay</th>
                                             <th>District</th>
-                                            <th>Class Schedule</th>
-                                            <th>Photo</th>
-                                            <th>Action</th>
+                                            <th style="min-width: 140px;">Actions</th>
                                         </tr>
                                     </thead>
+
                                     <tbody>
-                                        {{-- Check if Data is Valid --}}
-                                        @php
-                                            $allInvalidEntriesValid = true;
-
-                                            if (!empty($invalidEntries)) {
-                                                foreach ($invalidEntries as $entry) {
-                                                    // Same checks your table uses
-                                                    $hasErrors = isset($entry['errors']) && count($entry['errors']) > 0;
-
-                                                    $missingRequired = false;
-                                                    foreach (['full_name','id_number','course','year_level','contact_number','email','barangay','district'] as $requiredField) {
-                                                        if (empty($entry[$requiredField])) $missingRequired = true;
-                                                    }
-
-                                                    $scheduleValid = !empty(trim($entry['class_schedule'] ?? ''));
-                                                    $hasPic = !empty($entry['profile_picture_local']) || !empty($entry['profile_picture']);
-
-                                                    $isFullyValid = !$hasErrors && !$missingRequired && $scheduleValid && $hasPic;
-
-                                                    if (!$isFullyValid) {
-                                                        $allInvalidEntriesValid = false;
-                                                        break;
-                                                    }
-                                                }
-                                            }
-                                        @endphp
-
-                                        {{-- Display All Invalid Entries --}}
                                         @if(!empty($invalidEntries) && count($invalidEntries) > 0)
                                             @foreach ($invalidEntries as $index => $entry)
                                                 @php
-                                                    // Check Each Entries for Invalid Field and Display Error Tool Tip
-                                                    $hasErrors = isset($entry['errors']) && count($entry['errors']) > 0;
-                                                    $missingRequired = false;
-                                                    foreach (['full_name','id_number','course','year_level','contact_number','email','barangay','district'] as $requiredField) {
-                                                        if (empty($entry[$requiredField])) $missingRequired = true;
+                                                    $name = trim($entry['full_name'] ?? '') ?: 'Unknown';
+
+                                                    $hasErrors = !empty($entry['errors']) && count($entry['errors']) > 0;
+
+                                                    $missingFields = [];
+                                                    foreach ([
+                                                        'full_name' => 'Name',
+                                                        'id_number' => 'School ID',
+                                                        'course' => 'Course',
+                                                        'year_level' => 'Year',
+                                                        'contact_number' => 'Contact #',
+                                                        'email' => 'Email',
+                                                        'barangay' => 'Barangay',
+                                                        'district' => 'District',
+                                                    ] as $k => $label) {
+                                                        if (empty(trim($entry[$k] ?? ''))) $missingFields[] = $label;
                                                     }
 
-                                                    // Check if Schedule is Filled or Empty
-                                                    $rowClass = $hasErrors ? 'invalid-row'
-                                                            : ($missingRequired ? 'invalid-row-light' : '');
-                                                    $scheduleValue = trim($entry['class_schedule'] ?? '');
-                                                    $scheduleValid = !empty($scheduleValue);
+                                                    $scheduleOk = !$scheduleLooksEmpty($entry);
+                                                    $hasPic     = $hasRealPhoto($entry);
 
-                                                    // Check if Profile Photo Exist in Storage/Volunteers/
-                                                    $hasPic = !empty($entry['profile_picture_local']) || !empty($entry['profile_picture']);
-                                                    $btnClass = $hasPic ? 'btn-success' : 'btn-danger';
-                                                    $btnText  = $hasPic ? 'Profile Picture' : 'No Photo';
-                                                    $picSrc = $entry['profile_picture_local']
+                                                    $isReady = !$hasErrors && empty($missingFields) && $scheduleOk && $hasPic;
+
+                                                    $rowAccentClass = $isReady ? 'row-ok' : 'row-warn';
+
+                                                    $reasons = [];
+                                                    if (!empty($missingFields)) $reasons[] = "Missing: " . implode(', ', $missingFields);
+                                                    if (!$scheduleOk) $reasons[] = "Empty Schedule (Pending)";
+                                                    if (!$hasPic) $reasons[] = "No Photo (Pending)";
+                                                    if ($hasErrors) $reasons[] = "Has validation errors";
+
+                                                    $statusTooltip = $isReady
+                                                        ? "Ready — no missing fields, schedule and photo are present."
+                                                        : implode(' • ', $reasons);
+
+                                                    $picSrc = !empty($entry['profile_picture_local'])
                                                         ? asset('storage/' . $entry['profile_picture_local'])
                                                         : ($entry['profile_picture'] ?? null);
+
+                                                    $columns = [
+                                                        'full_name' => 'Name',
+                                                        'id_number' => 'School ID',
+                                                        'course' => 'Course',
+                                                        'year_level' => 'Year',
+                                                        'contact_number' => 'Contact #',
+                                                        'email' => 'Email',
+                                                        'emergency_contact' => 'Emergency #',
+                                                        'fb_messenger' => 'FB/Messenger',
+                                                        'barangay' => 'Barangay',
+                                                        'district' => 'District',
+                                                    ];
+                                                    $truncatedFields = ['full_name','course','email','fb_messenger','barangay','district'];
+
+                                                    // indicators
+                                                    $missingSchedule = !$scheduleOk;
+                                                    $missingPhoto    = !$hasPic;
                                                 @endphp
-                                                <tr class="{{ $rowClass }}">
-                                                    {{-- Check Box --}}
+
+                                                <tr class="{{ $rowAccentClass }}">
                                                     <td><input type="checkbox" name="selected_invalid[]" value="{{ $index }}"></td>
-                                                    {{-- Index Number --}}  
+
                                                     <td>{{ $index + 1 }}</td>
-                                                    {{-- MAIN COLUMNS --}}
-                                                    @php
-                                                        $columns = [
-                                                            'full_name' => 'Name',
-                                                            'id_number' => 'School ID',
-                                                            'course' => 'Course',
-                                                            'year_level' => 'Year',
-                                                            'contact_number' => 'Contact #',
-                                                            'email' => 'Email',
-                                                            'emergency_contact' => 'Emergency #',
-                                                            'fb_messenger' => 'FB/Messenger',
-                                                            'barangay' => 'Barangay',
-                                                            'district' => 'District',
-                                                        ];
-                                                        $truncatedFields = ['full_name','course','email','fb_messenger','barangay','district'];
-                                                    @endphp
-                                                    {{-- Display No Data --}}
+
+                                                    <td>
+                                                        <span class="status-pill {{ $isReady ? 'status-ok' : 'status-warn' }}"
+                                                              data-bs-toggle="tooltip"
+                                                              data-bs-title="{{ $statusTooltip }}">
+                                                            <i class="fa-solid {{ $isReady ? 'fa-circle-check' : 'fa-triangle-exclamation' }}"></i>
+                                                            {{ $isReady ? 'Ready' : 'Needs edits' }}
+                                                        </span>
+                                                    </td>
+
                                                     @foreach ($columns as $key => $label)
                                                         @php
                                                             $value = trim($entry[$key] ?? '');
                                                             $isTruncated = in_array($key, $truncatedFields);
-                                                            $displayVal = strlen($value) > 20 && $isTruncated
-                                                                ? substr($value, 0, 20).'...' : $value;
-                                                            $errors = $entry['errors'][$key] ?? [];
-                                                            $errors = is_array($errors) ? $errors : [$errors];
+                                                            $displayVal = strlen($value) > 20 && $isTruncated ? substr($value, 0, 20).'...' : $value;
+
+                                                            $errs = $entry['errors'][$key] ?? [];
+                                                            $errs = is_array($errs) ? $errs : [$errs];
+
                                                             $tooltip = '';
-                                                            if (!empty($errors)) {
-                                                                $tooltip = implode('<br>', array_map(fn($e)=>e($e), $errors));
-                                                                if (empty($value)) $tooltip = "Missing $label<br>".$tooltip;
+                                                            if (!empty($errs)) {
+                                                                $tooltip = implode('<br>', array_map(fn($e)=>e($e), $errs));
                                                             }
-                                                            $tooltipText = $tooltip ?: ($value ?: "No $label");
+                                                            if (empty($value)) {
+                                                                $base = "No $label";
+                                                                $tooltip = $tooltip ? ($base . "<br>" . $tooltip) : $base;
+                                                            }
+
+                                                            $cellMissing = empty($value);
                                                         @endphp
 
-                                                        {{-- DISTRICT --}}
                                                         @if($key === 'district')
                                                             @php
                                                                 $districtId = trim($entry['district'] ?? '');
                                                                 $districtName = stripos($districtId, 'district') !== false
                                                                     ? $districtId
-                                                                    : "District " . $districtId;
+                                                                    : ($districtId ? "District " . $districtId : "No District");
                                                             @endphp
-                                                            <td>{{ $districtName }}</td>
+                                                            <td class="{{ empty($districtId) ? 'cell-missing' : '' }}"
+                                                                @if(!empty($tooltip))
+                                                                    data-bs-toggle="tooltip" data-bs-html="true" title="{!! $tooltip !!}"
+                                                                @endif>
+                                                                {{ $districtName }}
+                                                            </td>
                                                         @else
-                                                            <td data-value="{{ $value }}"
-                                                                @if($tooltipText)
-                                                                    data-bs-toggle="tooltip"
-                                                                    data-bs-html="true"
-                                                                    title="{!! $tooltipText !!}"
-                                                                @endif
-                                                                @if($isTruncated)
-                                                                    class="text-truncate"
-                                                                    style="max-width:150px;"
-                                                                @endif
-                                                            >
+                                                            <td class="{{ $cellMissing ? 'cell-missing' : '' }} {{ $isTruncated ? 'text-truncate' : '' }}"
+                                                                @if($isTruncated) style="max-width:150px;" @endif
+                                                                @if(!empty($tooltip))
+                                                                    data-bs-toggle="tooltip" data-bs-html="true" title="{!! $tooltip !!}"
+                                                                @endif>
                                                                 {{ $displayVal ?: "No $label" }}
                                                             </td>
                                                         @endif
                                                     @endforeach
 
-                                                    {{-- CLASS SCHEDULE --}}
-                                                    <td>
-                                                        <button type="button"
-                                                            class="btn btn-sm {{ $scheduleValid ? 'btn-success' : 'btn-danger' }}"
-                                                            onclick="openScheduleModal(`{!! nl2br(e($scheduleValue)) !!}`, 'invalid', '{{ $index }}')">
-                                                            {{ $scheduleValid ? 'Schedule' : 'No Class Schedule' }}
-                                                        </button>
-                                                    </td>
+                                                    {{-- ✅ ACTIONS dropdown --}}
+                                                    <td class="actions-cell">
+                                                        <div class="dropdown entry-actions">
+                                                            <button
+                                                                class="btn btn-sm btn-outline-secondary entry-actions-btn"
+                                                                type="button"
+                                                                data-bs-toggle="dropdown"
+                                                                data-bs-auto-close="false"
+                                                                data-bs-display="static"
+                                                                aria-expanded="false">
+                                                                <i class="fa-solid fa-ellipsis-vertical me-1"></i> Actions
 
-                                                    {{-- PROFILE PHOTO --}}
-                                                    <td>
-                                                        <button type="button"
-                                                            class="btn btn-sm {{ $btnClass }}"
-                                                            data-entry-index="{{ $index }}"
-                                                            data-entry-type="valid"
-                                                            data-vol-name="{{ addslashes($entry['full_name']) }}"
-                                                            data-picture-src="{{ $picSrc ? addslashes($picSrc) : '' }}"
-                                                            onclick="openImageModalFromButton(this)">
-                                                            {{ $btnText }}
-                                                        </button>
-                                                    </td>
+                                                                {{-- ✅ NOTE: entry-type MUST be invalid here --}}
+                                                                <span class="ind-pill {{ $missingSchedule ? 'warn' : 'ok' }}"
+                                                                    data-bs-toggle="tooltip"
+                                                                    data-bs-title="{{ $missingSchedule ? 'Empty Schedule' : 'Schedule OK' }}"
+                                                                    data-action="open-schedule"
+                                                                    data-entry-type="invalid"
+                                                                    data-entry-index="{{ $index }}"
+                                                                    data-schedule-html="{!! e(nl2br(e($entry['class_schedule'] ?? ''))) !!}">
+                                                                    <i class="fa-solid fa-calendar-days"></i>
+                                                                </span>
 
-                                                    {{-- Table Actions --}}
-                                                    <td>
-                                                        {{-- Edit Entry --}}
-                                                        <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                            onclick="setLastUsedTable('invalid', '{{ $index }}'); openEditVolunteerModal('invalid', '{{ $index }}')">
-                                                            <i class="fa-solid fa-user-edit"></i> Edit
-                                                        </button>
-                                                        {{-- Validate/Move Inavlid to Valid Button --}}
-                                                        <button type="button" class="btn btn-sm btn-outline-secondary move-btn"
-                                                            onclick="submitMoveToValid(this)">
-                                                            <i class="fa-solid fa-arrow-right"></i> Validate
-                                                        </button>
+                                                                <span class="ind-pill {{ $missingPhoto ? 'warn' : 'ok' }}"
+                                                                    data-bs-toggle="tooltip"
+                                                                    data-bs-title="{{ $missingPhoto ? 'No Photo / Default Photo' : 'Photo OK' }}"
+                                                                    data-action="open-photo"
+                                                                    data-entry-type="invalid"
+                                                                    data-entry-index="{{ $index }}"
+                                                                    data-vol-name="{{ addslashes($name) }}"
+                                                                    data-picture-src="{{ $picSrc ? addslashes($picSrc) : '' }}">
+                                                                    <i class="fa-solid fa-image"></i>
+                                                                </span>
+
+                                                            </button>
+
+                                                            <div class="dropdown-menu entry-actions-menu dropdown-menu-end" role="menu">
+                                                                {{-- ✅ CLOSE BUTTON (prevents portal bugs) --}}
+                                                                <div class="entry-actions-header">
+                                                                    <span class="title">ACTIONS</span>
+                                                                    <button type="button" class="btn btn-light" data-action="close-dropdown" aria-label="Close">
+                                                                        <i class="fa-solid fa-xmark"></i>
+                                                                    </button>
+                                                                </div>
+                                                                <div class="dropdown-divider my-1"></div>
+
+                                                                <button type="button" class="dropdown-item action-edit"
+                                                                        onclick="setLastUsedTable('invalid','{{ $index }}'); openEditVolunteerModal('invalid','{{ $index }}')">
+                                                                    <i class="fa-solid fa-user-pen"></i>
+                                                                    <span>Edit</span>
+                                                                </button>
+
+                                                                <button type="button" class="dropdown-item action-schedule"
+                                                                        onclick="openScheduleModal(`{!! nl2br(e($entry['class_schedule'] ?? '')) !!}`, 'invalid', '{{ $index }}')">
+                                                                    <i class="fa-solid fa-calendar-days"></i>
+                                                                    <span>Schedule</span>
+                                                                    @if($missingSchedule)
+                                                                        <span class="ms-auto tag-warn">Empty</span>
+                                                                    @endif
+                                                                </button>
+
+                                                                <button type="button" class="dropdown-item action-photo"
+                                                                        data-entry-index="{{ $index }}"
+                                                                        data-entry-type="invalid"
+                                                                        data-vol-name="{{ addslashes($name) }}"
+                                                                        data-picture-src="{{ $picSrc ? addslashes($picSrc) : '' }}"
+                                                                        onclick="openImageModalFromButton(this)">
+                                                                    <i class="fa-solid fa-image"></i>
+                                                                    <span>Photo</span>
+                                                                    @if($missingPhoto)
+                                                                        <span class="ms-auto tag-warn">Missing</span>
+                                                                    @endif
+                                                                </button>
+
+                                                                <div class="dropdown-divider my-1"></div>
+
+                                                                {{-- ✅ transfer: invalid -> valid (single) --}}
+                                                                @if($isReady)
+                                                                    <button type="button"
+                                                                            class="dropdown-item action-transfer pill-transfer"
+                                                                            data-index="{{ $index }}"
+                                                                            onclick="submitMoveToValid(this)">
+                                                                        <i class="fa-solid fa-arrow-right"></i>
+                                                                        <span>Transfer to Verified</span>
+                                                                    </button>
+                                                                @else
+                                                                    <div class="pill-transfer pill-disabled"
+                                                                        role="button"
+                                                                        tabindex="0"
+                                                                        aria-disabled="true"
+                                                                        data-bs-toggle="tooltip"
+                                                                        data-bs-title="Cannot move invalid to valid — fix missing fields / schedule / photo first.">
+                                                                        <i class="fa-solid fa-arrow-right"></i>
+                                                                        <span>Transfer to Verified</span>
+                                                                    </div>
+                                                                @endif
+
+                                                            </div>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             @endforeach
                                         @else
-                                            {{-- Display for Empty Tables --}}
                                             <tr>
-                                                <td colspan="15" class="text-center text-muted py-4">
+                                                <td colspan="14" class="text-center text-muted py-4">
                                                     <i class="fa-solid fa-file-import fa-lg me-2"></i>No invalid entries yet.
                                                 </td>
                                             </tr>
@@ -319,16 +469,15 @@
                                 </table>
                             </div>
 
-                            {{-- Move All Invalid/Correct Entries to Valid Section --}}                                    
+                            {{-- Move Selected to Verified --}}
                             <div class="submit-section">
                                 <button type="button"
                                         class="btn btn-danger submit-database"
                                         id="openMoveModalBtn"
                                         data-bs-toggle="tooltip"
-                                        title="Move all invalid entries to verified entries">
-                                    Move to All Invalid Entries
+                                        title="Move selected ready entries to verified entries">
+                                    Move Selected to Verified
                                 </button>
-
                             </div>
                         </div>
                     </div>
@@ -336,13 +485,12 @@
             </div>
         </section>
 
-        {{-- 2. Submit Valid Entries to DB --}}
+        {{-- 2. VERIFIED ENTRIES --}}
         <section id="import-Section-valid">
             <div class="database-container">
                 <main class="database-main">
                     <div class="import-section">
 
-                        {{-- Header --}}
                         <div class="import-header d-flex align-items-center justify-content-between mb-2">
                             <div class="import-controls">
                                 <h2 class="section-title">
@@ -356,51 +504,41 @@
                                 </div>
                             </div>
                         </div>
-                        
-                        {{-- Divider/Line --}}
+
                         <hr class="red-hr">
 
-                        {{-- Invalid Data Table --}}
                         <form action="{{ route('volunteer.import.validateSave') }}" method="POST">
                             @csrf
 
                             <div class="data-table-container">
-
-                                {{-- Action Message --}}
                                 <div class="action-message {{ session('success') ? 'text-success' : 'd-none' }}">
                                     <span class="message-text">{!! session('success') !!}</span>
                                     <button type="button" class="close-message-btn">&times;</button>
                                 </div>
-                                
-                                {{-- Table Actions --}}
+
                                 <div class="table-controls mb-0">
                                     <div class="table-actions d-flex align-items-center justify-content-center gap-2">
                                         <h3>Valid Entries</h3>
 
-                                        {{-- Toggle Edit Side Tool --}}
                                         <button type="button" class="toggle-edit-btn btn btn-outline-secondary btn-sm">
                                             <i class="fa-solid fa-pen-to-square"></i> Edit Table
                                         </button>
 
                                         <div class="hidden-actions">
-                                            {{-- Select All Button --}}
                                             <button type="button" class="btn btn-outline-primary btn-sm select-all-btn">
                                                 <i class="fa-solid fa-check-double"></i> Select All
                                             </button>
-                                            {{-- Delete Button --}}
                                             <button type="button" class="btn btn-outline-danger btn-sm delete-btn"
                                                     data-action="{{ route('volunteer.deleteEntries') }}"
                                                     data-table-type="valid">
                                                 <i class="fa-solid fa-trash-can"></i> Delete
                                             </button>
-                                            {{-- Copy Button --}}
                                             <button type="button" class="btn btn-outline-success btn-sm copy-btn">
                                                 <i class="fa-solid fa-copy"></i> Copy
                                             </button>
                                         </div>
                                     </div>
-                                    
-                                    {{-- Valid Section Searchbar --}}
+
                                     @include('layouts.search_bar.universal_search_bar', [
                                         'tableId'   => 'valid-entries-table',
                                         'type'      => 'valid',
@@ -408,12 +546,13 @@
                                     ])
                                 </div>
 
-                                <div class="table-responsive mt-3">
-                                    <table id="valid-entries-table" class="table table-hover table-striped volunteer-table">
+                                <div class="table-responsive mt-3 table-responsive-safe">
+                                    <table id="valid-entries-table" class="table table-hover table-striped volunteer-table align-middle">
                                         <thead>
                                             <tr>
                                                 <th><input type="checkbox" class="select-all-valid"></th>
                                                 <th>#</th>
+                                                <th>Status</th>
                                                 <th>Full Name</th>
                                                 <th>School ID</th>
                                                 <th>Course</th>
@@ -424,41 +563,23 @@
                                                 <th>FB/Messenger</th>
                                                 <th>Barangay</th>
                                                 <th>District</th>
-                                                <th>Class Schedule</th>
-                                                <th>Photo</th>
-                                                <th>Action</th>
+                                                <th style="min-width: 140px;">Actions</th>
                                             </tr>
                                         </thead>
 
                                         <tbody>
-                                        {{-- Display All Valid Entries --}}
-                                        @if(!empty($validEntries) && count($validEntries) > 0)
-                                            @foreach ($validEntries as $index => $entry)
-
-                                                @php
-                                                    $hasPic = !empty($entry['profile_picture_local']) || !empty($entry['profile_picture']);
-                                                    $btnClass = $hasPic ? 'btn-success' : 'btn-danger';
-                                                    $btnText  = $hasPic ? 'Profile Picture' : 'No Photo';
-
-                                                    $picSrc = $entry['profile_picture_local']
-                                                        ? asset('storage/' . $entry['profile_picture_local'])
-                                                        : ($entry['profile_picture'] ?? null);
-
-                                                    $scheduleValue = trim($entry['class_schedule'] ?? '');
-                                                    $scheduleValid = !empty($scheduleValue);
-                                                @endphp
-
-                                                <tr class="valid-entry">
-                                                    {{-- Check Box --}}
-                                                    <td>
-                                                        <input type="checkbox" name="selected_valid[]" value="{{ $index }}"data-id-number="{{ $entry['id_number'] ?? '' }}">
-                                                    </td>
-
-                                                    {{-- Index Number --}}  
-                                                    <td>{{ $index + 1 }}</td>
-
-                                                    {{-- MAIN COLUMNS --}}
+                                            @if(!empty($validEntries) && count($validEntries) > 0)
+                                                @foreach ($validEntries as $index => $entry)
                                                     @php
+                                                        $name = trim($entry['full_name'] ?? '') ?: 'Unknown';
+
+                                                        $scheduleOk = !$scheduleLooksEmpty($entry);
+                                                        $hasPic     = $hasRealPhoto($entry);
+
+                                                        $picSrc = !empty($entry['profile_picture_local'])
+                                                            ? asset('storage/' . $entry['profile_picture_local'])
+                                                            : ($entry['profile_picture'] ?? null);
+
                                                         $columns = [
                                                             'full_name' => 'Name',
                                                             'id_number' => 'School ID',
@@ -470,114 +591,155 @@
                                                             'fb_messenger' => 'FB/Messenger',
                                                             'barangay' => 'Barangay',
                                                             'district' => 'District',
-                                                            'class_schedule' => 'Class Schedule',
                                                         ];
+                                                        $truncatedFields = ['full_name','course','email','fb_messenger','barangay','district'];
 
-                                                        $truncatedFields = [
-                                                            'full_name','course','email','fb_messenger','barangay','district'
-                                                        ];
+                                                        $missingSchedule = !$scheduleOk;
+                                                        $missingPhoto    = !$hasPic;
                                                     @endphp
 
-                                                    @foreach ($columns as $key => $label)
-                                                        @php
-                                                            $value = trim($entry[$key] ?? '');
-                                                            $isTruncated = in_array($key, $truncatedFields);
-                                                            $displayVal = strlen($value) > 20 && $isTruncated
-                                                                ? substr($value, 0, 20).'...' : $value;
-                                                        @endphp
+                                                    <tr class="valid-entry row-ok">
+                                                        <td>
+                                                            <input type="checkbox" name="selected_valid[]" value="{{ $index }}"
+                                                                   data-id-number="{{ $entry['id_number'] ?? '' }}">
+                                                        </td>
 
-                                                        {{-- DISTRICT --}}
-                                                        @if($key === 'district')
+                                                        <td>{{ $index + 1 }}</td>
+
+                                                        <td>
+                                                            <span class="status-pill status-ok"
+                                                                  data-bs-toggle="tooltip"
+                                                                  data-bs-title="Verified entry">
+                                                                <i class="fa-solid fa-circle-check"></i>
+                                                                Verified
+                                                            </span>
+                                                        </td>
+
+                                                        @foreach ($columns as $key => $label)
                                                             @php
-                                                                $districtId = trim($entry['district'] ?? '');
-                                                                $districtName = stripos($districtId, 'district') !== false
-                                                                    ? $districtId
-                                                                    : "District " . $districtId;
+                                                                $value = trim($entry[$key] ?? '');
+                                                                $isTruncated = in_array($key, $truncatedFields);
+                                                                $displayVal = strlen($value) > 20 && $isTruncated ? substr($value, 0, 20).'...' : $value;
                                                             @endphp
-                                                            <td>{{ $districtName }}</td>
 
-                                                        {{-- CLASS SCHEDULE --}}
-                                                        @elseif($key === 'class_schedule')
-                                                            <td data-value="{{ $value }}">
-                                                                <button type="button"
-                                                                    class="btn btn-sm {{ $scheduleValid ? 'btn-success' : 'btn-danger' }}"
-                                                                    onclick="openScheduleModal(
-                                                                        `{!! nl2br(e($scheduleValue)) !!}`,
-                                                                        'valid',
-                                                                        '{{ $index }}'
-                                                                    )">
-                                                                    {{ $scheduleValid ? 'Schedule' : 'No Class Schedule' }}
+                                                            @if($key === 'district')
+                                                                @php
+                                                                    $districtId = trim($entry['district'] ?? '');
+                                                                    $districtName = stripos($districtId, 'district') !== false
+                                                                        ? $districtId
+                                                                        : ($districtId ? "District " . $districtId : "No District");
+                                                                @endphp
+                                                                <td>{{ $districtName }}</td>
+                                                            @else
+                                                                <td class="{{ $isTruncated ? 'text-truncate' : '' }}"
+                                                                    @if($isTruncated) style="max-width:150px;" @endif
+                                                                    data-bs-toggle="tooltip"
+                                                                    data-bs-title="{{ $value ?: 'No '.$label }}">
+                                                                    {{ $displayVal ?: "No $label" }}
+                                                                </td>
+                                                            @endif
+                                                        @endforeach
+
+                                                        {{-- ✅ ACTIONS dropdown --}}
+                                                        <td class="actions-cell">
+                                                            <div class="dropdown entry-actions">
+                                                                <button
+                                                                    class="btn btn-sm btn-outline-secondary entry-actions-btn"
+                                                                    type="button"
+                                                                    data-bs-toggle="dropdown"
+                                                                    data-bs-auto-close="false"
+                                                                    data-bs-display="static"
+                                                                    aria-expanded="false">
+                                                                    <i class="fa-solid fa-ellipsis-vertical me-1"></i> Actions
+
+                                                                    <span class="ind-pill {{ $missingSchedule ? 'warn' : 'ok' }}"
+                                                                        data-bs-toggle="tooltip"
+                                                                        data-bs-title="{{ $missingSchedule ? 'Empty Schedule' : 'Schedule OK' }}"
+                                                                        data-action="open-schedule"
+                                                                        data-entry-type="valid"
+                                                                        data-entry-index="{{ $index }}"
+                                                                        data-schedule-html="{!! e(nl2br(e($entry['class_schedule'] ?? ''))) !!}">
+                                                                        <i class="fa-solid fa-calendar-days"></i>
+                                                                    </span>
+
+                                                                    <span class="ind-pill {{ $missingPhoto ? 'warn' : 'ok' }}"
+                                                                        data-bs-toggle="tooltip"
+                                                                        data-bs-title="{{ $missingPhoto ? 'No Photo / Default Photo' : 'Photo OK' }}"
+                                                                        data-action="open-photo"
+                                                                        data-entry-type="valid"
+                                                                        data-entry-index="{{ $index }}"
+                                                                        data-vol-name="{{ addslashes($name) }}"
+                                                                        data-picture-src="{{ $picSrc ? addslashes($picSrc) : '' }}">
+                                                                        <i class="fa-solid fa-image"></i>
+                                                                    </span>
+
                                                                 </button>
-                                                            </td>
 
-                                                        {{-- TRUNCATED --}}
-                                                        @elseif($isTruncated)
-                                                            <td class="text-truncate" style="max-width:150px;"
-                                                                data-value="{{ $value }}"
-                                                                data-bs-toggle="tooltip"
-                                                                title="{{ $value ?: 'No '.$label }}">
-                                                                {{ $displayVal ?: "No $label" }}
-                                                            </td>
+                                                                <div class="dropdown-menu entry-actions-menu dropdown-menu-end" role="menu">
+                                                                    {{-- ✅ CLOSE BUTTON --}}
+                                                                    <div class="entry-actions-header">
+                                                                        <span class="title">ACTIONS</span>
+                                                                        <button type="button" class="btn btn-light" data-action="close-dropdown" aria-label="Close">
+                                                                            <i class="fa-solid fa-xmark"></i>
+                                                                        </button>
+                                                                    </div>
+                                                                    <div class="dropdown-divider my-1"></div>
 
-                                                        {{-- DEFAULT --}}
-                                                        @else
-                                                            <td data-value="{{ $value }}">
-                                                                {{ $displayVal ?: "No $label" }}
-                                                            </td>
+                                                                    <button type="button" class="dropdown-item action-edit"
+                                                                            onclick="setLastUsedTable('valid','{{ $index }}'); openEditVolunteerModal('valid','{{ $index }}')">
+                                                                        <i class="fa-solid fa-user-pen"></i>
+                                                                        <span>Edit</span>
+                                                                    </button>
 
-                                                        @endif
-                                                    @endforeach
+                                                                    <button type="button" class="dropdown-item action-schedule"
+                                                                            onclick="openScheduleModal(`{!! nl2br(e($entry['class_schedule'] ?? '')) !!}`, 'valid', '{{ $index }}')">
+                                                                        <i class="fa-solid fa-calendar-days"></i>
+                                                                        <span>Schedule</span>
+                                                                        @if($missingSchedule)
+                                                                            <span class="ms-auto tag-warn">Empty</span>
+                                                                        @endif
+                                                                    </button>
 
-                                                    {{-- PHOTO BUTTON --}}
-                                                    <td>
-                                                        <button type="button"
-                                                            class="btn btn-sm {{ $btnClass }}"
-                                                            data-entry-index="{{ $index }}"
-                                                            data-entry-type="valid"
-                                                            data-vol-name="{{ addslashes($entry['full_name']) }}"
-                                                            data-picture-src="{{ $picSrc ? addslashes($picSrc) : '' }}"
-                                                            onclick="openImageModalFromButton(this)">
-                                                            {{ $btnText }}
-                                                        </button>
+                                                                    <button type="button" class="dropdown-item action-photo"
+                                                                            data-entry-index="{{ $index }}"
+                                                                            data-entry-type="valid"
+                                                                            data-vol-name="{{ addslashes($name) }}"
+                                                                            data-picture-src="{{ $picSrc ? addslashes($picSrc) : '' }}"
+                                                                            onclick="openImageModalFromButton(this)">
+                                                                        <i class="fa-solid fa-image"></i>
+                                                                        <span>Photo</span>
+                                                                        @if($missingPhoto)
+                                                                            <span class="ms-auto tag-warn">Missing</span>
+                                                                        @endif
+                                                                    </button>
+
+                                                                    <div class="dropdown-divider my-1"></div>
+
+                                                                    {{-- ✅ move valid -> invalid (single) --}}
+                                                                    <button type="button" class="dropdown-item action-transfer"
+                                                                            data-bs-toggle="tooltip" data-bs-title="Transfer back to Invalid"
+                                                                            onclick="moveValidToInvalid('{{ $index }}')">
+                                                                        <i class="fa-solid fa-arrow-left"></i>
+                                                                        <span>Transfer to Invalid</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                @endforeach
+                                            @else
+                                                <tr>
+                                                    <td colspan="14" class="text-center text-muted py-4">
+                                                        <i class="fa-solid fa-check-circle fa-lg me-2"></i>No verified entries yet.
                                                     </td>
-
-                                                    {{-- Table ACTIONS --}}
-                                                    <td>
-                                                        {{-- Edit Entry --}}
-                                                        <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                            onclick="setLastUsedTable('valid','{{ $index }}'); openEditVolunteerModal('valid','{{ $index }}')">
-                                                            <i class="fa-solid fa-user-edit"></i> Edit
-                                                        </button>
-                                                        
-                                                        {{-- Invalidate/Move Valid to Invalid Button --}}
-                                                        <button type="button" class="btn btn-sm btn-outline-secondary move-invalid-btn"
-                                                            onclick="moveToInvalid('{{ $index }}')">
-                                                            <i class="fa-solid fa-arrow-left"></i> Move to Invalid
-                                                        </button>
-                                                    </td>
-
                                                 </tr>
-
-                                            @endforeach
-                                        @else
-                                            {{-- Display for Empty Tables --}}
-                                            <tr>
-                                                <td colspan="16" class="text-center text-muted py-4">
-                                                    <i class="fa-solid fa-check-circle fa-lg me-2"></i>No verified entries yet.
-                                                </td>
-                                            </tr>
-                                        @endif
+                                            @endif
                                         </tbody>
                                     </table>
                                 </div>
-                                
-                                {{-- Submit Valid Entries to Databasee --}}
-                                <div class="submit-section">
-                                    @php
-                                        $validEntries = session('validEntries', []);
-                                        $hasValidEntries = count($validEntries) > 0;
-                                    @endphp
 
+                                <div class="submit-section">
+                                    @php $hasValidEntries = count($validEntries) > 0; @endphp
                                     @if($hasValidEntries)
                                         <button type="button" class="btn btn-danger submit-database" id="openSubmitModalBtn"
                                                 data-bs-toggle="tooltip"
@@ -588,134 +750,61 @@
                                 </div>
                             </div>
                         </form>
+
                     </div>
                 </main>
             </div>
         </section>
 
-
-        {{-- Bootstrap tooltip initialization --}}
-        <script>
-            document.addEventListener('DOMContentLoaded', function () {
-                var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-                tooltipTriggerList.map(function (tooltipTriggerEl) {
-                    return new bootstrap.Tooltip(tooltipTriggerEl);
-                });
-            });
-        </script>
-
-        <style>/* Highlight valid entries */
-        .valid-entry {
-            background-color: #e0f7e0;  /* Light green */
-        }
-
-        /* Shorten FB/Messenger links */
-        .text-truncate {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        /* Adjust button color for Schedule */
-        .btn-success {
-            background-color: #28a745;  /* Green */
-            border-color: #28a745;
-        }
-
-        .btn-danger {
-            background-color: #dc3545;  /* Red */
-            border-color: #dc3545;
-        }
-
-        .btn-sm {
-            font-size: 0.875rem;  /* Smaller button size */
-        }
-
-        /* Optional: Tooltip styling (if needed) */
-        [data-bs-toggle="tooltip"] {
-            cursor: help;
-            text-decoration: underline dotted;
-        }
-
-        /* Remove underline from table buttons / links */
-        .volunteer-table button,
-        .volunteer-table a {
-            text-decoration: none !important;
-        }
-        /* Make long text truncate with ellipsis */
-        .text-truncate {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        [data-bs-toggle="tooltip"] {
-            cursor: help;
-            text-decoration: none;
-        }
-        </style>
-
-       {{-- 3.IMPORT LOGS --}}
+        {{-- 3. IMPORT LOGS --}}
         <section id="importlog-Section">
             <div class="database-container">
-                <main class="database-main"> 
+                <main class="database-main">
                     <div class="import-section">
 
-                        {{-- Header --}}
                         <div class="import-controls mb-3">
                             <h2 class="section-title"><i class="fas fa-history"></i> Import Logs</h2>
                         </div>
 
-                        {{-- Divider/Line --}}
                         <hr class="red-hr">
 
-                        {{-- Import Logs Table --}}
                         <div class="data-table-container">
-                            {{-- Action Message --}}
                             <div class="action-message {{ session('success') ? 'text-success' : 'd-none' }}">
                                 <span class="message-text">{!! session('success') !!}</span>
                                 <button type="button" class="close-message-btn">&times;</button>
                             </div>
-                            
-                            {{-- Table Actions --}}
+
                             <div class="table-controls mb-0">
                                 <div class="table-actions d-flex align-items-center justify-content-center gap-2">
                                     <h3>Import History</h3>
 
-                                    {{-- Toggle Edit Side Tool --}}
                                     <button type="button" class="toggle-edit-btn btn btn-outline-secondary btn-sm">
                                         <i class="fa-solid fa-pen-to-square"></i> Edit Table
                                     </button>
 
-                                    {{-- Edit Table Buttons --}}
                                     <div class="hidden-actions">
-                                        {{-- Select All Button --}}
                                         <button type="button" class="btn btn-outline-primary btn-sm select-all-btn">
                                             <i class="fa-solid fa-check-double"></i> Select All
                                         </button>
-                                        {{-- Delete Button --}}
-                                        <button type="button" 
+                                        <button type="button"
                                                 class="btn btn-outline-danger btn-sm delete-btn"
                                                 data-action="{{ route('volunteer.deleteEntries') }}"
                                                 data-table-type="logs">
                                             <i class="fa-solid fa-trash-can"></i> Delete
                                         </button>
-                                        {{-- Copy Button --}}
                                         <button type="button" class="btn btn-outline-success btn-sm copy-btn">
                                             <i class="fa-solid fa-copy"></i> Copy
                                         </button>
                                     </div>
                                 </div>
 
-                                {{-- Valid Section Searchbar --}}
                                 @include('layouts.search_bar.universal_search_bar', [
                                     'tableId'   => 'import-logs-table',
                                     'type'      => 'import_logs',
                                     'placeholder' => 'Search import logs...'
                                 ])
-
                             </div>
-                            
-                            {{-- Import Log Data Table --}}
+
                             <div class="table-responsive mt-3">
                                 <table id="import-logs-table" class="table table-hover table-striped volunteer-table">
                                     <thead class="table-light">
@@ -734,35 +823,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                    @forelse ($importLogs as $log)
-                                        <tr class="align-middle">
-                                            <td><input type="checkbox" name="selected_logs[]" value="{{ $log->import_id }}"></td>
-                                            <td data-value="{{ $log->import_id }}">{{ $log->import_id }}</td>
-
-                                            {{-- File Name --}}
-                                            <td class="text-truncate" style="max-width: 220px;" 
-                                                title="{{ $log->file_name }}"
-                                                data-value="{{ $log->file_name }}">
-                                                {{ $log->file_name }}
-                                            </td>
-
-                                            {{-- Uploaded By --}}
-                                            <td data-value="{{ $log->admin->name ?? $log->admin->username ?? 'Unknown' }}">
-                                                {{ $log->admin->name ?? $log->admin->username ?? 'Unknown' }}
-                                            </td>
-
-                                            {{-- Uploaded At --}}
-                                            <td data-value="{{ optional($log->import_date ?? $log->created_at)->format('Y-m-d H:i:s') }}">
-                                                {{ optional($log->import_date ?? $log->created_at)->format('M d, Y h:i A') ?? '-' }}
-                                            </td>
-
-                                            {{-- Counts --}}
-                                            <td data-value="{{ $log->total_records }}">{{ $log->total_records }}</td>
-                                            <td data-value="{{ $log->valid_count }}"><span class="badge bg-success">{{ $log->valid_count }}</span></td>
-                                            <td data-value="{{ $log->invalid_count }}"><span class="badge bg-danger">{{ $log->invalid_count }}</span></td>
-                                            <td data-value="{{ $log->duplicate_count }}"><span class="badge bg-warning text-dark">{{ $log->duplicate_count }}</span></td>
-
-                                            {{-- Status Badge --}}
+                                        @forelse ($importLogs as $log)
                                             @php
                                                 $status = strtolower($log->status);
                                                 $statusClass = match($status) {
@@ -777,59 +838,80 @@
                                                 };
                                             @endphp
 
-                                            <td data-value="{{ $status }}">
-                                                <span class="badge {{ $statusClass }}">
-                                                    {{ ucfirst($status) }}
-                                                </span>
-                                            </td>
+                                            <tr class="align-middle">
+                                                <td><input type="checkbox" name="selected_logs[]" value="{{ $log->import_id }}"></td>
+                                                <td data-value="{{ $log->import_id }}">{{ $log->import_id }}</td>
 
-                                            {{-- Remarks --}}
-                                            <td style="white-space: pre-line; padding: 0.75rem; min-width: 300px;">
-                                                {{ $log->remarks ?? '-' }}
-                                            </td>
-                                        </tr>
-                                    @empty
-                                        {{-- Display for Empty Tables --}}
-                                        <tr>
-                                            <td colspan="11" class="text-center text-muted py-4">
-                                                <i class="fa-solid fa-folder-open fa-lg me-2"></i>
-                                                No import logs found.
-                                            </td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
+                                                <td class="text-truncate" style="max-width: 220px;"
+                                                    data-bs-toggle="tooltip"
+                                                    data-bs-placement="top"
+                                                    title="{{ $log->file_name }}"
+                                                    data-value="{{ $log->file_name }}">
+                                                    {{ $log->file_name }}
+                                                </td>
 
+                                                <td data-value="{{ $log->admin->name ?? $log->admin->username ?? 'Unknown' }}">
+                                                    {{ $log->admin->name ?? $log->admin->username ?? 'Unknown' }}
+                                                </td>
+
+                                                <td data-value="{{ optional($log->import_date ?? $log->created_at)->format('Y-m-d H:i:s') }}">
+                                                    {{ optional($log->import_date ?? $log->created_at)->format('M d, Y h:i A') ?? '-' }}
+                                                </td>
+
+                                                <td data-value="{{ $log->total_records }}">{{ $log->total_records }}</td>
+                                                <td data-value="{{ $log->valid_count }}"><span class="badge bg-success">{{ $log->valid_count }}</span></td>
+                                                <td data-value="{{ $log->invalid_count }}"><span class="badge bg-danger">{{ $log->invalid_count }}</span></td>
+                                                <td data-value="{{ $log->duplicate_count }}"><span class="badge bg-warning text-dark">{{ $log->duplicate_count }}</span></td>
+
+                                                <td data-value="{{ $status }}">
+                                                    <span class="badge {{ $statusClass }}">
+                                                        {{ ucfirst($status) }}
+                                                    </span>
+                                                </td>
+
+                                                <td style="white-space: pre-line; padding: 0.75rem; min-width: 300px;">
+                                                    {{ $log->remarks ?? '-' }}
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="11" class="text-center text-muted py-4">
+                                                    <i class="fa-solid fa-folder-open fa-lg me-2"></i>
+                                                    No import logs found.
+                                                </td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
                                 </table>
                             </div>
+
                         </div>
                     </div>
                 </main>
             </div>
         </section>
 
-        {{-- ⭐ Custom Purple Badge Style --}}
-        <style>
-            .bg-purple {
-                background-color: #6f42c1 !important;
-                color: #fff !important;
-            }
-        </style>
-
-        {{-- Hidden Global Delete Form (for all tables) --}}
+        {{-- Hidden Global Delete Form --}}
         <form id="globalDeleteForm" method="POST" style="display:none;">
             <input type="hidden" name="_token" value="{{ csrf_token() }}">
         </form>
-        {{-- Hidden form for Moving Invalid Entries Table to Valid Entries Table --}}
+
+        {{-- Hidden form for moving invalid -> valid (single + bulk) --}}
         <form id="moveToVerifiedForm" action="{{ route('volunteer.import.moveInvalidToValid') }}" method="POST" style="display:none;">
             @csrf
         </form>
+
+        {{-- OPTIONAL: if you later change move-valid-to-invalid to POST, use this form --}}
+        {{-- <form id="moveToInvalidForm" action="{{ route('volunteer.import.moveValidToInvalid') }}" method="POST" style="display:none;">
+            @csrf
+        </form> --}}
     </div>
-    
+
     {{-- Modals --}}
     @include('layouts.modals.guides.volunteer_import.import_guide_modal')
     @include('layouts.modals.guides.volunteer_import.valid_entries_modal')
 
-    @include('layouts.modals.submit.volunteer_import.reset_import_modal') {{-- Reset --}}
+    @include('layouts.modals.submit.volunteer_import.reset_import_modal')
     @include('layouts.modals.submit.volunteer_import.edit_volunteer_modal')
     @include('layouts.modals.submit.volunteer_import.file_upload_modal')
     @include('layouts.modals.submit.volunteer_import.delete_message_modal')
@@ -842,14 +924,659 @@
     {{-- Scripts --}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-    {{-- Scroll to Last Used Section JS --}}
     <script src="{{ asset('assets/volunteer_import/js/scroll_to_last_table_used.js') }}"></script>
-
-   
     <link rel="stylesheet" href="{{ asset('assets/modals/css/modal.css') }}">
     <script src="{{ asset('assets/modals/js/modal.js') }}"></script>
     <script src="{{ asset('assets/volunteer_import/js/table_actions.js') }}"></script>
 
+    {{-- ✅ Dropdown pop-out + tooltips (fixed + portal) --}}
+    <script>
+      function initBootstrapTooltips(root = document) {
+          const els = [].slice.call(root.querySelectorAll('[data-bs-toggle="tooltip"]'));
+          els.forEach(el => {
+              const existing = bootstrap.Tooltip.getInstance(el);
+              if (existing) existing.dispose();
+              new bootstrap.Tooltip(el, {
+                  trigger: 'hover focus',
+                  container: 'body',
+                  html: el.getAttribute('data-bs-html') === 'true',
+                  boundary: 'window'
+              });
+          });
+      }
+
+      let lastDropdownToggle = null;
+      let lastDropdownMenu = null;
+      let reopenAfterModal = false;
+
+      function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
+
+      function portalMenuToBody(toggleBtn){
+          const wrap = toggleBtn?.closest?.('.entry-actions');
+          const menu = wrap?.querySelector?.('.entry-actions-menu');
+          if (!wrap || !menu) return null;
+          if (menu.dataset.portaled === '1') return menu;
+
+          const ph = document.createElement('span');
+          ph.className = 'entry-actions-placeholder';
+          wrap.appendChild(ph);
+
+          menu.dataset.portaled = '1';
+          menu.dataset.placeholderId = (crypto?.randomUUID?.() || ('ph_' + Math.random().toString(16).slice(2)));
+          ph.dataset.placeholderId = menu.dataset.placeholderId;
+
+          document.body.appendChild(menu);
+          toggleBtn.dataset.placeholderId = menu.dataset.placeholderId;
+
+          return menu;
+      }
+
+      function restoreMenuFromBody(toggleBtn){
+          const wrap = toggleBtn?.closest?.('.entry-actions');
+          if (!wrap) return;
+          const pid = toggleBtn?.dataset?.placeholderId;
+          if (!pid) return;
+
+          const menu = document.querySelector(`.entry-actions-menu[data-portaled="1"][data-placeholder-id="${pid}"]`)
+                    || document.querySelector(`.entry-actions-menu[data-portaled="1"]`);
+          const ph = wrap.querySelector(`.entry-actions-placeholder[data-placeholder-id="${pid}"]`);
+          if (!menu || !ph) return;
+
+          wrap.appendChild(menu);
+          menu.removeAttribute('data-portaled');
+          menu.style.position = '';
+          menu.style.left = '';
+          menu.style.top = '';
+          menu.style.zIndex = '';
+          ph.remove();
+      }
+
+      function positionMenuFixedOnce(toggleBtn) {
+          const pid = toggleBtn?.dataset?.placeholderId;
+          const menu = pid
+              ? document.querySelector(`.entry-actions-menu.show[data-placeholder-id="${pid}"]`)
+              : null;
+
+          const fallback = toggleBtn?.closest?.('.entry-actions')?.querySelector?.('.entry-actions-menu');
+          const m = menu || fallback;
+          if (!toggleBtn || !m) return;
+          if (!m.classList.contains('show')) return;
+
+          const btnRect = toggleBtn.getBoundingClientRect();
+          const menuRect = m.getBoundingClientRect();
+          const margin = 10;
+          const vw = window.innerWidth;
+          const vh = window.innerHeight;
+
+          let left = btnRect.right - menuRect.width;
+          left = clamp(left, margin, vw - menuRect.width - margin);
+
+          let top = btnRect.bottom + 8;
+          if (top + menuRect.height > vh - margin) {
+              top = btnRect.top - menuRect.height - 8;
+          }
+          top = clamp(top, margin, vh - menuRect.height - margin);
+
+          m.style.position = 'fixed';
+          m.style.left = left + 'px';
+          m.style.top = top + 'px';
+          m.style.zIndex = '99999';
+
+          lastDropdownToggle = toggleBtn;
+          lastDropdownMenu = m;
+      }
+
+      function closeAllEntryDropdowns() {
+          document.querySelectorAll('.entry-actions .entry-actions-btn').forEach(btn => {
+              const inst = bootstrap.Dropdown.getInstance(btn);
+              if (inst) inst.hide();
+          });
+          lastDropdownToggle = null;
+          lastDropdownMenu = null;
+      }
+      window.closeAllEntryDropdowns = closeAllEntryDropdowns;
+
+      document.addEventListener('DOMContentLoaded', function () {
+          initBootstrapTooltips();
+
+          document.addEventListener('shown.bs.dropdown', function (e) {
+              const toggleBtn = e.relatedTarget || e.target?.querySelector?.('.entry-actions-btn');
+              if (!toggleBtn) return;
+
+              const menu = portalMenuToBody(toggleBtn);
+              if (menu) menu.dataset.placeholderId = toggleBtn.dataset.placeholderId;
+
+              positionMenuFixedOnce(toggleBtn);
+              initBootstrapTooltips();
+          });
+
+          document.addEventListener('hidden.bs.dropdown', function (e) {
+              const toggleBtn = e.relatedTarget || e.target?.querySelector?.('.entry-actions-btn');
+              if (!toggleBtn) return;
+              restoreMenuFromBody(toggleBtn);
+          });
+
+          window.addEventListener('resize', () => {
+              if (lastDropdownToggle && lastDropdownMenu?.classList.contains('show')) {
+                  positionMenuFixedOnce(lastDropdownToggle);
+              }
+          });
+
+          // Close dropdown before any modal opens, then restore if needed
+          document.querySelectorAll('.modal').forEach(modalEl => {
+              modalEl.addEventListener('show.bs.modal', () => {
+                  reopenAfterModal = !!(lastDropdownMenu && lastDropdownMenu.classList.contains('show'));
+                  closeAllEntryDropdowns();
+              });
+
+              modalEl.addEventListener('hidden.bs.modal', () => {
+                  if (reopenAfterModal && lastDropdownToggle) {
+                      const inst = bootstrap.Dropdown.getOrCreateInstance(lastDropdownToggle, { autoClose: false });
+                      inst.show();
+                  }
+                  reopenAfterModal = false;
+              });
+          });
+      });
+
+      // ✅ CLOSE BUTTON INSIDE DROPDOWN
+      document.addEventListener('click', function (e) {
+          const btn = e.target.closest('[data-action="close-dropdown"]');
+          if (!btn) return;
+          e.preventDefault();
+          e.stopPropagation();
+          if (window.closeAllEntryDropdowns) window.closeAllEntryDropdowns();
+      }, true);
+
+      // ✅ Mini icon click => open schedule/photo modals without fighting dropdown portal
+      document.addEventListener('click', function (e) {
+        const pill = e.target.closest('.ind-pill[data-action]');
+        if (!pill) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        try {
+          if (window.closeAllEntryDropdowns) window.closeAllEntryDropdowns();
+
+          const action = pill.dataset.action;
+
+          if (action === 'open-schedule') {
+            const html = pill.dataset.scheduleHtml || '';
+            const type = pill.dataset.entryType || '';
+            const idx  = pill.dataset.entryIndex || '';
+            if (typeof window.openScheduleModal === 'function') {
+              window.openScheduleModal(html, type, idx);
+            }
+            return;
+          }
+
+          if (action === 'open-photo') {
+            if (typeof window.openImageModalFromButton === 'function') {
+              window.openImageModalFromButton(pill);
+            }
+            return;
+          }
+        } catch (err) {
+          console.error('Mini icon modal open failed:', err);
+        }
+      }, true);
+    </script>
+
+    {{-- ============================================================
+         MOVE MODALS (your custom modal system)
+         (unchanged HTML/CSS from you, but JS is fixed & unified)
+    ============================================================ --}}
+    <style>
+    /* ============================================================
+       UNIVERSAL WRAPPER
+    ============================================================ */
+    .move-modal-wrapper {
+        position: fixed;
+        inset: 0;
+        display: none;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+        z-index: 99999;
+    }
+    .move-modal-wrapper.active { display: flex; }
+
+    .move-modal-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+    }
+
+    /* ============================================================
+       MODAL BOX
+    ============================================================ */
+    .move-modal-box {
+        position: relative;
+        background: #fff;
+        border-radius: 16px;
+        width: 100%;
+        max-width: 480px;
+        padding: 26px 32px 22px;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+        animation: modalIn .25s ease;
+    }
+    @keyframes modalIn {
+        from { opacity:0; transform: translateY(-16px) scale(.96); }
+        to   { opacity:1; transform: translateY(0) scale(1); }
+    }
+
+    .move-modal-box h2 {
+        text-align: center;
+        margin: 0 0 6px;
+        font-weight: 600;
+    }
+    .move-modal-box h2 i { margin-right: 6px; }
+
+    .move-modal-header-success { color: #28a745 !important; }
+    .move-modal-header-error   { color: #B2000C !important; }
+    .move-modal-header-info    { color: #1565c0 !important; }
+    .move-modal-header-warn    { color: #B2000C !important; }
+
+    .move-modal-header-success i { color: #28a745 !important; }
+    .move-modal-header-error   i { color: #B2000C !important; }
+    .move-modal-header-info    i { color: #1565c0 !important; }
+    .move-modal-header-warn    i { color: #B2000C !important; }
+
+    .move-modal-text {
+        font-size: 1.02rem;
+        line-height: 1.55;
+        margin-bottom: 18px;
+        font-weight: 400;
+    }
+
+    .move-scroll-list {
+        max-height: 260px;
+        overflow-y: auto;
+        padding-right: 6px;
+        margin-top: 4px;
+    }
+
+    .move-modal-box hr {
+        width: 85%;
+        height: 1px;
+        background: #ececec;
+        margin: 1rem auto;
+    }
+
+    .move-modal-btn {
+        border: none;
+        padding: 10px 22px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .move-modal-btn-confirm {
+        background: #B2000C;
+        color: #fff;
+    }
+    .move-modal-btn-confirm:hover {
+        background: #7F0008;
+        transform: translateY(-2px);
+    }
+
+    .move-modal-btn-cancel {
+        background: #e4e4e4;
+        color: #333;
+    }
+    .move-modal-btn-cancel:hover {
+        background: #d6d6d6;
+        transform: translateY(-2px);
+    }
+
+    .move-modal-button-row {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 8px;
+    }
+    </style>
+
+    <!-- CONFIRM MOVE – RED -->
+    <div id="moveConfirmModal" class="move-modal-wrapper">
+        <div class="move-modal-overlay"></div>
+        <div class="move-modal-box">
+            <h2 class="move-modal-header-warn">
+                <i class="fa-solid fa-circle-exclamation"></i> Confirm Move
+            </h2>
+            <hr>
+            <div id="moveConfirmText" class="move-modal-text move-text-error"></div>
+            <div class="move-modal-button-row">
+                <button class="move-modal-btn move-modal-btn-cancel" id="cancelMoveBtn" type="button">Cancel</button>
+                <button class="move-modal-btn move-modal-btn-confirm" id="confirmMoveBtn" type="button">Yes, Move</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SUCCESS – GREEN -->
+    <div id="moveSuccessModal" class="move-modal-wrapper">
+        <div class="move-modal-overlay"></div>
+        <div class="move-modal-box">
+            <h2 class="move-modal-header-success">
+                <i class="fa-solid fa-circle-check"></i> Success
+            </h2>
+            <hr>
+            <div id="moveSuccessMessage" class="move-modal-text move-text-success"></div>
+            <div class="move-modal-button-row">
+                <button class="move-modal-btn move-modal-btn-confirm" id="moveSuccessOkBtn" type="button">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ERROR – RED -->
+    <div id="moveErrorModal" class="move-modal-wrapper">
+        <div class="move-modal-overlay"></div>
+        <div class="move-modal-box">
+            <h2 class="move-modal-header-error">
+                <i class="fa-solid fa-circle-xmark"></i> Cannot Move
+            </h2>
+            <hr>
+            <div id="moveErrorMessage" class="move-modal-text move-text-error"></div>
+            <div class="move-modal-button-row">
+                <button class="move-modal-btn move-modal-btn-confirm" id="moveErrorOkBtn" type="button">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOTHING TO MOVE – RED -->
+    <div id="moveNothingModal" class="move-modal-wrapper">
+        <div class="move-modal-overlay"></div>
+        <div class="move-modal-box">
+            <h2 class="move-modal-header-error">
+                <i class="fa-solid fa-ban"></i> Nothing to Move
+            </h2>
+            <hr>
+            <div class="move-modal-text move-text-error">No invalid entries were selected.</div>
+            <div class="move-modal-button-row">
+                <button class="move-modal-btn move-modal-btn-confirm" id="moveNothingOkBtn" type="button">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MISSING FIELDS – BLUE -->
+    <div id="moveMissingModal" class="move-modal-wrapper">
+        <div class="move-modal-overlay"></div>
+        <div class="move-modal-box">
+            <h2 class="move-modal-header-info">
+                <i class="fa-solid fa-circle-info"></i> Missing Fields
+            </h2>
+            <hr>
+            <div id="moveMissingContent" class="move-modal-text move-scroll-list move-text-info"></div>
+            <div class="move-modal-button-row">
+                <button class="move-modal-btn move-modal-btn-cancel" id="moveMissingCloseBtn" type="button">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================
+         GLOBAL VARIABLES (CONTROLLER → JS)
+    =============================== -->
+    <script>
+      window.showSuccessModal = {{ session('show_success_modal') ? 'true' : 'false' }};
+      window.showErrorModal   = {{ session('show_error_modal') ? 'true' : 'false' }};
+      window.showNothingModal = {{ session('show_nothing_modal') ? 'true' : 'false' }};
+
+      window.successModalMessage = `{!! session('success_modal_message') !!}`;
+      window.errorModalMessage   = `{!! session('error_modal_message') !!}`;
+
+      window.failedEntriesJson = @json(session('failed_entries_json', []));
+      window.redirect_anchor = "{{ session('redirect_anchor') }}";
+    </script>
+
+    <!-- ============================
+         ✅ FINAL JS (UNIFIED 3 MOVES)
+         1) moveSelectedInvalidToValid (bulk selected)
+         2) submitMoveToValid (single invalid -> valid)
+         3) moveValidToInvalid (single valid -> invalid)
+    =============================== -->
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+          const confirmModal = document.getElementById("moveConfirmModal");
+          const successModal = document.getElementById("moveSuccessModal");
+          const errorModal   = document.getElementById("moveErrorModal");
+          const nothingModal = document.getElementById("moveNothingModal");
+          const missingModal = document.getElementById("moveMissingModal");
+
+          const confirmText  = document.getElementById("moveConfirmText");
+          const successText  = document.getElementById("moveSuccessMessage");
+          const errorText    = document.getElementById("moveErrorMessage");
+          const missingText  = document.getElementById("moveMissingContent");
+
+          const confirmBtn      = document.getElementById("confirmMoveBtn");
+          const cancelBtn       = document.getElementById("cancelMoveBtn");
+          const successOkBtn    = document.getElementById("moveSuccessOkBtn");
+          const errorOkBtn      = document.getElementById("moveErrorOkBtn");
+          const nothingOkBtn    = document.getElementById("moveNothingOkBtn");
+          const missingCloseBtn = document.getElementById("moveMissingCloseBtn");
+
+          const openMoveBtn = document.getElementById("openMoveModalBtn");
+          const hiddenForm  = document.getElementById("moveToVerifiedForm");
+
+          const failedEntries = Array.isArray(window.failedEntriesJson) ? window.failedEntriesJson : [];
+          let reopenErrorAfterMissing = false;
+
+          const openModal  = m => m?.classList.add("active");
+          const closeModal = m => m?.classList.remove("active");
+
+          function getInvalidCheckboxes() {
+              return document.querySelectorAll('#invalid-entries-table tbody input[name="selected_invalid[]"]');
+          }
+
+          function resetHiddenForm() {
+              if (!hiddenForm) return;
+              const token = hiddenForm.querySelector('input[name="_token"]');
+              hiddenForm.innerHTML = "";
+              if (token) hiddenForm.appendChild(token);
+          }
+
+          // ============================
+          // Bulk move: selected invalid -> valid (asks confirm)
+          // ============================
+          openMoveBtn?.addEventListener("click", () => {
+              if (window.closeAllEntryDropdowns) window.closeAllEntryDropdowns();
+
+              const boxes = [...getInvalidCheckboxes()];
+              if (boxes.length === 0) { openModal(nothingModal); return; }
+
+              const checked = boxes.filter(b => b.checked);
+              if (checked.length === 0) { openModal(nothingModal); return; }
+
+              confirmText.innerHTML = `Move <strong>${checked.length}</strong> entr${checked.length > 1 ? "ies" : "y"}?`;
+              openModal(confirmModal);
+          });
+
+          cancelBtn?.addEventListener("click", () => closeModal(confirmModal));
+
+          confirmBtn?.addEventListener("click", () => {
+              if (!hiddenForm) return;
+
+              const boxes = [...getInvalidCheckboxes()];
+              resetHiddenForm();
+
+              const checked = boxes.filter(cb => cb.checked);
+              if (checked.length === 0) {
+                  closeModal(confirmModal);
+                  openModal(nothingModal);
+                  return;
+              }
+
+              checked.forEach(cb => {
+                  const input = document.createElement("input");
+                  input.type = "hidden";
+                  input.name = "selected_invalid[]";
+                  input.value = cb.value;
+                  hiddenForm.appendChild(input);
+              });
+
+              hiddenForm.submit();
+          });
+
+          // ============================
+          // Auto show modals from controller
+          // ============================
+          if (window.showSuccessModal) {
+              successText.innerHTML = window.successModalMessage;
+              openModal(successModal);
+          }
+          successOkBtn?.addEventListener("click", () => closeModal(successModal));
+
+          if (window.showErrorModal) {
+              errorText.innerHTML = window.errorModalMessage;
+              openModal(errorModal);
+          }
+          errorOkBtn?.addEventListener("click", () => closeModal(errorModal));
+
+          if (window.showNothingModal) openModal(nothingModal);
+          nothingOkBtn?.addEventListener("click", () => closeModal(nothingModal));
+
+          if (window.redirect_anchor) {
+              setTimeout(() => { window.location.hash = window.redirect_anchor; }, 80);
+          }
+
+          // ============================
+          // Flash bar details
+          // ============================
+          document.addEventListener("click", e => {
+              const link = e.target.closest(".success-details-link");
+              if (!link) return;
+              e.preventDefault();
+              successText.innerHTML = window.successModalMessage;
+              openModal(successModal);
+          });
+
+          document.addEventListener("click", e => {
+              const link = e.target.closest(".error-details-link");
+              if (!link) return;
+              e.preventDefault();
+              errorText.innerHTML = window.errorModalMessage;
+              openModal(errorModal);
+          });
+
+          // ============================
+          // Missing field popup
+          // ============================
+          document.addEventListener("click", e => {
+              const link = e.target.closest(".show-missing-link");
+              if (!link) return;
+
+              e.preventDefault();
+
+              const id = link.getAttribute("data-id");
+              const entry = failedEntries[id];
+              if (!entry) return;
+
+              let html = `
+                  <h4 style="margin-bottom:10px;">
+                      Entry #${entry.index} – ${entry.name}
+                  </h4>
+              `;
+
+              Object.entries(entry.errors).forEach(([field, msgs]) => {
+                  const label = field.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+                  let arr = Array.isArray(msgs) ? msgs : [msgs];
+
+                  const defaultMessages = {
+                      full_name: "Full Name is required and must contain letters only.",
+                      id_number: "School ID must be 6 or 7 digits.",
+                      course: "Course is required.",
+                      year_level: "Year Level must be between 1 and 4.",
+                      contact_number: "Contact Number must be a valid PH mobile number.",
+                      emergency_contact: "Emergency Contact must be valid and different from Contact Number.",
+                      email: "Email must be valid and end with @gmail.com or @adzu.edu.ph.",
+                      barangay: "Barangay is required or not recognized.",
+                      district: "District is required.",
+                      profile_picture: "Profile picture link is invalid.",
+                      profile_picture_local: "Unable to load profile picture.",
+                      fb_messenger: "FB/Messenger link must be a valid Facebook URL.",
+                      monday: "Invalid or conflicting Monday schedule.",
+                      tuesday: "Invalid or conflicting Tuesday schedule.",
+                      wednesday: "Invalid or conflicting Wednesday schedule.",
+                      thursday: "Invalid or conflicting Thursday schedule.",
+                      friday: "Invalid or conflicting Friday schedule.",
+                      saturday: "Invalid or conflicting Saturday schedule.",
+                  };
+
+                  arr = arr.map(v => (v === true || v === false) ? (defaultMessages[field] || "Invalid or missing value.") : v);
+
+                  html += `
+                      <div style="margin-bottom:10px;">
+                          <strong style="color:#B2000C;">${label}</strong><br>
+                          ${arr.join("<br>")}
+                      </div>
+                  `;
+              });
+
+              missingText.innerHTML = html;
+
+              reopenErrorAfterMissing = errorModal.classList.contains("active");
+              if (reopenErrorAfterMissing) closeModal(errorModal);
+
+              openModal(missingModal);
+          });
+
+          missingCloseBtn?.addEventListener("click", () => {
+              closeModal(missingModal);
+              if (reopenErrorAfterMissing) {
+                  openModal(errorModal);
+                  reopenErrorAfterMissing = false;
+              }
+          });
+      });
+
+      // ============================
+      // ✅ 1) SINGLE INVALID -> VALID
+      // (Called by onclick="submitMoveToValid(this)")
+      // ============================
+      window.submitMoveToValid = function(btn) {
+          try {
+              if (window.closeAllEntryDropdowns) window.closeAllEntryDropdowns();
+
+              const row = btn.closest("tr");
+              const cb  = row?.querySelector('input[name="selected_invalid[]"]');
+              if (!cb) return;
+
+              const form  = document.getElementById("moveToVerifiedForm");
+              if (!form) return;
+
+              const token = form.querySelector('input[name="_token"]');
+              form.innerHTML = "";
+              if (token) form.appendChild(token);
+
+              const input = document.createElement("input");
+              input.type = "hidden";
+              input.name = "selected_invalid[]";
+              input.value = cb.value;
+
+              form.appendChild(input);
+              form.submit();
+          } catch (e) {
+              console.error("submitMoveToValid failed:", e);
+          }
+      };
+
+      // ============================
+      // ✅ 2) SINGLE VALID -> INVALID
+      // ============================
+      window.moveValidToInvalid = function(index) {
+          try {
+              if (window.closeAllEntryDropdowns) window.closeAllEntryDropdowns();
+              // keep your GET route style:
+              window.location.href = `/volunteer-import/move-valid-to-invalid/${index}`;
+              // If you change to POST later, switch to hidden form submission here.
+          } catch (e) {
+              console.error("moveValidToInvalid failed:", e);
+          }
+      };
+    </script>
 
 </body>
 </html>

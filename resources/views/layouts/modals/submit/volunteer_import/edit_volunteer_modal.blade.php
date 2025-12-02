@@ -275,6 +275,127 @@ input.invalid:-webkit-autofill:active {
   cursor: pointer; 
 }
 
+/* ===========================================================
+   SUCCESS MODAL (GREEN THEME, SAME STYLE AS EDIT MODAL)
+=========================================================== */
+
+.edit-success-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 99999;
+  font-family: 'Segoe UI', Roboto, sans-serif;
+}
+
+.edit-success-modal.active {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.edit-success-overlay {
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.edit-success-content {
+  position: relative;
+  background: #fff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 450px;              /* wider + smoother */
+  max-height: 90vh;
+  padding: 2.1rem 2.4rem;
+  font-size: 1.05rem;
+  box-shadow: 0 14px 45px rgba(0,0,0,0.28);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable both-edges;
+  animation: slideIn .3s ease forwards;
+}
+
+/* Smooth rounded scrollbars */
+.edit-success-content::-webkit-scrollbar {
+  width: 9px;
+}
+.edit-success-content::-webkit-scrollbar-track {
+  background: #f5f5f5;
+  border-radius: 10px;
+}
+.edit-success-content::-webkit-scrollbar-thumb {
+  background: #c2c2c2;
+  border-radius: 10px;
+}
+.edit-success-content::-webkit-scrollbar-thumb:hover {
+  background: #a5a5a5;
+}
+
+/* Header: icon + text on a single line, centered */
+.edit-success-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.6rem;
+  margin-bottom: 1.1rem;
+}
+
+.edit-success-title {
+  font-size: 1.6rem;
+  color: #28a745;
+  margin: 0;
+  font-weight: 700;
+}
+
+.edit-success-icon {
+  font-size: 1.8rem;
+  color: #28a745;
+}
+
+.edit-success-separator {
+  width: 88%;
+  height: 1px;
+  background: #ececec;
+  margin: 0.9rem auto 1.1rem;
+}
+
+.edit-success-text {
+  font-size: 1.05rem;
+  color: #222;
+  line-height: 1.55;
+  padding-right: 10px; /* keep text away from scrollbar */
+}
+
+/* Footer with green OK button */
+.edit-success-footer {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.edit-success-btn {
+  background: #8B0000;          /* deep red */
+  color: #fff;
+  padding: .65rem 1.9rem;
+  border-radius: 10px;          /* smoother corners like screenshot */
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.edit-success-btn:hover {
+  background: #7F0008;          /* slightly darker hover */
+  transform: scale(1.05);
+  box-shadow: 0 6px 14px rgba(139,0,0,0.45);
+}
+
+
 @keyframes slideIn {
   from { opacity:0; transform: translateY(-20px) scale(0.96); }
   to { opacity:1; transform: translateY(0) scale(1); }
@@ -293,6 +414,7 @@ input.invalid:-webkit-autofill:active {
   } 
 }
 </style>
+
 @php
 // Fetch courses
 $courses = DB::table('courses')
@@ -419,6 +541,86 @@ const locationsMap = @json($locationsMap);
     </div>
 </div>
 
+<!-- ===========================================================
+     UPDATE SUCCESS MODAL — MATCHES EDIT MODAL
+=========================================================== -->
+<div id="updateSuccessModal" class="edit-success-modal">
+    <div id="updateSuccessOverlay" class="edit-success-overlay">
+        <div class="edit-success-content">
+
+            <div class="edit-success-header">
+                <i class="fa-solid fa-circle-check edit-success-icon"></i>
+                <h2 class="edit-success-title">Changes Saved</h2>
+            </div>
+
+            <hr class="edit-success-separator">
+
+            <div id="updateSuccessMessage" class="edit-success-text"></div>
+
+            <div class="edit-success-footer">
+                <button id="updateSuccessOkBtn" class="edit-success-btn">
+                    <i class="fa-solid fa-check"></i> OK
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@if(session('updateDetails'))
+<script>
+    window.serverUpdateDetails = "{{ session('updateDetails') }}";
+</script>
+@endif
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+    /* ===========================================================
+       UPDATE SUCCESS MODAL ELEMENTS
+    =========================================================== */
+    const updateModal   = document.getElementById("updateSuccessModal");
+    const updateOverlay = document.getElementById("updateSuccessOverlay");
+    const updateMsg     = document.getElementById("updateSuccessMessage");
+    const updateOkBtn   = document.getElementById("updateSuccessOkBtn");
+
+    function openUpdateModal(html) {
+        updateMsg.innerHTML = html;
+        updateModal.classList.add("active");
+    }
+
+    function closeUpdateModal() {
+        updateModal.classList.remove("active");
+    }
+
+    updateOkBtn?.addEventListener("click", closeUpdateModal);
+    updateOverlay?.addEventListener("click", e => {
+        if (e.target === updateOverlay) closeUpdateModal();
+    });
+
+    /* AUTO OPEN (controller sets updateDetails) */
+    if (window.serverUpdateDetails) {
+        const decoded = atob(window.serverUpdateDetails);
+        openUpdateModal(decoded);
+    }
+
+    /* FLASH MESSAGE "SHOW DETAILS" HANDLER */
+    document.addEventListener("click", e => {
+        const link = e.target.closest(".update-details-link");
+        if (!link) return;
+
+        e.preventDefault();
+        const encoded = link.getAttribute("data-details");
+        if (!encoded) return;
+
+        const decoded = atob(encoded);
+        openUpdateModal(decoded);
+    });
+
+});
+
+</script>
+
 <script>
 (function(){
     const modal = document.getElementById('editVolunteerModal');
@@ -517,36 +719,65 @@ const locationsMap = @json($locationsMap);
     }
 
     const rules = {
-        full_name: v => v.trim()!=='' && /^[A-Za-z\s\-.,]+$/.test(v) ? true : 'Invalid full name',
-        id_number: v => /^\d{6,7}$/.test(v.trim()) ? true : 'ID must be 6-7 digits',
-        course: v => v!=='' ? true : 'Please select a course',
-        year_level: v => /^[1-4]$/.test(v.trim()) ? true : 'Year must be 1-4',
-        contact_number: v => /^(09|\+639)\d{9}$/.test(v.trim()) ? true : 'Invalid PH number',
-        emergency_contact: v => /^(09|\+639)\d{9}$/.test(v.trim()) ? true : 'Invalid PH number',
-        email: v => /^[a-zA-Z0-9._%+-]+@(gmail\.com|adzu\.edu\.ph)$/.test(v.trim()) ? true : 'Must be @gmail.com or @adzu.edu.ph',
-        fb_messenger: v => {
-            if(!v || !v.trim()) return true;
-            try {
-                const url = new URL(v.trim());
-                if(!['http:','https:'].includes(url.protocol)) return 'URL must start with http:// or https://';
-                if(!url.hostname.includes('facebook.com')) return 'URL should be a Facebook link';
-                return true;
-            } catch { return 'Must be a valid URL like https://www.facebook.com/username'; }
-        },
-        barangay: v => {
-            if(!v || v.trim()==='') return 'Please select a barangay';
-            if(!locationsMap[v.trim()]) return 'Invalid barangay';
-            return true;
-        },
-        district: v => {
-            const barangay = barangaySelect.value.trim();
-            const districtId = districtIdInput.value.trim();
-            if(!barangay) return 'District depends on Barangay selection';
-            if(!districtId) return 'Invalid district for selected barangay';
-            return true;
-        },
-        class_schedule: v => true // hidden
-    };
+      full_name: v => v.trim()!=='' && /^[A-Za-z\s\-.,]+$/.test(v) ? true : 'Invalid full name',
+      id_number: v => /^\d{6,7}$/.test(v.trim()) ? true : 'ID must be 6-7 digits',
+      course: v => v!=='' ? true : 'Please select a course',
+      year_level: v => /^[1-4]$/.test(v.trim()) ? true : 'Year must be 1-4',
+
+      // Contact Number – valid PH only
+      contact_number: v => {
+          const value = v.trim();
+          if (!/^(09|\+639)\d{9}$/.test(value)) {
+              return 'Invalid PH number';
+          }
+          // Also check difference if emergency already filled
+          const emergency = (document.getElementById('emergency_contact')?.value || '').trim();
+          if (emergency && emergency === value) {
+              return 'Contact number and emergency contact must be different';
+          }
+          return true;
+      },
+
+      // Emergency Contact – valid PH + must differ from contact_number
+      emergency_contact: v => {
+          const value = v.trim();
+          if (!/^(09|\+639)\d{9}$/.test(value)) {
+              return 'Invalid PH number';
+          }
+          const contact = (document.getElementById('contact_number')?.value || '').trim();
+          if (contact && contact === value) {
+              return 'Contact number and emergency contact must be different';
+          }
+          return true;
+      },
+
+      email: v => /^[a-zA-Z0-9._%+-]+@(gmail\.com|adzu\.edu\.ph)$/.test(v.trim()) ? true : 'Must be @gmail.com or @adzu.edu.ph',
+      fb_messenger: v => {
+          if(!v || !v.trim()) return true;
+          try {
+              const url = new URL(v.trim());
+              if(!['http:','https:'].includes(url.protocol)) return 'URL must start with http:// or https://';
+              if(!url.hostname.includes('facebook.com')) return 'URL should be a Facebook link';
+              return true;
+          } catch { 
+              return 'Must be a valid URL like https://www.facebook.com/username'; 
+          }
+      },
+      barangay: v => {
+          if(!v || v.trim()==='') return 'Please select a barangay';
+          if(!locationsMap[v.trim()]) return 'Invalid barangay';
+          return true;
+      },
+      district: v => {
+          const barangay = barangaySelect.value.trim();
+          const districtId = districtIdInput.value.trim();
+          if(!barangay) return 'District depends on Barangay selection';
+          if(!districtId) return 'Invalid district for selected barangay';
+          return true;
+      },
+      class_schedule: v => true // hidden
+  };
+
 
     function validateField(input){
         if(!rules[input.id]) return true;

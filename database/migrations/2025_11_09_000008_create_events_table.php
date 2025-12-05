@@ -11,6 +11,8 @@ return new class extends Migration
         if (!Schema::hasTable('events')) {
             Schema::create('events', function (Blueprint $table) {
                 $table->increments('event_id');
+
+                $table->string('event_code')->nullable()->unique();
                 $table->string('title');
                 $table->text('description')->nullable();
                 $table->string('venue')->nullable();
@@ -28,11 +30,19 @@ return new class extends Migration
                 $table->timestamp('start_datetime')->nullable();
                 $table->timestamp('end_datetime')->nullable();
 
+                // Optional capacity (if you use it elsewhere)
+                $table->unsignedInteger('max_volunteers')->nullable();
+
                 $table->enum('status', ['planned','ongoing','completed','cancelled'])
                     ->default('planned');
 
                 // Created by admin
                 $table->unsignedInteger('created_by')->nullable();
+
+                // ✅ Cancel fields
+                $table->text('cancel_reason')->nullable();
+                $table->timestamp('cancelled_at')->nullable();
+                $table->unsignedInteger('cancelled_by')->nullable();
 
                 $table->timestamps();
 
@@ -51,8 +61,13 @@ return new class extends Migration
                     ->references('admin_id')
                     ->on('admin_accounts')
                     ->onDelete('set null');
-            });
 
+                // ✅ FK for cancelled_by (recommended)
+                $table->foreign('cancelled_by')
+                    ->references('admin_id')
+                    ->on('admin_accounts')
+                    ->onDelete('set null');
+            });
         }
     }
 

@@ -15,25 +15,29 @@ class Event extends Model
     public $timestamps = true;
 
     protected $fillable = [
-        'title',
-        'description',
-        'venue',
-        'location_id',
-        'district_id',
-        'event_type_id',
-        'start_datetime',
-        'end_datetime',
-        'status',
-        'created_by',
+    'event_code',
+    'title',
+    'description',
+    'venue',
+    'location_id',
+    'district_id',
+    'event_type_id',
+    'start_datetime',
+    'end_datetime',
+    'max_volunteers',
+    'status',
+    'created_by',
     ];
+
 
     protected $casts = [
         'start_datetime' => 'datetime',
         'end_datetime'   => 'datetime',
-        'start_time'     => 'datetime:H:i',
-        'end_time'       => 'datetime:H:i',
-    ];
 
+        // ❌ remove these casts: they collide with your accessors below
+        // 'start_time'     => 'datetime:H:i',
+        // 'end_time'       => 'datetime:H:i',
+    ];
 
     /* ==========================================
        ACCESSORS (VERY IMPORTANT)

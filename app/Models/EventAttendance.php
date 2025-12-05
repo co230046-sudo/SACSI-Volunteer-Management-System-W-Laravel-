@@ -2,22 +2,25 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class EventAttendance extends Model
 {
     protected $table = 'event_attendances';
     protected $primaryKey = 'attendance_id';
-    protected $fillable = ['event_id','volunteer_id','status','attendance_time'];
+    public $timestamps = false; // your migration doesn't add created_at/updated_at
 
-    public function event()
-    {
-        return $this->belongsTo(Event::class, 'event_id');
-    }
-
-    public function volunteer()
-    {
-        return $this->belongsTo(VolunteerProfile::class, 'volunteer_id');
-    }
+    protected $fillable = [
+        'event_id',
+        'event_code',
+        'volunteer_id',
+        'full_name',
+        'school_id',
+        'school_email',
+        'status',
+        'source',
+        'walk_in',
+        'attendance_time',
+        'import_batch',
+    ];
 }

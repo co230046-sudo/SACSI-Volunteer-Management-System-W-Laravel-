@@ -11,22 +11,19 @@ class Location extends Model
 
     protected $table = 'locations';
     protected $primaryKey = 'location_id';
-    public $incrementing = true;
-    public $timestamps = true;
 
     protected $fillable = [
-        'district',
+        'district_id',
+        'zone_name',   // optional if column exists
         'barangay',
-        'status',
+        'status',      // optional if column exists
     ];
 
-    // Relation: Volunteers
     public function volunteerProfiles()
     {
         return $this->hasMany(VolunteerProfile::class, 'location_id', 'location_id');
     }
 
-    // Relation: Events
     public function events()
     {
         return $this->hasMany(Event::class, 'location_id', 'location_id');

@@ -1,15 +1,15 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Http\Request;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\HomePageController;
 use App\Http\Controllers\VolunteerImportController;
 use App\Http\Controllers\CreateEventController;
 use App\Http\Controllers\VolunteerListController;
 use App\Http\Controllers\VolunteerProfileController;
-use App\Http\Controllers\EventDetailsController;
 use App\Http\Controllers\EventManagerController;
+use App\Http\Controllers\AttendanceImportController;
+use App\Http\Controllers\EventDetailsController;
 
 Route::get('/', function () {
     return redirect()->route('auth.login');
@@ -45,73 +45,110 @@ Route::middleware(['auth:admin'])->group(function () {
         Route::post('/move-invalid', [VolunteerImportController::class, 'moveInvalidToValid'])
             ->name('volunteer.import.moveInvalidToValid');
 
-        Route::put('/volunteer/update-entry/{index}/{type}',
-            [VolunteerImportController::class, 'updateVolunteerEntry'])
+        Route::put('/volunteer/update-entry/{index}/{type}', [VolunteerImportController::class, 'updateVolunteerEntry'])
             ->name('volunteer.import.update-entry');
 
-        Route::get('/move-valid-to-invalid/{index}',
-            [VolunteerImportController::class, 'moveValidToInvalid'])
+        Route::get('/move-valid-to-invalid/{index}', [VolunteerImportController::class, 'moveValidToInvalid'])
             ->name('volunteer.moveValidToInvalid');
 
-        Route::post('/volunteer/delete-entries',
-            [VolunteerImportController::class, 'deleteEntries'])
+        Route::post('/volunteer/delete-entries', [VolunteerImportController::class, 'deleteEntries'])
             ->name('volunteer.deleteEntries');
 
-        Route::get('/undo-delete',
-            [VolunteerImportController::class, 'undoDelete'])
+        Route::get('/undo-delete', [VolunteerImportController::class, 'undoDelete'])
             ->name('volunteer.import.undo-delete');
 
-        Route::put('/volunteers/{id}/update-schedule',
-            [VolunteerImportController::class, 'updateSchedule'])
+        Route::put('/volunteers/{id}/update-schedule', [VolunteerImportController::class, 'updateSchedule'])
             ->name('volunteer.update-schedule');
 
-        Route::post('/check-duplicates',
-            [VolunteerImportController::class, 'checkDuplicates'])
+        Route::post('/check-duplicates', [VolunteerImportController::class, 'checkDuplicates'])
             ->name('volunteer.import.checkDuplicates');
 
-        Route::post('/update-picture',
-            [VolunteerImportController::class, 'updatePicture'])
+        Route::post('/update-picture', [VolunteerImportController::class, 'updatePicture'])
             ->name('volunteer.import.updatePicture');
 
-        Route::post('/set-default-picture',
-            [VolunteerImportController::class, 'setDefaultPicture'])
+        Route::post('/set-default-picture', [VolunteerImportController::class, 'setDefaultPicture'])
             ->name('volunteer.import.setDefaultPicture');
     });
 
-    /* ------------------ CREATE EVENT ROUTES ------------------ */
+    /* ------------------ VOLUNTEER LIST ------------------ */
+    Route::get('/volunteers_list', [VolunteerListController::class, 'index'])
+        ->name('volunteers.list');
+
+    Route::get('/volunteers/data', [VolunteerListController::class, 'data'])
+        ->name('volunteers.data');
+
+    Route::get('/volunteers/locations', [VolunteerListController::class, 'locations'])
+        ->name('volunteers.locations');
+
+    /* ------------------ VOLUNTEER PROFILE ------------------ */
+    Route::get('/volunteer-profile/{id}', [VolunteerProfileController::class, 'show'])
+        ->name('volunteers.show');
+
+    /* ------------------ EVENT MANAGER ------------------ */
+    Route::get('/events/manage', [EventManagerController::class, 'index'])
+    ->name('events.manage');
+    
+    /* ------------------ EVENT DELETE ------------------ */
+    Route::delete('/events/manage/bulk-destroy', [EventManagerController::class, 'bulkDestroy'])
+    ->name('events.bulkDestroy');
+
+    /* ------------------ EVENTS ------------------ */
     Route::prefix('events')->group(function () {
 
         Route::get('/create', [CreateEventController::class, 'create'])
             ->name('events.create');
 
-        Route::post('/store', [CreateEventController::class, 'store'])
+        Route::post('/', [CreateEventController::class, 'store'])
             ->name('events.store');
 
-        Route::post('/{event_id}/add-volunteers', 
-            [EventDetailsController::class, 'addVolunteers']
-        )->name('events.addVolunteers');
+        // ✅ show event details
+        Route::get('/{event:event_id}', [EventDetailsController::class, 'show'])
+            ->name('event.details.show');
 
+
+        // ✅ edit/update
+        Route::get('/{event:event_id}/edit', [CreateEventController::class, 'edit'])
+            ->name('events.edit');
+
+        Route::put('/{event:event_id}', [CreateEventController::class, 'update'])
+            ->name('events.update');
+
+        // ✅ summary
+        Route::get('/{event:event_id}/summary', [CreateEventController::class, 'summary'])
+        ->name('events.summary');
+
+        // ✅ expected volunteers
+        Route::post('/{event:event_id}/expected-volunteers', [CreateEventController::class, 'addVolunteers'])
+            ->name('events.expectedVolunteers.add');
+
+        Route::delete('/{event:event_id}/expected-volunteers/{volunteer_id}', [CreateEventController::class, 'removeExpectedVolunteer'])
+            ->name('events.expectedVolunteers.remove');
+
+        // ✅ cancel/restore on EventDetailsController (still fine)
+        Route::post('/{event:event_id}/cancel', [EventDetailsController::class, 'cancel'])
+            ->name('events.cancel');
+
+        Route::post('/{event:event_id}/restore', [EventDetailsController::class, 'restore'])
+            ->name('events.restore');
     });
 
+    /* ------------------ IMPORT ATTENDANCE ------------------ */
+    Route::get('/events/{event:event_id}/attendance/import', [AttendanceImportController::class, 'index'])
+        ->name('attendance.import.index');
 
-    /* ------------------ EVENT MANAGER ROUTES ------------------ */
+    Route::post('/events/{event:event_id}/attendance/import/preview', [AttendanceImportController::class, 'preview'])
+        ->name('attendance.import.preview');
 
-    Route::get('/events/manage', [EventManagerController::class, 'index'])
-        ->name('events.manage');
+    Route::post('/events/{event:event_id}/attendance/import/commit', [AttendanceImportController::class, 'commit'])
+        ->name('attendance.import.commit');
 
-    /* See Details (already works) */
-    Route::get('/events/{event_id}', [EventDetailsController::class, 'show'])
-        ->name('event.details.show');
+    Route::post('/events/{event:event_id}/attendance/import/reset', [AttendanceImportController::class, 'reset'])
+        ->name('attendance.import.reset');
 
+    Route::post('/events/{event:event_id}/attendance/import/preview/update', [AttendanceImportController::class, 'updatePreviewRow'])
+        ->name('attendance.import.preview.update');
 
-    /* ------------------ VOLUNTEER LIST ------------------ */
-    Route::get('/volunteers_list', [VolunteerListController::class, 'index'])->name('volunteers.list');
-
-    Route::get('/volunteers/data', [VolunteerListController::class, 'data'])->name('volunteers.data');
-
-    Route::get('/volunteers/locations', [VolunteerListController::class, 'locations'])->name('volunteers.locations');
-
-    /* ------------------ VOLUNTEER Profile ------------------ */
-    Route::get('/volunteer-profile/{id}', [VolunteerProfileController::class, 'show'])
-        ->name('volunteers.show');
+    Route::post('/events/{event:event_id}/attendance/import/preview/delete', [AttendanceImportController::class, 'deletePreviewRow'])
+        ->name('attendance.import.preview.delete');
 });
+

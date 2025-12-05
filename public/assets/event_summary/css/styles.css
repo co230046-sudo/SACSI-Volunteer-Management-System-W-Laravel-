@@ -1,0 +1,878 @@
+:root{
+  --brand: #b23a45;
+  --brand-dark: #8f2a33;
+  --brand-ink: #7a232b;
+  --brand-ghost: rgba(178, 58, 69, .10);
+  --brand-border: rgba(178, 58, 69, .24);
+  --brand-ring: 0 0 0 4px rgba(178,58,69,.14);
+
+  --panel: #ffffff;
+  --bg: #f7f7f8;
+
+  --ok: #1f9d55;
+  --ok-ghost: rgba(31, 157, 85, .14);
+
+  --warn: #f59e0b;
+  --warn-ghost: rgba(245, 158, 11, .14);
+
+  --danger: #dc3545;
+  --danger-ghost: rgba(220, 53, 69, .14);
+
+  --ink: #111827;
+  --muted: #6b7280;
+  --line: rgba(17,24,39,.10);
+
+  --shadow: 0 10px 26px rgba(0,0,0,0.06);
+  --shadow-strong: 0 16px 46px rgba(0,0,0,0.14);
+
+  --radius: 16px;
+}
+
+/* =========================================================
+   BASE
+========================================================= */
+body{
+  font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, Arial;
+  background: var(--bg);
+  padding-top: 80px;
+  margin: 0;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* toast */
+.toast-lite{
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  background: rgba(17,24,39,.92);
+  color:#fff;
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-weight: 900;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: .18s ease;
+  z-index: 99999;
+}
+.toast-lite.show{ opacity: 1; transform: translateY(0); }
+
+/* =========================================================
+   PAGE WRAP + GRID
+========================================================= */
+.summary-wrap{
+  width: min(1480px, 94vw);
+  margin: 0 auto 60px;
+}
+
+.summary-grid--split{
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 1100px){
+  .summary-grid--split{ grid-template-columns: 1fr; }
+}
+
+/* =========================================================
+   MAIN CARD
+========================================================= */
+.summary-card{
+  border-radius: var(--radius);
+  background: var(--panel);
+  border: 1px solid rgba(17,24,39,.08);
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+.summary-card::before{
+  content:"";
+  position:absolute;
+  left:0; right:0; top:0;
+  height:4px;
+  background: var(--brand-border);
+  pointer-events:none;
+}
+
+/* =========================================================
+   TOP BAR (match your screenshot)
+========================================================= */
+.summary-top{
+  padding: 18px 20px 14px;
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap: 14px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid rgba(17,24,39,.08);
+}
+
+.page-kicker{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  font-weight: 850;
+  color: rgba(17,24,39,.55);
+}
+
+.title-row{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.event-h1{
+  margin: 0;
+  font-size: clamp(2.1rem, 3vw, 3.4rem);
+  font-weight: 950;
+  letter-spacing: -1px;
+  line-height: 1.05;
+  color: var(--brand-ink);
+}
+
+.status-badge{
+  display:inline-flex;
+  align-items:center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(17,24,39,.12);
+  background: rgba(17,24,39,.03);
+  font-weight: 900;
+  line-height: 1;
+  color: rgba(17,24,39,.76);
+}
+.status-badge .dot{
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(17,24,39,.30);
+}
+.status-completed{
+  background: rgba(31,157,85,.12);
+  border-color: rgba(31,157,85,.26);
+  color: #166534;
+}
+.status-completed .dot{ background: #1f9d55; }
+
+.mini-badge{
+  display:inline-flex;
+  align-items:center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(31,157,85,.26);
+  background: rgba(31,157,85,.12);
+  color: #166534;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.chips{
+  margin-top: 12px;
+  display:flex;
+  flex-wrap: wrap;
+  align-items:center;
+  gap: 10px;
+}
+
+.chip{
+  display:inline-flex;
+  align-items:center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(178,58,69,.22);
+  background: rgba(178,58,69,.08);
+  color: var(--brand-ink);
+  font-weight: 750;
+}
+.chip i{ color: var(--brand); }
+
+.chip-btn{
+  cursor:pointer;
+  border: 1px solid rgba(17,24,39,.12);
+  background: #fff;
+  color: rgba(17,24,39,.80);
+}
+.chip-btn:hover{
+  background: rgba(178,58,69,.08);
+  border-color: rgba(178,58,69,.20);
+}
+.chip-btn .chip-ico{ opacity: .7; margin-left: 4px; }
+
+.subchips{
+  margin-top: 10px;
+  display:flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.subchip{
+  display:inline-flex;
+  align-items:center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(17,24,39,.12);
+  background: rgba(17,24,39,.02);
+  color: rgba(17,24,39,.78);
+  font-weight: 700;
+}
+.subchip i{ color: var(--brand); }
+
+.top-right{
+  display:flex;
+  align-items:flex-start;
+  gap: 10px;
+}
+
+/* =========================================================
+   EXPORT (fixes the dropdown breaking)
+========================================================= */
+.export{ position: relative; }
+.btn-export{
+  border-radius: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(178,58,69,.20);
+  background: rgba(178,58,69,.08);
+  color: var(--brand-ink);
+  font-weight: 850;
+  display:inline-flex;
+  align-items:center;
+  gap: 10px;
+}
+.btn-export:hover{ background: rgba(178,58,69,.12); transform: translateY(-1px); }
+
+.export-menu{
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;                 /* <- matches screenshot (menu drops under button) */
+  right: auto;
+  min-width: 220px;
+  background: #fff;
+  border: 1px solid rgba(17,24,39,.10);
+  border-radius: 16px;
+  box-shadow: var(--shadow-strong);
+  padding: 8px;
+  display: none;
+  z-index: 9999;
+}
+.export.open .export-menu{ display:block; }
+
+.export-item{
+  width:100%;
+  border: 0;
+  background: transparent;
+  padding: 10px 10px;
+  border-radius: 12px;
+  font-weight: 700;
+  color: rgba(17,24,39,.85);
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  cursor:pointer;
+}
+.export-item:hover{ background: rgba(178,58,69,.10); color: var(--brand-ink); }
+
+.btn-softlink{
+  text-decoration:none;
+  border: 1px solid rgba(17,24,39,.12);
+  background: #fff;
+  color: rgba(17,24,39,.85);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-weight: 800;
+  display:inline-flex;
+  align-items:center;
+  gap: 10px;
+}
+.btn-softlink:hover{ background: rgba(178,58,69,.06); border-color: rgba(178,58,69,.18); color: var(--brand-ink); }
+
+/* =========================================================
+   INSIDE REPORT GRID
+========================================================= */
+.summary-grid{
+  padding: 18px 20px 20px;
+  display:grid;
+  grid-template-columns: 420px minmax(0,1fr);
+  gap: 16px;
+}
+@media (max-width: 1100px){
+  .summary-grid{ grid-template-columns: 1fr; }
+}
+
+.panel{
+  border-radius: var(--radius);
+  background: #fff;
+  border: 1px solid rgba(17,24,39,.08);
+  box-shadow: 0 10px 18px rgba(0,0,0,0.04);
+  overflow: hidden;
+}
+.panel-head{
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid rgba(17,24,39,.06);
+}
+.panel-title{
+  font-weight: 900;
+  color: var(--brand-ink);
+  display:flex;
+  align-items:center;
+  gap: 10px;
+}
+.panel-title i{ color: var(--brand); }
+
+/* =========================================================
+   PIE CHART (keep your muted red, not hot pink)
+========================================================= */
+.chart-shell{
+  position: relative;
+  padding: 16px 14px 10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.chart{
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: conic-gradient(rgba(17,24,39,.10) 0deg 360deg);
+  box-shadow: 0 18px 34px rgba(0,0,0,0.12);
+}
+@media (max-width: 520px){
+  .chart{ width: 270px; height: 270px; }
+}
+
+.chart-center{
+  position:absolute;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid rgba(17,24,39,.10);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.06);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  text-align:center;
+}
+
+.chart-center-top{
+  font-size: 38px;
+  font-weight: 950;
+  line-height: 1;
+  color: rgba(17,24,39,.86);
+}
+.chart-center-sub{
+  margin-top: 8px;
+  font-weight: 850;
+  color: rgba(17,24,39,.60);
+}
+
+.chart-tooltip{
+  position:absolute;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(17,24,39,.92);
+  color:#fff;
+  font-weight: 850;
+  font-size: .9rem;
+  opacity: 0;
+  pointer-events:none;
+  transform: translate(-50%, -120%);
+  white-space: nowrap;
+}
+
+.chart-legend{
+  padding: 10px 14px 12px;
+  display:flex;
+  flex-direction:column;
+  gap: 10px;
+}
+
+.legend-item{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  padding: 10px 10px;
+  border-radius: 14px;
+  background: rgba(17,24,39,.02);
+  border: 1px solid rgba(17,24,39,.08);
+}
+.color-box{
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+.legend-label{
+  font-weight: 900;
+  color: rgba(17,24,39,.84);
+}
+.legend-sub{
+  font-weight: 700;
+  color: rgba(17,24,39,.55);
+}
+
+/* note under chart (must stay server-rendered) */
+.chart-note{ padding: 8px 14px 14px; }
+.note-row{
+  display:flex;
+  justify-content:space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px dashed rgba(17,24,39,.12);
+}
+.note-row:first-child{ border-top: 0; }
+
+/* =========================================================
+   OVERVIEW CARDS (matches screenshot spacing)
+========================================================= */
+.stats-row--tight{
+  padding: 14px;
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 12px;
+}
+@media (max-width: 520px){
+  .stats-row--tight{ grid-template-columns: 1fr; }
+}
+
+.stat-box--tight{
+  border-radius: 16px;
+  border: 1px solid rgba(17,24,39,.10);
+  background: #fff;
+  padding: 14px 14px;
+}
+.stat-box--primary{
+  border-color: rgba(178,58,69,.22);
+  background: rgba(178,58,69,.06);
+}
+.stat-top{
+  font-weight: 900;
+  color: var(--brand-ink);
+  display:flex;
+  align-items:center;
+  gap: 10px;
+}
+.stat-top i{ color: var(--brand); }
+.stat-value{
+  margin-top: 8px;
+  font-weight: 950;
+  font-size: 1.7rem;
+  color: rgba(17,24,39,.88);
+}
+.stat-sub{ margin-top: 6px; color: rgba(17,24,39,.60) !important; }
+
+/* =========================================================
+   COMMENTS DRAWER (fix “weird” look)
+   Works with BOTH:
+   - your old HTML (comment-head + comment-name icon)
+   - the improved HTML (avatar + qa rows)
+========================================================= */
+.comments-drawer{ border-radius: var(--radius); overflow: hidden; }
+
+.panel--summary .panel-head--clickable{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.panel-chev{ color: rgba(17,24,39,.55); }
+
+.comments-panel{ margin-top: 10px; }
+.comments-body{ padding: 14px; }
+
+.comment-item{
+  border-radius: 18px;
+  border: 1px solid rgba(17,24,39,.08);
+  background: #fff;
+  box-shadow: 0 10px 18px rgba(0,0,0,0.04);
+  padding: 12px 12px;
+  margin-bottom: 12px;
+}
+.comment-item:last-child{ margin-bottom: 0; }
+
+.comment-head{
+  display:flex;
+  align-items:flex-start;
+  gap: 12px;
+}
+
+/* avatar (only visible if you add it in blade) */
+.comment-avatar{
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex: 0 0 44px;
+  border: 1px solid rgba(17,24,39,.10);
+  background: #fff;
+}
+.comment-avatar img{
+  width:100%;
+  height:100%;
+  object-fit: cover;
+  display:block;
+}
+
+/* name + meta block */
+.comment-head-main{ flex: 1 1 auto; min-width: 0; }
+
+.comment-name{
+  font-weight: 950;
+  color: #111827;
+  display:flex;
+  align-items:center;
+  gap: 8px;
+}
+.comment-name i{ color: rgba(17,24,39,.55); } /* supports your old icon too */
+.comment-name-link{ color: inherit; text-decoration:none; }
+.comment-name-link:hover{ text-decoration: underline; }
+
+.comment-meta{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.rating-pill{
+  display:inline-flex;
+  align-items:center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(245,158,11,.30);
+  background: rgba(245,158,11,.12);
+  color: #7a4b00;
+  font-weight: 900;
+}
+.rating-pill i{ color: #f59e0b; }
+
+.time{ font-weight: 750; color: rgba(17,24,39,.55) !important; }
+
+/* OLD text block support (your existing .comment-text) */
+.comment-text{
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(17,24,39,.08);
+  background: rgba(17,24,39,.02);
+  color: rgba(17,24,39,.82);
+  font-weight: 650;
+  line-height: 1.55;
+  white-space: pre-wrap; /* if your controller inserts \n */
+}
+
+/* NEW QA block support */
+.comment-qa{
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(17,24,39,.08);
+  background: rgba(17,24,39,.02);
+  display:flex;
+  flex-direction:column;
+  gap: 8px;
+}
+
+.qa-row{
+  display:grid;
+  grid-template-columns: 165px minmax(0,1fr);
+  gap: 10px;
+  align-items:start;
+}
+.qa-q{
+  font-weight: 900;
+  color: rgba(17,24,39,.62);
+}
+.qa-a{
+  font-weight: 800;
+  color: rgba(17,24,39,.82);
+  overflow-wrap:anywhere;
+}
+@media (max-width: 520px){
+  .qa-row{ grid-template-columns: 1fr; }
+}
+
+/* empty state */
+.empty-comment{
+  border-radius: 18px;
+  border: 1px dashed rgba(178,58,69,.28);
+  background: rgba(178,58,69,.05);
+  padding: 18px;
+  text-align:center;
+}
+.empty-ico{
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  background: rgba(178,58,69,.12);
+  border: 1px solid rgba(178,58,69,.18);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin: 0 auto 10px;
+  color: var(--brand-ink);
+  font-size: 1.2rem;
+}
+.empty-title{
+  font-weight: 950;
+  color: var(--brand-ink);
+}
+
+/* =========================================================
+   PRINT / EXPORT VISIBILITY
+========================================================= */
+.print-only{ display:none; }
+.is-exporting .print-only{ display:block !important; }
+
+/* Hide the default <details>/<summary> disclosure triangle */
+.comments-drawer > summary {
+  list-style: none;          /* Firefox */
+}
+
+.comments-drawer > summary::-webkit-details-marker {
+  display: none;             /* Chrome/Safari/Edge */
+}
+
+.comments-drawer > summary::marker {
+  content: "";               /* Modern browsers */
+}
+
+/* SUMMARY TOP: left details + right actions (Export/View Event) */
+.summary-top{
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap; /* allow clean wrap on small screens */
+}
+
+/* left should be allowed to shrink so it doesn't push actions down */
+.summary-top .top-left{
+  flex: 1 1 520px;
+  min-width: 0;
+}
+
+/* right side stays right on wide screens */
+.summary-top .top-right{
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  justify-content: flex-end;
+}
+
+/* optional: on small screens, let it drop but still align to the right */
+@media (max-width: 768px){
+  .summary-top .top-right{
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+
+.summary-top .top-left{ min-width: 0; }
+.top-actions-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.title-and-details{ flex:1 1 520px; min-width:0; }
+
+/* =========================================================
+   COMMENTS UX FIX (WIDER + PILL SUMMARY + SCROLL + NO TRIANGLE)
+   Paste at the VERY BOTTOM of your CSS
+========================================================= */
+
+/* 1) Make the right comments column wider */
+.summary-grid--split{
+  grid-template-columns: minmax(0, 1fr) 460px; /* was 380px */
+}
+@media (max-width: 1400px){
+  .summary-grid--split{ grid-template-columns: minmax(0, 1fr) 420px; }
+}
+@media (max-width: 1100px){
+  .summary-grid--split{ grid-template-columns: 1fr; }
+}
+
+/* 2) Make the comments side sticky + scroll inside when long */
+.summary-col--side{ position: relative; }
+
+@media (min-width: 1101px){
+  .comments-drawer{
+    position: sticky;
+    top: 92px; /* below your top padding/header */
+  }
+
+  .comments-panel .comments-body{
+    max-height: calc(100vh - 140px);
+    overflow: auto;
+    padding-right: 10px;
+  }
+
+  .comments-panel .comments-body::-webkit-scrollbar{ width: 10px; }
+  .comments-panel .comments-body::-webkit-scrollbar-thumb{
+    background: rgba(17,24,39,.18);
+    border-radius: 999px;
+  }
+}
+
+/* 3) Hide the default triangle for ALL details summaries (drawer + each comment) */
+.comments-drawer > summary,
+.comment-item > summary{
+  list-style: none;
+}
+.comments-drawer > summary::-webkit-details-marker,
+.comment-item > summary::-webkit-details-marker{
+  display: none;
+}
+.comments-drawer > summary::marker,
+.comment-item > summary::marker{
+  content: "";
+}
+
+/* 4) Drawer header: make "Comments" look like a pill button */
+.panel--summary{
+  padding: 10px 12px;               /* make it feel like a button area */
+  cursor: pointer;
+  user-select: none;
+  background: #fff;
+}
+
+.panel--summary .panel-head--clickable{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel--summary .panel-title{
+  display:inline-flex;
+  align-items:center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(178,58,69,.22);
+  background: rgba(178,58,69,.08);
+  color: var(--brand-ink);
+  font-weight: 950;
+  line-height: 1;
+}
+
+.panel--summary .panel-title i{ color: var(--brand); }
+.panel--summary .panel-sub{ margin-left: 6px; }
+
+.comments-drawer[open] .panel--summary{
+  box-shadow: 0 10px 18px rgba(0,0,0,0.05);
+}
+
+.panel-chev{
+  transition: transform .18s ease;
+}
+.comments-drawer[open] .panel-chev{
+  transform: rotate(180deg);
+}
+
+/* 5) Each comment summary looks like a clean clickable pill row */
+.comment-item{
+  padding: 0; /* we’ll control padding inside summary/body */
+  overflow: hidden;
+}
+
+.comment-summary{
+  cursor: pointer;
+  padding: 12px 12px;
+  border-radius: 18px;
+  user-select: none;
+}
+
+.comment-item > summary.comment-summary{
+  background: #fff;
+}
+
+.comment-item > summary.comment-summary:hover{
+  background: rgba(17,24,39,.02);
+}
+
+.comment-item > summary.comment-summary:focus{
+  outline: none;
+}
+.comment-item > summary.comment-summary:focus-visible{
+  box-shadow: var(--brand-ring);
+}
+
+/* 6) Layout fixes so the header is balanced */
+.comment-head{
+  align-items: center;
+}
+
+.comment-avatar{
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border-radius: 50%;
+}
+
+.comment-title-row{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.comment-item-chev{
+  opacity: .65;
+  transition: transform .18s ease, opacity .18s ease;
+}
+.comment-item[open] .comment-item-chev{
+  transform: rotate(180deg);
+  opacity: 1;
+}
+
+/* 7) Comment body area */
+.comment-detail{
+  padding: 0 12px 12px;
+}
+
+/* 8) QA rows: widen and add clear dividers per question */
+.comment-qa{
+  margin-top: 10px;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(17,24,39,.08);
+  background: rgba(17,24,39,.02);
+  gap: 0; /* we’ll use dividers */
+}
+
+.qa-row{
+  grid-template-columns: 210px minmax(0,1fr); /* wider question column */
+  padding: 10px 0;
+  border-top: 1px solid rgba(17,24,39,.10);
+}
+.qa-row:first-child{ border-top: 0; padding-top: 0; }
+.qa-row:last-child{ padding-bottom: 0; }
+
+.qa-q{
+  font-weight: 900;
+  color: rgba(17,24,39,.68);
+}
+
+.qa-a{
+  font-weight: 850;
+  color: rgba(17,24,39,.88);
+}
+
+/* Mobile: stack Q over A */
+@media (max-width: 520px){
+  .qa-row{ grid-template-columns: 1fr; }
+}
+
+/* 9) Little "Comments" preview line under the meta */
+.comment-preview{
+  margin-top: 6px;
+  font-weight: 800;
+  color: rgba(17,24,39,.55) !important;
+}

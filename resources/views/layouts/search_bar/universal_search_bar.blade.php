@@ -1696,7 +1696,6 @@
     const tbody = table.querySelector("tbody");
     if (!tbody) return;
 
-    // IMPORTANT: recalc rows each time (if your table updates/paginates dynamically)
     function getAllRows() {
       return Array.from(tbody.querySelectorAll("tr:not(.no-search-results)"));
     }
@@ -1708,9 +1707,6 @@
     const sortPanel     = container.querySelector(".sort-options");
     const customSelects = container.querySelectorAll(".custom-select");
 
-    // ============================
-    // Disable TOP search while filter panel/dropdowns are open (avoid conflicts)
-    // ============================
     function setTopSearchEnabled(enabled) {
       if (!searchInput) return;
       searchInput.disabled = !enabled;
@@ -1744,7 +1740,7 @@
             schedule:  13
           };
 
-    let activeFilters = {};   // colIndex -> string
+    let activeFilters = {}; // colIndex -> string
     let activeSort = null;
 
     // ----------------------------
@@ -1757,16 +1753,41 @@
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .replace(/&/g, " and ")
-        .replace(/[^a-z0-9\s]/g, " ")
+        // keep @ . - _ for email searches; strip the rest
+        .replace(/[^a-z0-9\s@._-]/g, " ")
         .replace(/\s+/g, " ")
         .trim();
     }
-    function compact(s){ return normalize(s).replace(/\s+/g, ""); }
+    function compact(s) {
+      return normalize(s).replace(/\s+/g, "");
+    }
 
+    // ✅ Cell text: prefer data-value, then input/select/textarea, then innerText
     function getCellText(cell) {
       if (!cell) return "";
-      const raw = cell.dataset.value !== undefined ? cell.dataset.value : cell.innerText;
+      if (cell.dataset && cell.dataset.value !== undefined) {
+        return (cell.dataset.value || "").toString().trim();
+      }
+      const input = cell.querySelector("input, textarea, select");
+      if (input && input.value !== undefined) {
+        return (input.value || "").toString().trim();
+      }
+      const raw = cell.innerText;
       return (raw || "").toString().trim();
+    }
+
+    // ✅ Row-wide search text (includes data-value + inputs)
+    function getRowSearchText(row) {
+      let combined = "";
+      row.querySelectorAll("td").forEach(cell => {
+        let chunk = "";
+        if (cell.innerText) chunk += " " + cell.innerText;
+        if (cell.dataset && cell.dataset.value) chunk += " " + cell.dataset.value;
+        const input = cell.querySelector("input, textarea, select");
+        if (input && input.value) chunk += " " + input.value;
+        combined += " " + chunk;
+      });
+      return combined;
     }
 
     function isSubsequence(q, t) {
@@ -1788,25 +1809,27 @@
 
     function makeAcronym(str) {
       const stop = new Set(["and","of","the","in","for","to","on","at","with","a","an","major","certificate"]);
-      const toks = normalize(str).split(" ").filter(Boolean).filter(t => !stop.has(t));
+      const toks = normalize(str)
+        .replace(/[@._-]/g, " ") // don't let email punctuation affect acronyms
+        .split(" ")
+        .filter(Boolean)
+        .filter(t => !stop.has(t));
       return toks.map(t => t[0]).join("");
     }
 
     // ✅ Course-aware acronym:
     // "BS Information Technology" => "bsit"
     // "Bachelor of Science in Information Technology" => "bsit"
-    // "BSIT" => "bsit"
     function courseAcronym(str) {
-      const t = normalize(str);
+      const t = normalize(str).replace(/[@._-]/g, " ");
       if (!t) return "";
 
-      // already an acronym/shortcode like BSIT, BSCpE...
+      // already a shortcode like BSIT, BSCS...
       if (isShortCode(str)) return compact(t);
 
       const toks = t.split(" ").filter(Boolean);
       if (!toks.length) return "";
 
-      // degree prefixes: preserve whole first token instead of only its first letter
       const PREFIXES = new Set([
         "bs","ba","bse","bsc","bsa","bshm","bstm","bsed","beed",
         "bscs","bsit","bscpe","bsce","bsee","bsece"
@@ -1825,11 +1848,39 @@
 
     function acr(str){ return compact(makeAcronym(str)); } // generic acronym
 
+    // ✅ Email helpers: allow searching "@gmail.com", "gmail.com", "@adzu.edu.ph", etc.
+    function emailClean(s) {
+      return (s || "").toString().toLowerCase().replace(/\s+/g, "");
+    }
+    function isEmailishQuery(qRaw) {
+      const q = emailClean(qRaw);
+      return q.includes("@") || q.includes(".com") || q.includes(".edu") || q.includes(".ph");
+    }
+    function emailMatch(qRaw, textRaw) {
+      const q = emailClean(qRaw);
+      const t = emailClean(textRaw);
+
+      if (!q) return true;
+      if (!t) return false;
+
+      // If query contains '@', match exact substring (supports "@gmail.com")
+      if (q.includes("@")) return t.includes(q);
+
+      // If query is "gmail.com" or "adzu.edu.ph", match domain part
+      return t.includes(q);
+    }
+
+    // ✅ This is the key fix: fuzzyMatch now uses courseAcronym for BSIT <-> BS Information Technology
     function fuzzyMatch(qRaw, textRaw) {
       const q = normalize(qRaw);
       const t = normalize(textRaw);
       if (!q) return true;
       if (!t) return false;
+
+      // email-friendly route
+      if (isEmailishQuery(qRaw)) {
+        return emailMatch(qRaw, textRaw);
+      }
 
       const qc = compact(q);
       const tc = compact(t);
@@ -1845,14 +1896,24 @@
         if (ok) return true;
       }
 
-      // acronym compare (generic)
+      // acronym compare (generic + course-aware)
+      const tA  = acr(t);                 // e.g. "BS Information Technology" => "bit"
+      const tCA = courseAcronym(textRaw); // e.g. "BS Information Technology" => "bsit"
+      const qA  = acr(q);
+      const qCA = courseAcronym(qRaw);
+
       if (isShortCode(qRaw)) {
-        const a = acr(t);
-        if (a && (a === qc || a.startsWith(qc))) return true;
+        // query like "BSIT"
+        if (
+          (tA  && (tA === qc || tA.startsWith(qc))) ||
+          (tCA && (tCA === qc || tCA.startsWith(qc) || qc.startsWith(tCA)))
+        ) return true;
       } else {
-        const qA = acr(q);
-        const tA = acr(t);
-        if (qA && tA && (tA === qA || tA.startsWith(qA))) return true;
+        // query like "BS Information Technology" or "BS IT"
+        if (
+          (qA  && tA  && (tA === qA  || tA.startsWith(qA))) ||
+          (qCA && tCA && (tCA === qCA || tCA.startsWith(qCA) || qCA.startsWith(tCA)))
+        ) return true;
       }
 
       // compact prefix
@@ -1863,16 +1924,20 @@
     }
 
     // ----------------------------
-    // ✅ Course smart synonyms (BSIT/BSCS etc.)
+    // Course smart synonyms (extend freely)
     // ----------------------------
     const COURSE_NORMALIZE_MAP = [
       { keys: ["bsit","bs it","bs-it","it","information technology","info tech"], canon: "bs information technology" },
       { keys: ["bscs","bs cs","bs-cs","cs","computer science","comp sci"], canon: "bs computer science" },
-      { keys: ["bsac","bsa","accountancy","bs accountancy"], canon: "bs accountancy" },
+      { keys: ["bsa","bsac","accountancy","bs accountancy"], canon: "bs accountancy" },
+      { keys: ["bscpe","bs cpe","bs-cpe","cpe","computer engineering","comp eng"], canon: "bs computer engineering" },
+      { keys: ["bsce","bs ce","bs-ce","ce","civil engineering"], canon: "bs civil engineering" },
+      { keys: ["bsee","bs ee","bs-ee","ee","electrical engineering"], canon: "bs electrical engineering" },
+      { keys: ["bsece","bs ece","bs-ece","ece","electronics engineering"], canon: "bs electronics engineering" }
     ].map(x => ({
       keys: x.keys.map(normalize),
       canon: normalize(x.canon),
-      canonA: courseAcronym(x.canon) // ✅ "bs information technology" => "bsit"
+      canonA: courseAcronym(x.canon)
     }));
 
     function expandCourseQuery(qRaw) {
@@ -1886,8 +1951,8 @@
       for (const rule of COURSE_NORMALIZE_MAP) {
         const hit = rule.keys.some(k => q.includes(k) || k.includes(q) || compact(k) === c);
         if (hit) {
-          set.add(rule.canon);   // full canonical
-          set.add(rule.canonA);  // acronym canonical (bsit)
+          set.add(rule.canon);
+          set.add(rule.canonA);
         }
       }
       return Array.from(set).filter(Boolean);
@@ -1930,14 +1995,12 @@
         return startOfDayMs(d);
       }
 
-      // YYYY-MM-DD
       let m = q.match(/\b(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})\b/);
       if (m) {
         const d = new Date(+m[1], +m[2]-1, +m[3]);
         return isNaN(d.getTime()) ? null : startOfDayMs(d);
       }
 
-      // MM/DD/YYYY or DD/MM/YYYY (try both)
       m = q.match(/\b(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})\b/);
       if (m) {
         const a = +m[1], b = +m[2], y = +m[3];
@@ -1948,7 +2011,6 @@
         return t1 ?? t2;
       }
 
-      // Month name formats: "Dec 2 2025"
       const months = {
         jan:0,january:0,feb:1,february:1,mar:2,march:2,apr:3,april:3,may:4,
         jun:5,june:5,jul:6,july:6,aug:7,august:7,sep:8,september:8,oct:9,october:9,
@@ -1974,27 +2036,29 @@
     }
 
     // ----------------------------
-    // ✅ Smart row match for TOP SEARCH
+    // Smart row match for TOP SEARCH
     // ----------------------------
     function smartRowMatch(row, qRaw) {
       const q = normalize(qRaw);
       if (!q) return true;
 
-      // 1) If any cell contains it directly
-      const rowText = normalize(row.innerText);
+      const rowText = normalize(getRowSearchText(row));
       if (rowText.includes(q)) return true;
 
-      // 2) Volunteers: course + barangay smart
+      // Volunteers special: course + barangay
       if (tableId !== "import-logs-table") {
         const courseText = getCellText(row.children[FIELD_TO_COL.course]);
         const brgyText   = getCellText(row.children[FIELD_TO_COL.barangay]);
+        const emailText  = getCellText(row.children[FIELD_TO_COL.email]);
 
-        // ✅ course expansions: match by fuzzy AND course acronym both ways
+        // email: allow "@gmail.com" / "@adzu.edu.ph"
+        if (isEmailishQuery(qRaw) && emailMatch(qRaw, emailText)) return true;
+
+        // course expansions + course acronym both ways
         const expanded = expandCourseQuery(qRaw);
         const courseA  = courseAcronym(courseText);
 
         if (expanded.some(eq => {
-          const eqN = normalize(eq);
           const eqC = compact(eq);
           return (
             fuzzyMatch(eq, courseText) ||
@@ -2005,10 +2069,11 @@
         // barangay
         if (fuzzyMatch(qRaw, brgyText)) return true;
 
-        return false;
+        // fallback: check a couple more fields
+        return fuzzyMatch(qRaw, emailText);
       }
 
-      // 3) Logs: status + date + filename/uploader + counts
+      // Logs special
       const statusText = getCellText(row.children[FIELD_TO_COL.status]);
       const dateText   = getCellText(row.children[FIELD_TO_COL.uploaded_at]);
       const fileText   = getCellText(row.children[FIELD_TO_COL.filename]);
@@ -2023,20 +2088,7 @@
         if (rowDay != null && rowDay === qDay) return true;
       }
 
-      if (fuzzyMatch(qRaw, fileText) || fuzzyMatch(qRaw, byText)) return true;
-
-      if (/\d/.test(qRaw)) {
-        const qDigits = (qRaw.match(/\d+/g) || []).join("");
-        const cols = [FIELD_TO_COL.total_records, FIELD_TO_COL.valid_count, FIELD_TO_COL.invalid_count, FIELD_TO_COL.duplicate_count];
-        if (qDigits) {
-          for (const c of cols) {
-            const v = getCellText(row.children[c]).replace(/[^\d]/g,"");
-            if (v && v.includes(qDigits)) return true;
-          }
-        }
-      }
-
-      return false;
+      return fuzzyMatch(qRaw, fileText) || fuzzyMatch(qRaw, byText);
     }
 
     // ----------------------------
@@ -2053,7 +2105,7 @@
         const d = new Date(raw);
         return isNaN(d.getTime()) ? 0 : d.getTime();
       }
-      return raw.toLowerCase();
+      return (raw || "").toString().toLowerCase();
     }
 
     function detectType(colIndex) {
@@ -2067,7 +2119,7 @@
     }
 
     // ----------------------------
-    // Dropdown search (Course + Barangay)
+    // Dropdown search (Course + Barangay)  ✅ (course supports BSIT/BS IT/BS Information Technology)
     // ----------------------------
     const searchableFields = new Set(["course", "barangay"]);
 
@@ -2087,7 +2139,6 @@
         <input class="dropdown-search" type="text" placeholder="Search ${label}..." />
         <div class="no-option-match">No ${label} found</div>
       `;
-
       optionsWrap.insertBefore(wrap, optionsWrap.firstChild);
 
       const input = wrap.querySelector(".dropdown-search");
@@ -2106,15 +2157,14 @@
 
         let shown = 0;
         optionEls.forEach(el => {
-          // ✅ IMPORTANT: textContent contains icon junk; use data-value first
           const valueText = (el.getAttribute("data-value") || "").trim();
           const labelText = (el.textContent || "").trim();
 
           let ok = false;
-
           if (field === "course") {
             const expanded = expandCourseQuery(qRaw);
             const optA = courseAcronym(valueText || labelText);
+
             ok = expanded.some(eq => {
               const eqC = compact(eq);
               return (
@@ -2162,7 +2212,6 @@
       const queryRaw = searchInput ? searchInput.value.trim() : "";
       if (queryRaw) visibleRows = visibleRows.filter(row => smartRowMatch(row, queryRaw));
 
-      // filters: fuzzy instead of strict equality
       Object.keys(activeFilters).forEach(colIdxStr => {
         const colIdx = parseInt(colIdxStr, 10);
         const filterVal = activeFilters[colIdxStr];
@@ -2170,11 +2219,27 @@
 
         visibleRows = visibleRows.filter(row => {
           const cellVal = getCellText(row.children[colIdx]);
+
+          // course filter: support BSIT/BS IT/full name
+          const isCourseCol = (tableId !== "import-logs-table") && (colIdx === FIELD_TO_COL.course);
+          if (isCourseCol) {
+            const expanded = expandCourseQuery(filterVal);
+            const cellA = courseAcronym(cellVal);
+            const cellC = compact(cellVal);
+
+            return expanded.some(eq => {
+              const eqC = compact(eq);
+              if (fuzzyMatch(eq, cellVal)) return true;
+              if (cellA && (cellA === eqC || cellA.startsWith(eqC) || eqC.startsWith(cellA))) return true;
+              if (cellC && (cellC.includes(eqC) || eqC.includes(cellC))) return true;
+              return false;
+            });
+          }
+
           return fuzzyMatch(filterVal, cellVal);
         });
       });
 
-      // sort
       if (activeSort && activeSort.colIndex != null) {
         const { colIndex, direction, type } = activeSort;
 
@@ -2190,10 +2255,8 @@
         });
       }
 
-      // hide all
       allRows.forEach(r => r.classList.add("d-none"));
 
-      // no results
       if (!visibleRows.length) {
         if (noResultsRow) {
           noResultsRow.classList.remove("d-none");
@@ -2205,7 +2268,6 @@
 
       if (noResultsRow) noResultsRow.classList.add("d-none");
 
-      // show + re-number col[1] if exists
       let counter = 1;
       visibleRows.forEach(row => {
         row.classList.remove("d-none");
@@ -2235,7 +2297,6 @@
       });
     }
 
-    // ✅ allow clicking Apply/Reset without closing the panel
     function isInsideActions(target){
       return !!target.closest(".actions") || !!target.closest(".apply-btn") || !!target.closest(".reset-btn");
     }
@@ -2250,7 +2311,6 @@
         return;
       }
 
-      // don't collapse dropdowns when pressing apply/reset area
       if (isInsideActions(e.target)) return;
 
       if (!e.target.closest(".custom-select")) {
@@ -2297,7 +2357,7 @@
     if (applyBtn) {
       applyBtn.addEventListener("click", e => {
         e.preventDefault();
-        e.stopPropagation(); // ✅ keep panel open
+        e.stopPropagation();
 
         activeFilters = {};
         activeSort = null;
@@ -2328,14 +2388,13 @@
         });
 
         applySearchAndFilterAndSort();
-        // ✅ DO NOT close filter panel here
       });
     }
 
     if (resetBtn) {
       resetBtn.addEventListener("click", e => {
         e.preventDefault();
-        e.stopPropagation(); // ✅ keep panel open
+        e.stopPropagation();
 
         if (searchInput) searchInput.value = "";
         activeFilters = {};
@@ -2353,7 +2412,6 @@
         });
 
         applySearchAndFilterAndSort();
-        // ✅ DO NOT close filter panel here
       });
     }
 
@@ -2396,63 +2454,3 @@
   }
 })();
 </script>
-
-
-<style>
-  /* Make status option icon inherit the option color */
-  .custom-select[data-field="status"] .custom-option,
-  .custom-select[data-field="status"] .custom-option i{
-    color: inherit !important;
-  }
-
-  .custom-select[data-field="status"] .custom-option{
-    border-radius: 10px;
-    margin: 4px 6px;
-    padding: 8px 10px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  /* Pending = BLUE */
-  .custom-select[data-field="status"] .custom-option[data-value="pending"]{
-    background: #e7f0ff;
-    color: #1d4ed8 !important;
-  }
-
-  /* Completed = GREEN */
-  .custom-select[data-field="status"] .custom-option[data-value="completed"]{
-    background: #e9f8ef;
-    color: #15803d !important;
-  }
-
-  /* Cancelled = GRAY */
-  .custom-select[data-field="status"] .custom-option[data-value="cancelled"]{
-    background: #f1f5f9;
-    color: #475569 !important;
-  }
-
-  /* Reset = PURPLE */
-  .custom-select[data-field="status"] .custom-option[data-value="reset"]{
-    background: #f2eaff;
-    color: #7c3aed !important;
-  }
-
-  /* Failed = ORANGE/RED */
-  .custom-select[data-field="status"] .custom-option[data-value="failed"]{
-    background: #ffefe8;
-    color: #c2410c !important;
-  }
-
-  /* Abandoned = BLACK with white text */
-  .custom-select[data-field="status"] .custom-option[data-value="abandoned"]{
-    background: #0f172a;
-    color: #ffffff !important;
-  }
-
-  /* Keep hover nice without killing color */
-  .custom-select[data-field="status"] .custom-option:hover{
-    filter: brightness(0.95);
-  }
-</style>

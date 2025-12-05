@@ -9,11 +9,11 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            LocationsTableSeeder::class,      // OK
-            CoursesTableSeeder::class,        // OK
+            LocationsTableSeeder::class,     
+            CoursesTableSeeder::class,    
             AdminAccountsSeeder::class,
             EventTypesTableSeeder::class,
-            VolunteerProfileSeeder::class,    // Your NEW seeder (we will generate it)
+             // OKVolunteerProfileSeeder::class,
         ]);
     }
 }

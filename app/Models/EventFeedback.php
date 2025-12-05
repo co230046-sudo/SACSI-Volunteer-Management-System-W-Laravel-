@@ -16,25 +16,24 @@ class EventFeedback extends Model
 
     protected $fillable = [
         'event_id',
+        'event_code',
         'volunteer_id',
+        'full_name',
+        'school_id',
+        'school_email',
         'rating',
-        'feedback_text',
+        'improve_next_time',
+        'issues_encountered',
+        'other_comments',
+        'feedback_text',     // keep for backward compatibility if you want
         'submitted_at',
+        'import_batch',
     ];
 
     protected $casts = [
         'submitted_at' => 'datetime',
     ];
 
-    // Relation: Event associated with this feedback
-    public function event()
-    {
-        return $this->belongsTo(Event::class, 'event_id', 'event_id');
-    }
-
-    // Relation: Volunteer who submitted the feedback
-    public function volunteer()
-    {
-        return $this->belongsTo(VolunteerProfile::class, 'volunteer_id', 'volunteer_id');
-    }
+    public function event() { return $this->belongsTo(Event::class, 'event_id', 'event_id'); }
+    public function volunteer() { return $this->belongsTo(VolunteerProfile::class, 'volunteer_id', 'volunteer_id'); }
 }

@@ -1,0 +1,601 @@
+/* Reset and Base Styles */
+* { 
+  margin: 0; 
+  padding: 0; 
+  box-sizing: border-box; 
+}
+
+html { 
+  scroll-behavior: smooth; 
+}
+
+body {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start; /* align content at top */
+  align-items: center;           /* keep content centered horizontally */
+  min-height: 100vh;
+  overflow: auto;              /* FIX: allow scrolling */
+}
+
+section {
+  width: 100%;
+  padding: 1rem;
+  padding-top: 50px; /* adjust based on your header height */
+  box-sizing: border-box;
+    animation: slideUp 0.6s ease-out both;
+} 
+
+/* FIX: Centering Rule for Main Content */
+.main-content.mw-1200 {
+  max-width: 1200px !important; /* Forces a maximum width */
+  margin-left: auto !important; /* Centers the div horizontally */
+  margin-right: auto !important;
+}
+
+/* Flex wrapper for left + right columns */
+.student-section-wrapper {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: center; 
+  align-items: flex-start;
+}
+
+/* FIX: Increased left column size to approximately 75% */
+.left-col { 
+  flex: 3 1 70%; /* Flex-grow 3, Flex-shrink 1, Flex-basis 70% */
+} 
+.right-col { 
+  flex: 1 1 250px; /* Flex-grow 1, Flex-shrink 1, Flex-basis 250px (minimum width) */
+}
+
+@media (max-width: 992px) {
+  .left-col, .right-col { flex: 1 1 100%; }
+}
+/* Left Section */
+.left-section {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.25);
+  padding: 0.6rem;
+}
+/* PROFILE SECTION (matches volunteer details) */
+.profile-photo {
+  width: 200px;
+  height: 200px; /* fix height so it doesn't collapse */
+  object-fit: cover;
+  border-radius: 50%;
+  margin-bottom: 0.5rem;
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  background-color: #f0f0f0; /* light gray circle if no image */
+  display: inline-block;
+}
+
+
+.profile-section:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 5px 16px rgba(0,0,0,0.12);
+}
+
+/* Table inside profile section */
+.profile-section table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* Table cells */
+.profile-section td {
+  vertical-align: middle;
+  padding: 0.5rem 0.75rem;
+  position: relative;
+}
+
+/* Profile info column */
+.profile-section td.text-center {
+  text-align: center;
+  width: 100%; /* ensures it stays centered */
+  position: relative;
+}
+
+/* Profile photo with glowing hover */
+.profile-photo {
+  width: 200px;
+  height: auto;
+  object-fit: cover;
+  border-radius: 50%;
+  margin-bottom: 0.5rem;
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+/* Add this rule to your <style> block or volunteer_profile.css */
+.profile-photo {
+    width: 150px;       /* Fixed width */
+    height: 150px;      /* Equal fixed height */
+    object-fit: cover;  /* Ensures the image fills the area without distortion/squishing */
+    border-radius: 50%; /* Maintains circular shape */
+    /* Add any other original styles like border, shadow, etc. */
+}
+
+.profile-photo:hover {
+  box-shadow: 0 0 15px 4px rgba(178,0,12,0.6); /* red glow */
+  transform: scale(1.05);
+}
+
+/* Name & title */
+.volunteer-name {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  color: #333;
+}
+.volunteer-title {
+  font-size: 1rem;
+  color: #555;
+  margin-bottom: 0.5rem;
+}
+/* Action buttons column pinned to the right */
+.profile-section td.align-middle {
+  width: auto;
+  text-align: right; /* buttons aligned to right */
+  padding-left: 1rem;
+  /* Add box shadow for the whole column */
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  transition: all 0.3s ease;
+}
+
+.profile-section td.align-middle:hover {
+  box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+  transform: translateY(-2px);
+}
+
+  /* Info Cards (action buttons) */
+  .info-card {
+    background: #fafafa;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 2rem;
+    font-weight: 500;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.25s ease, box-shadow 0.3s ease;
+    min-width: 90px;
+  }
+
+  .info-card:hover {
+    background: #f2f5f8;
+    border-color: #d42727;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+  }
+
+  /* Icon hover */
+  .info-card i {
+    color: #B2000C;
+    transition: transform 0.3s ease, color 0.3s ease;
+  }
+  .info-card:hover i {
+    transform: rotate(-10deg) scale(1.1);
+    color: #8a0000;
+  }
+
+  /* Links & Buttons inside info-card */
+  .info-card a,
+  .info-card button {
+    color: #B2000C;
+    font-weight: 500;
+    text-decoration: none;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    transition: color 0.3s ease, transform 0.2s ease;
+  }
+  .info-card a:hover,
+  .info-card button:hover {
+    color: #8a0000;
+    text-decoration: underline;
+    transform: scale(1.05);
+  }
+
+  /* Status badge (No longer used in header, but keeping for safety) */
+  .status-text.active {
+    background: #e0f4ea;
+    color: #2e7d32;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 12px;
+    white-space: nowrap;
+  }
+
+  /* Action tools container (top-right) */
+  .action-tools {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-end; /* align buttons to right */
+    z-index: 5;
+  }
+
+  /* Make sure buttons inherit info-card styles */
+/* Unified action button style */
+.action-tools .info-card {
+  background: #fafafa;
+  border: 1px solid #dee2e6;
+  border-radius: 10px;
+  padding: 8px 14px;        /* consistent padding */
+  font-size: 1rem;           /* consistent text size */
+  font-weight: 600;
+  color: #B2000C;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;                  /* icon-text spacing */
+  min-width: 100px;          /* all buttons same minimum width */
+  text-align: left;
+  border: none;              /* remove default button border */
+  transition: all 0.25s ease, box-shadow 0.3s ease;
+}
+
+/* Hover effect for all buttons */
+.action-tools .info-card:hover {
+  background: #f2f5f8;
+  color: #8a0000;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  transform: translateY(-1px);
+}
+
+/* Icon inside button */
+.action-tools .info-card i {
+  font-size: 2rem;
+  margin-right: 6px;
+  transition: transform 0.25s ease, color 0.25s ease;
+}
+
+.action-tools .info-card:hover i {
+  transform: rotate(-10deg) scale(1.1);
+  color: #8a0000;
+}
+
+/* Ensure text inside <button> or <a> inherits size */
+.action-tools .info-card a,
+.action-tools .info-card button {
+  font-size: 1rem;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Text inside buttons */
+.action-tools .info-card {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #B2000C;
+}
+
+.action-tools .info-card:hover {
+  color: #8a0000;
+}
+
+/* Action tools container (top-right) */
+.action-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;              /* slightly more gap between buttons */
+  align-items: flex-end; 
+  z-index: 5;
+}
+
+/* Info cards inside tool panel */
+.action-tools .info-card {
+  background: #fafafa;
+  border: 1px solid #dee2e6;
+  border-radius: 10px;   /* slightly bigger radius */
+  padding: 8px 14px;     /* more padding */
+  font-size: 1rem;       /* bigger text */
+  color: #333;
+  cursor: pointer;
+  transition: all 0.25s ease, box-shadow 0.3s ease;
+  min-width: 100px;      /* wider buttons */
+  display: flex;
+  align-items: center;
+  gap: 8px;              /* bigger gap between icon & text */
+}
+
+.action-tools .info-card:hover {
+  background: #f2f5f8;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+/* Icon inside info-card */
+.action-tools .info-card i {
+  color: #B2000C;
+  margin-right: 6px;
+  font-size: 2rem;   /* bigger icon */
+  transition: transform 0.25s ease, color 0.25s ease;
+}
+
+.action-tools .info-card:hover i {
+  transform: rotate(-10deg) scale(1.1);
+  color: #8a0000;
+}
+
+/* Links inside info-card (Print/Edit) */
+.action-tools .info-card a {
+  color: #B2000C;
+  font-weight: 600;
+  font-size: 1rem;      /* bigger text */
+  text-decoration: none;
+}
+
+.action-tools .info-card a:hover {
+  color: #8a0000;
+  text-decoration: underline;
+  transform: scale(1.05);
+}
+
+/* Status badge (No longer used in header) */
+.status-text.active {
+  background: #e0f4ea;
+  color: #2e7d32;
+  font-weight: 600;
+  font-size: 0.95rem;   /* slightly bigger */
+  padding: 4px 8px;     /* bigger padding */
+  border-radius: 14px;
+  white-space: nowrap;
+}
+
+
+/* VOLUNTEER DETAILS */
+.volunteer-details,
+.schedule-section {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 10px;
+  padding: 1.2rem;
+  margin-bottom: 1rem;
+  transition: all 0.3s ease;
+}
+.volunteer-details:hover,
+.schedule-section:hover { transform: translateY(-4px); box-shadow: 0 5px 16px rgba(0,0,0,0.12); }
+.detail-card {
+  background: #fafafa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 10px;
+  transition: all 0.2s ease;
+}
+.detail-card:hover { background: #f2f5f8; border-color: #d42727; transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
+.detail-card h6 { 
+  font-size: 1.1em; 
+  font-weight: 600; 
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+  margin: 0; 
+  color: #333; 
+}
+/* FIX: Added top margin to value paragraph for spacing */
+.detail-card p { 
+  font-size: 1.1em; /* Increased size slightly for better readability */
+  color: #555; 
+  margin-top: 5px; 
+  margin-bottom: 0; 
+}
+.detail-card i { color: #B2000C; transition: transform 0.3s ease, color 0.3s ease; display: inline-block; }
+.detail-card:hover i { transform: rotate(-10deg) scale(1.1); color: #8a0000; }
+/* Copy Button */
+.copy-volunteer-btn {
+  position: absolute; top: 10px; right: 10px;
+  background-color: #B2000C; color: #fff; border: none; border-radius: 6px;
+  padding: 0.4rem 0.8rem; font-size: 0.85rem; cursor: pointer;
+  display: flex; align-items: center; gap: 4px; transition: background 0.3s ease, transform 0.2s ease;
+}
+.copy-volunteer-btn:hover { 
+  background-color: #8f000a; 
+  transform: scale(1.05); 
+}
+
+/* SCHEDULE SECTION (matches volunteer details) */
+.schedule-section {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 10px;
+  padding: 1.2rem;
+  margin-bottom: 1rem;
+  position: relative; /* for the absolute copy button */
+  transition: all 0.3s ease;
+}
+
+.schedule-section:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 5px 16px rgba(0,0,0,0.12);
+}
+
+/* Heading */
+.schedule-section h4 {
+  text-align: center;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+/* Copy Button (top-right) */
+.copy-schedule-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: #B2000C;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.copy-schedule-btn:hover {
+  background-color: #8f000a;
+  transform: scale(1.05);
+}
+
+/* Table */
+.schedule-section table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+}
+
+.schedule-section th {
+  background: #f8f9fa;
+  color: #B2000C;
+  font-weight: 600;
+  border: 1px solid #dee2e6;
+  padding: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.schedule-section td {
+  border: 1px solid #dee2e6;
+  padding: 6px;
+  vertical-align: top;
+}
+
+/* Time slots */
+.time-slot {
+  display: inline-block;
+  background: #fff;
+  border: 1px solid #B2000C;
+  border-radius: 6px;
+  color: #B2000C;
+  padding: 3px 6px;
+  font-size: 0.8em;
+  margin: 2px;
+  transition: all 0.2s ease;
+}
+
+.time-slot:hover {
+  background: #B2000C;
+  color: #fff;
+  transform: scale(1.05);
+}
+
+.event-wrapper {
+  background: #f2f5f8;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.25);
+}
+
+.events-section {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 10px;
+  padding: 1.2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transition: all 0.3s ease;
+}
+
+.events-section:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 5px 16px rgba(0,0,0,0.12);
+}
+
+.events-title {
+  color: #B2000C;
+  text-align: center;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.event-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 8px;
+}
+
+.event-item td {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  padding: 10px 15px;
+  transition: all 0.25s ease;
+}
+
+.event-item:hover td {
+  background: #f8cbcb;
+  border-color: #d42727;
+}
+
+.event-name {
+  position: relative;
+}
+
+.event-name a {
+  text-decoration: none;
+  color: #333;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.event-item:hover .event-name a {
+  color: #B2000C;
+}
+
+/* Bubble Tooltip */
+.click-bubble {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%) translateX(10px);
+  background: #B2000C;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.click-bubble::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: transparent #B2000C transparent transparent;
+}
+
+.event-item:hover .click-bubble {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+.event-datetime {
+  color: #777;
+  text-align: right;
+  white-space: nowrap;
+}

@@ -672,10 +672,12 @@ document.addEventListener("DOMContentLoaded", () => {
           <hr style="border:none; border-top:2px solid #ad2d2dff; margin:0.5rem 0;">
 
           <!-- Edit Profile -->
-          <button class="account-btn">
-            <i class="fa-solid fa-user-pen icon"></i>
-            <span class="account-btn-text">Edit Profile</span>
-          </button>
+          <a href="{{ route('admin.profile', ['id' => Auth::guard('admin')->id()]) }}" class="account-btn">
+          <i class="fa-solid fa-user-pen icon"></i>
+          <span class="account-btn-text">Edit Profile</span>
+      </a>
+
+
 
           <button class="account-btn">
             <i class="fa-solid fa-circle-question icon"></i>
@@ -765,9 +767,13 @@ document.addEventListener("DOMContentLoaded", () => {
             <hr>
         </div>
 
-        <a href="routegoeshere">
-            <i class="fas fa-chart-line me-2"></i><span class="link-text">Dashboard</span>
-        </a>
+        <li>
+          <a href="{{ route('admin.dashboard') }}">
+              <i class="fas fa-chart-line me-2"></i>
+              <span class="link-text">Dashboard</span>
+          </a>
+      </li>
+
 
         <a href="routegoeshere" class="nav-link system-log-link">
             <i class="fas fa-clipboard-list me-2"></i><span class="link-text">System Logs</span>

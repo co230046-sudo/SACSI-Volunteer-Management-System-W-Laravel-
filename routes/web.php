@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\HomePageController;
 use App\Http\Controllers\VolunteerImportController;
@@ -12,7 +13,6 @@ use App\Http\Controllers\AttendanceImportController;
 use App\Http\Controllers\EventDetailsController;
 use App\Http\Controllers\AdminProfileController;
 use App\Http\Controllers\DashboardController;
-
 
 Route::get('/', function () {
     return redirect()->route('auth.login');
@@ -30,25 +30,24 @@ Route::middleware(['auth:admin'])->group(function () {
 
     Route::get('/home', [HomePageController::class, 'index'])->name('home');
 
-        /* -------- ADMIN PROFILE ROUTES (GLOBAL) -------- */
-    Route::get('/admin/profile', [AdminProfileController::class, 'index'])
-            ->name('admin.profile.self');
-            
+    /* ------------------ ADMIN PROFILE + DASHBOARD ------------------ */
+    // Dynamic profile first (must be above /admin/profile)
     Route::get('/admin/profile/{id}', [AdminProfileController::class, 'index'])
         ->name('admin.profile');
 
-        // Update profile
+    Route::get('/admin/profile', [AdminProfileController::class, 'index'])
+        ->name('admin.profile.self');
+
     Route::put('/admin/profile/update', [AdminProfileController::class, 'update'])
         ->name('admin.profile.update');
 
-    // Logs
     Route::get('/admin/profile/logs/{id}', [AdminProfileController::class, 'getLogs'])
         ->name('admin.profile.logs');
 
     Route::get('/admin/dashboard', [DashboardController::class, 'index'])
         ->name('admin.dashboard');
 
-    /* --- Volunteer Import --- */
+    /* ------------------ VOLUNTEER IMPORT ------------------ */
     Route::prefix('volunteer-import')->group(function () {
 
         Route::get('/', [VolunteerImportController::class, 'index'])
@@ -107,66 +106,66 @@ Route::middleware(['auth:admin'])->group(function () {
 
     /* ------------------ EVENT MANAGER ------------------ */
     Route::get('/events/manage', [EventManagerController::class, 'index'])
-    ->name('events.manage');
-    
-    /* ------------------ EVENT DELETE ------------------ */
+        ->name('events.manage');
+
     Route::delete('/events/manage/bulk-destroy', [EventManagerController::class, 'bulkDestroy'])
-    ->name('events.bulkDestroy');
+        ->name('events.bulkDestroy');
 
     /* ------------------ EVENTS ------------------ */
     Route::prefix('events')->group(function () {
 
+        Route::get('/create', [CreateEventController::class, 'create'])
+            ->name('events.create');
+
         Route::post('/', [CreateEventController::class, 'store'])
             ->name('events.store');
 
-        // ✅ show event details
+        // show event details
         Route::get('/{event:event_id}', [EventDetailsController::class, 'show'])
             ->name('event.details.show');
 
-
-        // ✅ edit/update
+        // edit/update
         Route::get('/{event:event_id}/edit', [CreateEventController::class, 'edit'])
             ->name('events.edit');
 
         Route::put('/{event:event_id}', [CreateEventController::class, 'update'])
             ->name('events.update');
 
-        // ✅ summary
+        // summary
         Route::get('/{event:event_id}/summary', [CreateEventController::class, 'summary'])
-        ->name('events.summary');
+            ->name('events.summary');
 
-        // ✅ expected volunteers
+        // expected volunteers
         Route::post('/{event:event_id}/expected-volunteers', [CreateEventController::class, 'addVolunteers'])
             ->name('events.expectedVolunteers.add');
 
         Route::delete('/{event:event_id}/expected-volunteers/{volunteer_id}', [CreateEventController::class, 'removeExpectedVolunteer'])
             ->name('events.expectedVolunteers.remove');
 
-        // ✅ cancel/restore on EventDetailsController (still fine)
+        // cancel/restore
         Route::post('/{event:event_id}/cancel', [EventDetailsController::class, 'cancel'])
             ->name('events.cancel');
 
         Route::post('/{event:event_id}/restore', [EventDetailsController::class, 'restore'])
             ->name('events.restore');
+
+        /* ------------------ IMPORT ATTENDANCE ------------------ */
+        Route::get('/{event:event_id}/attendance/import', [AttendanceImportController::class, 'index'])
+            ->name('attendance.import.index');
+
+        Route::post('/{event:event_id}/attendance/import/preview', [AttendanceImportController::class, 'preview'])
+            ->name('attendance.import.preview');
+
+        Route::post('/{event:event_id}/attendance/import/commit', [AttendanceImportController::class, 'commit'])
+            ->name('attendance.import.commit');
+
+        Route::post('/{event:event_id}/attendance/import/reset', [AttendanceImportController::class, 'reset'])
+            ->name('attendance.import.reset');
+
+        Route::post('/{event:event_id}/attendance/import/preview/update', [AttendanceImportController::class, 'updatePreviewRow'])
+            ->name('attendance.import.preview.update');
+
+        Route::post('/{event:event_id}/attendance/import/preview/delete', [AttendanceImportController::class, 'deletePreviewRow'])
+            ->name('attendance.import.preview.delete');
     });
-
-    /* ------------------ IMPORT ATTENDANCE ------------------ */
-    Route::get('/events/{event:event_id}/attendance/import', [AttendanceImportController::class, 'index'])
-        ->name('attendance.import.index');
-
-    Route::post('/events/{event:event_id}/attendance/import/preview', [AttendanceImportController::class, 'preview'])
-        ->name('attendance.import.preview');
-
-    Route::post('/events/{event:event_id}/attendance/import/commit', [AttendanceImportController::class, 'commit'])
-        ->name('attendance.import.commit');
-
-    Route::post('/events/{event:event_id}/attendance/import/reset', [AttendanceImportController::class, 'reset'])
-        ->name('attendance.import.reset');
-
-    Route::post('/events/{event:event_id}/attendance/import/preview/update', [AttendanceImportController::class, 'updatePreviewRow'])
-        ->name('attendance.import.preview.update');
-
-    Route::post('/events/{event:event_id}/attendance/import/preview/delete', [AttendanceImportController::class, 'deletePreviewRow'])
-        ->name('attendance.import.preview.delete');
 });
-

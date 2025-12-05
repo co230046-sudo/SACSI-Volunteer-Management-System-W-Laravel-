@@ -18,6 +18,8 @@
   const searchInput = document.getElementById("hpSearch");
   const searchBtn = document.getElementById("hpSearchBtn");
   const searchClear = document.getElementById("hpSearchClear");
+  const mainSuggest = document.getElementById("hpMainSuggest");
+  const searchWrap = document.getElementById("hpSearchWrap");
 
   const panel = document.getElementById("hpPanel");
   const toggle = document.getElementById("hpFilterToggle");
@@ -40,7 +42,6 @@
     .replace(/\b\w/g, m => m.toUpperCase());
 
   const activePane = () => panes.find(p => p.dataset.pane === state.tab);
-  const listInActive = () => activePane()?.querySelector(".hp-list");
   const cardsInActive = () => [...(activePane()?.querySelectorAll(".hp-event") || [])];
 
   // ----------------------------
@@ -70,13 +71,7 @@
     setPanel(panel.hidden);
   });
 
-  // Outside clicks: close dropdowns only (not panel)
-  document.addEventListener("mousedown", (e) => {
-    const anyDD = root.querySelector(".hp-dd.is-open");
-    if (anyDD && !anyDD.contains(e.target)) closeAllDropdowns();
-  });
-
-  // Debounce for search so typing doesn't stutter
+  // Debounce
   const debounce = (fn, ms = 150) => {
     let t;
     return (...args) => {
@@ -84,6 +79,19 @@
       t = setTimeout(() => fn(...args), ms);
     };
   };
+
+  // Outside clicks: close dropdowns + main suggest
+  document.addEventListener("mousedown", (e) => {
+    const anyDD = root.querySelector(".hp-dd.is-open");
+    if (anyDD && !anyDD.contains(e.target)) closeAllDropdowns();
+
+    if (mainSuggest && !mainSuggest.hidden) {
+      if (!searchWrap?.contains(e.target)) {
+        mainSuggest.hidden = true;
+        mainSuggest.innerHTML = "";
+      }
+    }
+  });
 
   // Build barangay -> district lookup for autofill
   const barangayToDistrict = (() => {
@@ -114,11 +122,11 @@
 
     state.district = distId;
     setDropdownValue(ddDistrict, distId, deriveDistrictLabelFromMenu(distId));
-    rebuildBarangayMenu(); // keeps selection if valid
+    rebuildBarangayMenu();
   }
 
   // ----------------------------
-  // Barangay menu rebuild (now safer + less jank)
+  // Barangay menu rebuild
   // ----------------------------
   function rebuildBarangayMenu() {
     if (!barangayMenu) return;
@@ -139,11 +147,9 @@
     const uniq = [...new Set(list.filter(Boolean).map(b => String(b).trim()))]
       .sort((a, b) => a.localeCompare(b));
 
-    // Build with fragment (faster)
     barangayMenu.innerHTML = "";
     const frag = document.createDocumentFragment();
 
-    // sticky search header
     const searchWrap = document.createElement("div");
     searchWrap.className = "hp-ddSearchWrap";
     searchWrap.innerHTML = `
@@ -174,7 +180,6 @@
 
     barangayMenu.appendChild(frag);
 
-    // filter as you type (debounced)
     const inp = barangayMenu.querySelector("#hpBarangaySearch");
     const runFilter = debounce(() => {
       const needle = (inp?.value || "").trim().toLowerCase();
@@ -185,12 +190,10 @@
     }, 80);
 
     inp?.addEventListener("input", runFilter);
-
-    // Prevent weird "input overlaps / closes" by stopping click from bubbling
     inp?.addEventListener("mousedown", (e) => e.stopPropagation());
     inp?.addEventListener("click", (e) => e.stopPropagation());
 
-    // reset selection if no longer valid under selected district
+    // If barangay selected but now invalid under district, clear it
     if (state.barangay) {
       const still = uniq.some(b => b.toLowerCase() === state.barangay);
       if (!still) {
@@ -201,7 +204,86 @@
   }
 
   // ----------------------------
-  // Apply filters + sort (optimized)
+  // Main search autosuggest
+  // ----------------------------
+  const escapeHtml = (s) =>
+    (s ?? "").toString()
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+  function buildMainSuggestions(query) {
+    const q = (query || "").trim().toLowerCase();
+    if (!q) return [];
+
+    const cards = cardsInActive();
+    const map = new Map(); // key -> { value, type }
+
+    const push = (type, value) => {
+      const v = (value || "").trim();
+      if (!v) return;
+      const key = `${type}::${v}`.toLowerCase();
+      if (!map.has(key)) map.set(key, { type, value: v });
+    };
+
+    for (const c of cards) {
+      const title = (c.getAttribute("data-title") || "").trim();
+      const barangay = (c.getAttribute("data-barangay") || "").trim();
+      const dateText = (c.getAttribute("data-date-text") || "").trim();
+      const day = (c.getAttribute("data-day") || "").trim();
+      const timeText = (c.getAttribute("data-time-text") || "").trim();
+
+      const hay = `${title} ${barangay} ${dateText} ${day} ${timeText}`.toLowerCase();
+      if (!hay.includes(q)) continue;
+
+      if (title.toLowerCase().includes(q)) push("Title", title);
+      if (barangay.toLowerCase().includes(q)) push("Barangay", titleCase(barangay));
+      if (day.toLowerCase().includes(q)) push("Day", day);
+      if (dateText.toLowerCase().includes(q)) push("Date", dateText);
+      if (timeText.toLowerCase().includes(q)) push("Time", timeText);
+    }
+
+    return [...map.values()].slice(0, 10);
+  }
+
+  function renderMainSuggest() {
+    if (!mainSuggest) return;
+
+    const q = (searchInput?.value || "").trim();
+    const items = buildMainSuggestions(q);
+
+    if (!q || items.length === 0) {
+      mainSuggest.hidden = true;
+      mainSuggest.innerHTML = "";
+      return;
+    }
+
+    mainSuggest.innerHTML = items.map(it => `
+      <div class="hp-suggestItem" data-v="${escapeHtml(it.value)}">
+        <div>${escapeHtml(it.value)}</div>
+        <div class="hp-suggestMeta">${escapeHtml(it.type)}</div>
+      </div>
+    `).join("");
+
+    mainSuggest.hidden = false;
+  }
+
+  mainSuggest?.addEventListener("mousedown", (e) => e.preventDefault());
+  mainSuggest?.addEventListener("click", (e) => {
+    const item = e.target.closest(".hp-suggestItem");
+    if (!item) return;
+    const v = item.getAttribute("data-v") || "";
+    if (searchInput) searchInput.value = v;
+    state.q = v;
+    mainSuggest.hidden = true;
+    mainSuggest.innerHTML = "";
+    applyNow();
+  });
+
+  // ----------------------------
+  // Apply filters + sort
   // ----------------------------
   function applyNow() {
     const pane = activePane();
@@ -210,7 +292,7 @@
     const q = (state.q || "").trim().toLowerCase();
     const cards = cardsInActive();
 
-    // Filter (toggle class instead of inline display)
+    // Filter
     for (const c of cards) {
       const hay = (c.getAttribute("data-hay") || "").toLowerCase();
       const cDist = (c.getAttribute("data-district") || "").trim();
@@ -231,24 +313,55 @@
     visible.sort((a, b) => {
       const ta = (a.getAttribute("data-title") || "").toLowerCase();
       const tb = (b.getAttribute("data-title") || "").toLowerCase();
+
       const da = Number(a.getAttribute("data-date") || 0);
       const db = Number(b.getAttribute("data-date") || 0);
+
+      const sa = Number(a.getAttribute("data-start-min") || -1);
+      const sb = Number(b.getAttribute("data-start-min") || -1);
+
+      const wa = (a.getAttribute("data-week") || "");
+      const wb = (b.getAttribute("data-week") || "");
 
       switch (state.sort) {
         case "title_asc": return ta.localeCompare(tb);
         case "title_desc": return tb.localeCompare(ta);
-        case "date_desc": return db - da;
+
+        case "time_asc":
+          // time first, then date
+          return (sa - sb) || (da - db);
+
+        case "time_desc":
+          return (sb - sa) || (db - da);
+
+        case "week_asc":
+          // week first (string works: 2025-W02), then date
+          return wa.localeCompare(wb) || (da - db);
+
+        case "week_desc":
+          return wb.localeCompare(wa) || (db - da);
+
+        case "date_desc":
+          return db - da;
+
         case "date_asc":
-        default: return da - db;
+        default:
+          return da - db;
       }
     });
 
-    // Batch DOM append (fix lag)
+    // Batch DOM append (fast)
     const list = pane.querySelector(".hp-list");
     if (list) {
       const frag = document.createDocumentFragment();
       visible.forEach(c => frag.appendChild(c));
       list.appendChild(frag);
+    }
+
+    // Hide main suggest if current query is empty
+    if (mainSuggest && !(searchInput?.value || "").trim()) {
+      mainSuggest.hidden = true;
+      mainSuggest.innerHTML = "";
     }
   }
 
@@ -266,8 +379,11 @@
 
     panes.forEach(p => (p.hidden = (p.dataset.pane !== key)));
 
-    // Important: no need to rebuild barangays on every tab unless district changes.
-    // But keep it for correctness if you rely on tab-specific DOM.
+    if (mainSuggest) {
+      mainSuggest.hidden = true;
+      mainSuggest.innerHTML = "";
+    }
+
     rebuildBarangayMenu();
     applyNow();
   }
@@ -275,24 +391,37 @@
   tabs.forEach(t => t.addEventListener("click", () => setTab(t.dataset.tab)));
 
   // ----------------------------
-  // Search (fix: input + debounce + Enter + button)
+  // Search
   // ----------------------------
   const commitSearch = () => {
     state.q = (searchInput?.value || "").trim();
     applyNow();
   };
 
-  const debouncedSearch = debounce(commitSearch, 140);
+  const debouncedSearch = debounce(() => {
+    renderMainSuggest();
+    commitSearch();
+  }, 120);
 
+  searchInput?.addEventListener("focus", renderMainSuggest);
   searchInput?.addEventListener("input", debouncedSearch);
   searchInput?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") commitSearch();
+    if (e.key === "Escape" && mainSuggest) {
+      mainSuggest.hidden = true;
+      mainSuggest.innerHTML = "";
+    }
   });
+
   searchBtn?.addEventListener("click", commitSearch);
 
   searchClear?.addEventListener("click", () => {
     if (searchInput) searchInput.value = "";
     state.q = "";
+    if (mainSuggest) {
+      mainSuggest.hidden = true;
+      mainSuggest.innerHTML = "";
+    }
     applyNow();
   });
 
@@ -311,12 +440,10 @@
       dd.classList.toggle("is-open", !open);
 
       if (!open && dd.dataset.dd === "barangay") {
-        // Focus search after open
         setTimeout(() => menu?.querySelector("#hpBarangaySearch")?.focus(), 0);
       }
     });
 
-    // Stop clicks inside menu from bubbling to document (prevents weird close/focus behavior)
     menu?.addEventListener("mousedown", (e) => e.stopPropagation());
 
     menu?.addEventListener("click", (e) => {
@@ -328,33 +455,26 @@
     });
   }
 
-  // Sort dropdown
   wireDropdown(ddSort, (value, label) => {
     state.sort = value || "date_asc";
     setDropdownValue(ddSort, state.sort, label || "Sort by Date (Soonest)");
-    // option: live apply
     applyNow();
   });
 
-  // District dropdown
   wireDropdown(ddDistrict, (value, label) => {
     state.district = value;
-
     setDropdownValue(ddDistrict, value, label || "All Districts");
     rebuildBarangayMenu();
     applyNow();
   });
 
-  // Barangay dropdown (auto-fill district)
   wireDropdown(ddBarangay, (value, label) => {
     state.barangay = value;
     setDropdownValue(ddBarangay, value, label || "All Barangays");
-
     if (value) autofillDistrictFromBarangay(String(value).toLowerCase());
     applyNow();
   });
 
-  // Month dropdown
   wireDropdown(ddMonth, (value, label) => {
     state.month = value;
     setDropdownValue(ddMonth, value, label || "All Months");
@@ -374,6 +494,10 @@
     state.month = "";
 
     if (searchInput) searchInput.value = "";
+    if (mainSuggest) {
+      mainSuggest.hidden = true;
+      mainSuggest.innerHTML = "";
+    }
 
     setDropdownValue(ddSort, "date_asc", "Sort by Date (Soonest)");
     setDropdownValue(ddDistrict, "", "All Districts");

@@ -128,7 +128,8 @@
         </div>
 
         <div class="hp-actions">
-          <div class="hp-search">
+          {{-- ✅ Search w/ autosuggest --}}
+          <div class="hp-search hp-search--suggest" id="hpSearchWrap">
             <button class="hp-searchBtn" id="hpSearchBtn" type="button" aria-label="Search">
               <i class="fa-solid fa-magnifying-glass"></i>
             </button>
@@ -140,6 +141,9 @@
             <button class="hp-clearX" id="hpSearchClear" type="button" aria-label="Clear search">
               <i class="fa-solid fa-xmark"></i>
             </button>
+
+            {{-- ✅ Main autosuggest dropdown --}}
+            <div class="hp-suggestBox hp-suggestBox--main" id="hpMainSuggest" hidden></div>
           </div>
 
           <button type="button" class="hp-filterBtn" id="hpFilterToggle" aria-expanded="false">
@@ -169,6 +173,13 @@
               <div class="hp-ddMenu" data-dd-menu>
                 <button type="button" class="hp-ddItem" data-value="date_asc">Sort by Date (Soonest)</button>
                 <button type="button" class="hp-ddItem" data-value="date_desc">Sort by Date (Latest)</button>
+
+                {{-- ✅ NEW --}}
+                <button type="button" class="hp-ddItem" data-value="time_asc">Sort by Time (Soonest)</button>
+                <button type="button" class="hp-ddItem" data-value="time_desc">Sort by Time (Latest)</button>
+                <button type="button" class="hp-ddItem" data-value="week_asc">Sort by Week (Soonest)</button>
+                <button type="button" class="hp-ddItem" data-value="week_desc">Sort by Week (Latest)</button>
+
                 <button type="button" class="hp-ddItem" data-value="title_asc">Sort by Title (A–Z)</button>
                 <button type="button" class="hp-ddItem" data-value="title_desc">Sort by Title (Z–A)</button>
               </div>
@@ -275,6 +286,8 @@
                   ? ($start->format('F j, Y') . ' – ' . $end->format('F j, Y'))
                   : ($start ? $start->format('F j, Y') : 'Date TBA');
 
+                $dayName = $start ? $start->format('l') : '';
+
                 $timeText = 'Time TBA';
                 if ($start && $end) $timeText = $start->format('h:i A') . ' - ' . $end->format('h:i A');
                 elseif ($start)     $timeText = $start->format('h:i A');
@@ -285,14 +298,24 @@
 
                 $title = $event->title ?? 'Untitled Event';
 
-                $hay = strtolower($title.' | '.$barangay.' | '.$districtLabel.' | '.$dateText.' | '.$timeText);
+                $hay = strtolower($title.' | '.$barangay.' | '.$districtLabel.' | '.$dateText.' | '.$dayName.' | '.$timeText);
+
                 $sortDate = $start ? $start->timestamp : 0;
                 $monthNum = $start ? $start->format('m') : '';
+
+                $startMin = $start ? ((int)$start->format('H') * 60 + (int)$start->format('i')) : -1;
+
+                $weekKey = $start ? $start->format('o-\WW') : ''; // ISO year-week, ex: 2025-W02
               @endphp
 
               <div class="event-card hp-event"
                    data-title="{{ e($title) }}"
                    data-date="{{ $sortDate }}"
+                   data-date-text="{{ e($dateText) }}"
+                   data-day="{{ e($dayName) }}"
+                   data-time-text="{{ e($timeText) }}"
+                   data-start-min="{{ $startMin }}"
+                   data-week="{{ e($weekKey) }}"
                    data-month="{{ $monthNum }}"
                    data-district="{{ $districtId }}"
                    data-barangay="{{ e(strtolower($barangay)) }}"
@@ -303,8 +326,18 @@
 
                 <div class="event-details">
                   <div class="ev-row">
-                    <p><i class="fas fa-calendar-alt"></i> {{ $dateText }}</p>
-                    <p><i class="fas fa-clock"></i> {{ $timeText }}</p>
+                    <p>
+                      <i class="fas fa-calendar-alt"></i>
+                      {{ $dateText }}
+                      @if($dayName)
+                        <span class="hp-day-pill">{{ $dayName }}</span>
+                      @endif
+                    </p>
+
+                    <p>
+                      <i class="fas fa-clock"></i>
+                      {{ $timeText }}
+                    </p>
 
                     <p class="ev-loc">
                       <i class="fas fa-map-marker-alt"></i>
@@ -312,7 +345,8 @@
                       <span class="ev-district">{{ $districtLabel }}</span>
                     </p>
 
-                    <p><i class="fas fa-users"></i>
+                    <p>
+                      <i class="fas fa-users"></i>
                       <strong>{{ $event->expected_volunteers_count }} Volunteers Expected</strong>
                     </p>
                   </div>
@@ -351,6 +385,7 @@
                 $end   = $event->end_datetime ? \Carbon\Carbon::parse($event->end_datetime) : null;
 
                 $dateText = $start ? $start->format('F j, Y') : 'Date TBA';
+                $dayName  = $start ? $start->format('l') : '';
 
                 $timeText = 'Time TBA';
                 if ($start && $end) $timeText = $start->format('h:i A') . ' - ' . $end->format('h:i A');
@@ -362,14 +397,23 @@
 
                 $title = $event->title ?? 'Untitled Event';
 
-                $hay = strtolower($title.' | '.$barangay.' | '.$districtLabel.' | '.$dateText.' | '.$timeText);
+                $hay = strtolower($title.' | '.$barangay.' | '.$districtLabel.' | '.$dateText.' | '.$dayName.' | '.$timeText);
+
                 $sortDate = $start ? $start->timestamp : 0;
                 $monthNum = $start ? $start->format('m') : '';
+
+                $startMin = $start ? ((int)$start->format('H') * 60 + (int)$start->format('i')) : -1;
+                $weekKey = $start ? $start->format('o-\WW') : '';
               @endphp
 
               <div class="event-card hp-event"
                    data-title="{{ e($title) }}"
                    data-date="{{ $sortDate }}"
+                   data-date-text="{{ e($dateText) }}"
+                   data-day="{{ e($dayName) }}"
+                   data-time-text="{{ e($timeText) }}"
+                   data-start-min="{{ $startMin }}"
+                   data-week="{{ e($weekKey) }}"
                    data-month="{{ $monthNum }}"
                    data-district="{{ $districtId }}"
                    data-barangay="{{ e(strtolower($barangay)) }}"
@@ -380,7 +424,14 @@
 
                 <div class="event-details">
                   <div class="ev-row">
-                    <p><i class="fas fa-calendar-alt"></i> {{ $dateText }}</p>
+                    <p>
+                      <i class="fas fa-calendar-alt"></i>
+                      {{ $dateText }}
+                      @if($dayName)
+                        <span class="hp-day-pill">{{ $dayName }}</span>
+                      @endif
+                    </p>
+
                     <p><i class="fas fa-clock"></i> {{ $timeText }}</p>
 
                     <p class="ev-loc">

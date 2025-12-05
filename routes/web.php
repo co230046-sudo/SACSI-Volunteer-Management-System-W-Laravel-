@@ -10,24 +10,45 @@ use App\Http\Controllers\VolunteerProfileController;
 use App\Http\Controllers\EventManagerController;
 use App\Http\Controllers\AttendanceImportController;
 use App\Http\Controllers\EventDetailsController;
+use App\Http\Controllers\AdminProfileController;
+use App\Http\Controllers\DashboardController;
+
 
 Route::get('/', function () {
     return redirect()->route('auth.login');
 });
 
-/* ------------------ AUTH ROUTES (PUBLIC) ------------------ */
+/* ------------------ AUTH ROUTES ------------------ */
 Route::get('/login', [AuthController::class, 'showLogin'])->name('auth.login');
 Route::post('/login', [AuthController::class, 'login'])->name('auth.login.submit');
 Route::get('/register', [AuthController::class, 'showRegister'])->name('auth.register');
 Route::post('/register', [AuthController::class, 'register'])->name('auth.register.submit');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-/* ------------------ PROTECTED ROUTES (ADMIN ONLY) ------------------ */
+/* ------------------ PROTECTED ROUTES ------------------ */
 Route::middleware(['auth:admin'])->group(function () {
 
     Route::get('/home', [HomePageController::class, 'index'])->name('home');
 
-    /* --- Import Volunteer --- */
+        /* -------- ADMIN PROFILE ROUTES (GLOBAL) -------- */
+    Route::get('/admin/profile', [AdminProfileController::class, 'index'])
+            ->name('admin.profile.self');
+            
+    Route::get('/admin/profile/{id}', [AdminProfileController::class, 'index'])
+        ->name('admin.profile');
+
+        // Update profile
+    Route::put('/admin/profile/update', [AdminProfileController::class, 'update'])
+        ->name('admin.profile.update');
+
+    // Logs
+    Route::get('/admin/profile/logs/{id}', [AdminProfileController::class, 'getLogs'])
+        ->name('admin.profile.logs');
+
+    Route::get('/admin/dashboard', [DashboardController::class, 'index'])
+        ->name('admin.dashboard');
+
+    /* --- Volunteer Import --- */
     Route::prefix('volunteer-import')->group(function () {
 
         Route::get('/', [VolunteerImportController::class, 'index'])
@@ -94,9 +115,6 @@ Route::middleware(['auth:admin'])->group(function () {
 
     /* ------------------ EVENTS ------------------ */
     Route::prefix('events')->group(function () {
-
-        Route::get('/create', [CreateEventController::class, 'create'])
-            ->name('events.create');
 
         Route::post('/', [CreateEventController::class, 'store'])
             ->name('events.store');

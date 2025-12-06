@@ -174,7 +174,6 @@
                 <button type="button" class="hp-ddItem" data-value="date_asc">Sort by Date (Soonest)</button>
                 <button type="button" class="hp-ddItem" data-value="date_desc">Sort by Date (Latest)</button>
 
-                {{-- ✅ NEW --}}
                 <button type="button" class="hp-ddItem" data-value="time_asc">Sort by Time (Soonest)</button>
                 <button type="button" class="hp-ddItem" data-value="time_desc">Sort by Time (Latest)</button>
                 <button type="button" class="hp-ddItem" data-value="week_asc">Sort by Week (Soonest)</button>
@@ -255,6 +254,48 @@
             </div>
           </div>
 
+          {{-- Week --}}
+          <div class="hp-field">
+            <div class="hp-fieldLabel">
+              <i class="fa-solid fa-calendar-week"></i>
+              Filter by Week
+            </div>
+
+            <div class="hp-dd" data-dd="week">
+              <button class="hp-ddBtn" type="button">
+                <span class="hp-ddText" data-dd-text>All Weeks</span>
+                <i class="fa-solid fa-chevron-down"></i>
+              </button>
+
+              <div class="hp-ddMenu" data-dd-menu id="hpWeekMenu">
+                {{-- injected by JS --}}
+              </div>
+            </div>
+          </div>
+
+          {{-- Time (meta time) --}}
+          <div class="hp-field">
+            <div class="hp-fieldLabel">
+              <i class="fa-solid fa-clock"></i>
+              Filter by Time
+            </div>
+
+            <div class="hp-dd" data-dd="time">
+              <button class="hp-ddBtn" type="button">
+                <span class="hp-ddText" data-dd-text>All Times</span>
+                <i class="fa-solid fa-chevron-down"></i>
+              </button>
+
+              <div class="hp-ddMenu" data-dd-menu>
+                <button type="button" class="hp-ddItem" data-value="">All Times</button>
+                <button type="button" class="hp-ddItem" data-value="morning">Morning (5:00 AM – 11:59 AM)</button>
+                <button type="button" class="hp-ddItem" data-value="afternoon">Afternoon (12:00 PM – 4:59 PM)</button>
+                <button type="button" class="hp-ddItem" data-value="evening">Evening (5:00 PM – 8:59 PM)</button>
+                <button type="button" class="hp-ddItem" data-value="night">Night (9:00 PM – 4:59 AM)</button>
+                <button type="button" class="hp-ddItem" data-value="tba">Time TBA</button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="hp-panelActions">
@@ -305,7 +346,13 @@
 
                 $startMin = $start ? ((int)$start->format('H') * 60 + (int)$start->format('i')) : -1;
 
-                $weekKey = $start ? $start->format('o-\WW') : ''; // ISO year-week, ex: 2025-W02
+                // ✅ Week label should be Mon–Fri (not Mon–Sun)
+                $wkStart = $start ? $start->copy()->startOfWeek(\Carbon\Carbon::MONDAY) : null;
+                $wkEnd   = $wkStart ? $wkStart->copy()->addDays(4) : null; // Mon..Fri
+                $weekKey = ($wkStart && $wkEnd) ? ($wkStart->format('Y-m-d').'_'.$wkEnd->format('Y-m-d')) : '';
+                $weekLabel = ($wkStart && $wkEnd)
+                  ? ($wkStart->format('M j').' – '.$wkEnd->format('M j').' (Mon–Fri)')
+                  : '';
               @endphp
 
               <div class="event-card hp-event"
@@ -316,6 +363,7 @@
                    data-time-text="{{ e($timeText) }}"
                    data-start-min="{{ $startMin }}"
                    data-week="{{ e($weekKey) }}"
+                   data-week-label="{{ e($weekLabel) }}"
                    data-month="{{ $monthNum }}"
                    data-district="{{ $districtId }}"
                    data-barangay="{{ e(strtolower($barangay)) }}"
@@ -403,7 +451,14 @@
                 $monthNum = $start ? $start->format('m') : '';
 
                 $startMin = $start ? ((int)$start->format('H') * 60 + (int)$start->format('i')) : -1;
-                $weekKey = $start ? $start->format('o-\WW') : '';
+
+                // ✅ Week label Mon–Fri
+                $wkStart = $start ? $start->copy()->startOfWeek(\Carbon\Carbon::MONDAY) : null;
+                $wkEnd   = $wkStart ? $wkStart->copy()->addDays(4) : null;
+                $weekKey = ($wkStart && $wkEnd) ? ($wkStart->format('Y-m-d').'_'.$wkEnd->format('Y-m-d')) : '';
+                $weekLabel = ($wkStart && $wkEnd)
+                  ? ($wkStart->format('M j').' – '.$wkEnd->format('M j').' (Mon–Fri)')
+                  : '';
               @endphp
 
               <div class="event-card hp-event"
@@ -414,6 +469,7 @@
                    data-time-text="{{ e($timeText) }}"
                    data-start-min="{{ $startMin }}"
                    data-week="{{ e($weekKey) }}"
+                   data-week-label="{{ e($weekLabel) }}"
                    data-month="{{ $monthNum }}"
                    data-district="{{ $districtId }}"
                    data-barangay="{{ e(strtolower($barangay)) }}"

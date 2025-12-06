@@ -127,63 +127,60 @@
   <span class="label">Back</span>
 </button>
 
-
 <script>
 (function () {
-  const HOMEPAGE_URL = '../Homepage_Paul/Homepage.php';
-  const MAX_STACK = 12;
+  const HOMEPAGE_URL = "/home"; // Laravel home route
+  const MAX_STACK = 20;
 
-  const currentPage = (window.location.pathname.split('/').pop() || "").trim();
+  // Use FULL normalized path (no query params)
+  const currentPath = window.location.pathname.replace(/\/+$/, "");
 
-  // Read history stack
+  // Load history
   let historyStack = [];
-  try { historyStack = JSON.parse(sessionStorage.getItem('pageHistory') || '[]'); }
+  try { historyStack = JSON.parse(sessionStorage.getItem("pageHistory") || "[]"); }
   catch { historyStack = []; }
 
-  // Record current page (avoid immediate duplicates)
-  if (currentPage && historyStack[historyStack.length - 1] !== currentPage) {
-    historyStack.push(currentPage);
+  // Push current path if new
+  if (currentPath && historyStack[historyStack.length - 1] !== currentPath) {
+    historyStack.push(currentPath);
     if (historyStack.length > MAX_STACK) historyStack.shift();
-    sessionStorage.setItem('pageHistory', JSON.stringify(historyStack));
+    sessionStorage.setItem("pageHistory", JSON.stringify(historyStack));
   }
 
-  // Detect ABAB loop (A → B → A → B) OR AAA (refresh loop / same page)
+  // Detect ABAB or AAA loop
   function isLoopDetected() {
     if (historyStack.length >= 4) {
-      const last4 = historyStack.slice(-4);
-      if (last4[0] === last4[2] && last4[1] === last4[3]) return true;
+      const h = historyStack.slice(-4);
+      if (h[0] === h[2] && h[1] === h[3]) return true;
     }
     if (historyStack.length >= 3) {
-      const last3 = historyStack.slice(-3);
-      if (last3[0] === last3[1] && last3[1] === last3[2]) return true;
+      const h = historyStack.slice(-3);
+      if (h[0] === h[1] && h[1] === h[2]) return true;
     }
     return false;
   }
 
   function safeHome() {
-    sessionStorage.removeItem('pageHistory');
+    sessionStorage.removeItem("pageHistory");
     window.location.href = HOMEPAGE_URL;
   }
 
   window.goBack = function () {
     if (isLoopDetected()) return safeHome();
 
-    // If we can navigate back, do it
     if (window.history.length > 1) {
-      const before = currentPage;
+      const before = currentPath;
 
       window.history.back();
 
-      // Fallback if browser doesn't move (or SPA-like)
       setTimeout(() => {
-        const now = (window.location.pathname.split('/').pop() || "").trim();
+        const now = window.location.pathname.replace(/\/+$/, "");
         if (now === before) safeHome();
-      }, 180);
+      }, 200);
 
       return;
     }
 
-    // No history
     safeHome();
   };
 })();

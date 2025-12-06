@@ -1,312 +1,859 @@
-/* ------------------------------------------------------
-   GLOBAL LAYOUT
-------------------------------------------------------- */
-body {
-    margin: 0;
-    padding: 0;
-    background-color: #f7f7f9 !important; /* soft academic gray */
+:root{
+  /* slightly lighter crimson */
+  --crimson: #a2343f;
+  --crimson-2: #b83f4c;
+
+  --bg: #f7f7f9;
+  --card: #ffffff;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --border: rgba(17, 24, 39, 0.10);
+  --shadow: 0 12px 28px rgba(17, 24, 39, 0.10);
+  --shadow-strong: 0 18px 40px rgba(17, 24, 39, 0.16);
 }
 
-section.page-section {
-    min-height: calc(100vh - 80px);
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    opacity: 0;
-    transform: translateY(24px);
-    transition: 0.8s ease;
-    margin-top: 80px;
+html, body{ height:100%; }
+body.page--volunteer-list{
+  margin:0;
+  padding:0;
+  background: var(--bg) !important;
+  font-family: "Nunito", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: var(--text);
 }
 
-section.page-section.visible {
-    opacity: 1;
-    transform: translateY(0);
+.vl-page{
+  width:100%;
+  padding: 22px 0 40px;
+  margin-top: 80px;
 }
 
-/* ------------------------------------------------------
-   OUTER CARD CONTAINER
-------------------------------------------------------- */
-.outer-card {
-    width: 95%;
-    max-width: 1400px;
-    margin: 0 auto;
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-    padding: 1rem;
+.vl-root{
+  width:95%;
+  max-width:1400px;
+  margin:0 auto;
 }
 
-.outer-card > .container {
-    max-width: 1400px;
-    width: 100%;
+/* ---------------- HEADER ---------------- */
+.vl-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom: 14px;
+}
+.vl-title .vl-kicker{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  font-weight:900;
+  color: var(--crimson);
+  opacity:.9;
+  margin-bottom:4px;
+}
+.vl-title h1{
+  margin:0;
+  font-weight:1000;
+  color: var(--crimson);
+  letter-spacing:.2px;
+}
+.vl-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.vl-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding: 10px 14px;
+  border-radius:999px;
+  background:#fff;
+  border:1px solid var(--border);
+  box-shadow: 0 8px 20px rgba(17,24,39,0.06);
+  color: var(--crimson);
+  font-weight:800;
+}
+.vl-pill strong{ font-weight:1000; }
+
+.add-student-trigger{
+  white-space:nowrap;
+  padding: 10px 14px;
+  font-weight:900;
+  border-radius:12px;
+  background: var(--crimson) !important;
+  border-color: var(--crimson) !important;
+}
+.add-student-trigger:hover{
+  background: var(--crimson-2) !important;
+  border-color: var(--crimson-2) !important;
 }
 
-.add-student-trigger {
-    white-space: nowrap;
-    padding: 8px 14px;
-    font-weight: 600;
-}
-.search-container {
-    flex: 1;
+/* ---------------- FLOAT WRAP (anchors overlay panel) ---------------- */
+.vl-floatWrap{
+  position: relative;
+  z-index: 10;
 }
 
-/* ------------------------------------------------------
-   GRID CONTAINER
-------------------------------------------------------- */
-.grid-container {
-    width: 100%;
-    margin: 0 auto;
+/* ---------------- TOOLBAR ---------------- */
+.vl-toolbar{
+  display:grid;
+  grid-template-columns: 1fr auto;
+  gap:12px;
+  align-items:center;
+  margin: 12px 0;
 }
 
-/* The actual 3×4 grid */
-.cards-grid {
-    display: grid;
-    gap: 22px;
-    padding: 10px 0;
-    grid-template-columns: repeat(1, 1fr);
+.vl-search{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:999px;
+  padding: 10px 14px;
+  box-shadow: 0 10px 24px rgba(17,24,39,0.06);
+}
+.vl-search i{ color: var(--crimson); opacity:.85; }
+
+#vlSearch{
+  width:100%;
+  border:none;
+  outline:none;
+  background:transparent;
+  font-weight:800;
+  color: var(--text);
+}
+#vlSearch::placeholder{ color:#9aa3af; font-weight:700; }
+
+.vl-clear{
+  border:none;
+  background:transparent;
+  width:34px;
+  height:34px;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  color: var(--crimson);
+}
+.vl-clear:hover{ background: rgba(162,52,63,0.08); }
+
+.vl-filterBtn{
+  border:none;
+  background: var(--crimson);
+  color:#fff;
+  font-weight:1000;
+  padding: 10px 16px;
+  border-radius:999px;
+  box-shadow: 0 10px 24px rgba(162,52,63,0.18);
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+}
+.vl-filterBtn:hover{ background: var(--crimson-2); }
+.vl-filterBtn i:last-child{ opacity:.9; }
+
+/* autosuggest */
+.vl-suggest{
+  position:absolute;
+  left:10px;
+  right:10px;
+  top: calc(100% + 8px);
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:16px;
+  box-shadow: var(--shadow);
+  padding:6px;
+  z-index: 50;
+}
+.vl-suggestItem{
+  padding: 10px 12px;
+  border-radius:12px;
+  cursor:pointer;
+}
+.vl-suggestItem:hover{ background: rgba(162,52,63,0.06); }
+.vl-suggestMain{ font-weight:1000; color: var(--text); }
+.vl-suggestMeta{ font-size:.9rem; color: var(--muted); font-weight:800; }
+
+/* ---------------- FILTER PANEL OVERLAY (NO BACKDROP) ---------------- */
+.vl-panel{
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 10px);
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:18px;
+  box-shadow: var(--shadow-strong);
+  padding:14px;
+  z-index: 50;
 }
 
-/* Tablet (2 columns) */
-@media (min-width: 768px) {
-    .cards-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
+.vl-panelGrid{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap:14px;
+}
+@media (max-width:1100px){
+  .vl-panelGrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width:640px){
+  .vl-toolbar{ grid-template-columns: 1fr; }
+  .vl-panel{ top: calc(100% + 8px); }
+  .vl-panelGrid{ grid-template-columns: 1fr; }
 }
 
-/* Desktop – 3 columns EXACT */
-@media (min-width: 992px) {
-    .cards-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
+.vl-field label{
+  font-weight:1000;
+  color: var(--crimson);
+  margin-bottom:6px;
 }
 
-/* Card count text */
-#grid-count {
-    text-align: center;
-    font-size: 0.95rem;
-    color: #000000;
-    margin-top: 10px;
+.vl-panelFooter{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  margin-top:12px;
 }
 
-/* ------------------------------------------------------
-   STUDENT CARD — Academic Red Theme
-------------------------------------------------------- */
-.student-card {
-    display: flex;
-    align-items: flex-start;
-    gap: 26px;
-
-    width: 100%;
-    background: #A82020;
-    color: #ffffff;
-    border-radius: 16px;
-    padding: 26px;
-
-    text-decoration: none;
-    transition: 0.25s ease;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.16);
+.vl-btn{
+  border-radius:999px;
+  padding: 10px 14px;
+  font-weight:1000;
+  border: 1px solid transparent;
+  transition: transform 0.15s ease, box-shadow 0.15s ease,
+              background-color 0.15s ease, border-color 0.15s ease,
+              color 0.15s ease;
+}
+.vl-btnGhost{
+  background:#fff;
+  border-color: var(--border);
+  color: var(--crimson);
+}
+.vl-btnGhost:hover{
+  background: rgba(162,52,63,0.06);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(15,23,42,0.12);
+}
+.vl-btnSolid{
+  background: var(--crimson);
+  color:#fff;
+}
+.vl-btnSolid:hover{
+  background: var(--crimson-2);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(15,23,42,0.12);
+}
+.vl-btnGhost:active,
+.vl-btnSolid:active{
+  transform: translateY(0);
+  box-shadow: 0 4px 10px rgba(15,23,42,0.08);
 }
 
-.student-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 14px 32px rgba(0,0,0,0.22);
+/* ---------------- Custom dropdown button ---------------- */
+.vl-dd{ position: relative; }
+.vl-ddBtn{
+  width:100%;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:#fff;
+  padding: 10px 12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  font-weight:900;
+  color: var(--text);
+}
+.vl-ddBtn:hover{ border-color: rgba(162,52,63,0.28); }
+
+/* in-place menus hidden (we portal them) */
+.vl-ddMenu{ display:none !important; }
+
+/* ---------------- Portal dropdown ---------------- */
+.vl-ddPortal{
+  position: fixed;
+  z-index: 99999;
+  background:#fff;
+  border:1px solid rgba(0,0,0,.08);
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0,0,0,.18);
+  padding: 8px;
+  max-height: 320px;
+  overflow:hidden;
+  min-width: 240px;
 }
 
-/* ------------------------------------------------------
-   Avatar
-------------------------------------------------------- */
-.student-card .avatar {
-    width: 140px;
-    height: 140px;
-    border-radius: 14px;
-    object-fit: cover;
-
-    background: #fff;
-    border: 4px solid #fff;
-    padding: 4px;
-    transition: 0.25s ease;
+/* portal header search */
+.vl-ddPortalHeader{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(17,24,39,0.10);
+  border-radius: 12px;
+  box-shadow: 0 10px 18px rgba(17,24,39,0.06);
+  margin-bottom: 8px;
+}
+.vl-ddPortalHeader i{
+  color: var(--crimson);
+  opacity:.9;
+}
+.vl-ddPortalHeader--time{
+  margin-bottom: 0;
+  margin-top: 4px;
+}
+.vl-ddPortalSearch{
+  border:none;
+  outline:none;
+  width:100%;
+  font-weight:900;
+  color: var(--text);
+  background: transparent;
+}
+.vl-ddPortalSearch::placeholder{
+  color:#9aa3af;
+  font-weight:800;
 }
 
-.student-card:hover .avatar {
-    transform: scale(1.04);
+.vl-ddPortalBody{
+  max-height: 260px;
+  overflow:auto;
+  padding-right: 2px;
+  margin-top: 8px;
 }
 
-/* ------------------------------------------------------
-   Meta Section
-------------------------------------------------------- */
-.student-card .meta {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+.vl-ddPortal .vl-ddItem{
+  width:100%;
+  text-align:left;
+  border:none;
+  background:transparent;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-weight:900;
+  color: var(--text);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.vl-ddPortal .vl-ddItem:hover{ background: rgba(162,52,63,0.06); }
+.vl-ddPortal .vl-ddMeta{ color: var(--muted); font-weight:900; font-size:.9rem; }
+
+/* --- Time filter tabs inside time dropdown --- */
+.vl-timeFilter{
+  margin-bottom: 6px;
+}
+.vl-timeHeading{
+  font-size: 0.9rem;
+  font-weight: 900;
+  color: var(--crimson);
+  margin-bottom: 4px;
+}
+.vl-timeTabs{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:6px;
+  margin-bottom: 6px;
+}
+.vl-timeTab{
+  flex:1;
+  border-radius: 999px;
+  border:1px solid transparent;
+  background:#f9fafb;
+  font-size:0.9rem;
+  font-weight:900;
+  padding: 6px 0;
+  color: var(--muted);
+  cursor:pointer;
+}
+.vl-timeTab.is-active{
+  background: rgba(162,52,63,0.08);
+  border-color: rgba(162,52,63,0.28);
+  color: var(--crimson);
 }
 
-.student-card .meta .name {
-    font-weight: 900;
-    font-size: 1.5rem;
-    margin-bottom: 6px;
-}
-/* ------------------------------------------------------
-   Badge Grid (2×2)
-------------------------------------------------------- */
-.badge-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px 14px; /* row, column spacing */
-    width: 100%;
-    max-width: 420px;
-}
-
-/* Badge style */
-.badge {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-
-    background: #ffffff;          /* WHITE background */
-    color: #A82020;               /* RED text (academic red) */
-    font-weight: 700;
-
-    padding: 8px 14px;
-    border-radius: 12px;
-    font-size: 0.9rem;
-
-    border: 2px solid #ffffffcc;  /* subtle border for definition */
-    box-shadow: 0 3px 6px rgba(0,0,0,0.10);
-
-    transition: 0.2s ease;
+/* ---------------- MAIN OUTER CARD + GRID ---------------- */
+.vl-outerCard{
+  width:100%;
+  background:#fff;
+  border-radius:18px;
+  border:1px solid var(--border);
+  box-shadow: var(--shadow);
+  padding:16px;
+  position: relative;
+  z-index: 1;
+  min-height: 600px;
+  display:flex;
+  flex-direction:column;
 }
 
-/* Icon inside badge */
-.badge i {
-    font-size: 1rem;
-    color: #A82020;               /* RED icon */
+.vl-grid{
+  display:grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap:22px;
+  padding: 6px 0 10px;
+  flex: 1 1 auto;
+  align-items:flex-start;
+  align-content:flex-start;
+}
+@media (min-width:768px){
+  .vl-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width:992px){
+  .vl-grid{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
-/* Hover (slight pop feel) */
-.student-card:hover .badge {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.18);
+/* ---------------- VOLUNTEER CARD ---------------- */
+.student-card{
+  display:flex;
+  align-items:flex-start;
+  gap:22px;
+  width:100%;
+  background: var(--crimson);
+  color:#fff;
+  border-radius:18px;
+  padding:22px;
+  text-decoration:none;
+  transition: .22s ease;
+  box-shadow: 0 12px 26px rgba(162,52,63,0.20);
+}
+.student-card:hover{
+  transform: translateY(-6px);
+  box-shadow: 0 18px 40px rgba(162,52,63,0.28);
+}
+.student-card .avatar{
+  width:132px;
+  height:132px;
+  border-radius:16px;
+  object-fit:cover;
+  background:#fff;
+  border:4px solid #fff;
+  padding:4px;
+  transition: .22s ease;
+}
+.student-card:hover .avatar{ transform: scale(1.03); }
+.student-card .meta{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  min-width:0;
+}
+.student-card .meta .name{
+  font-weight:1000;
+  font-size:1.45rem;
+  margin:0;
+  line-height:1.1;
 }
 
-.student-card .badge {
-    color: #A82020 !important;
+.badge-grid{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap:10px 12px;
+  width:100%;
+  max-width:440px;
+}
+.student-card .badge{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  background:#fff;
+  color: var(--crimson) !important;
+  font-weight:900;
+  padding: 8px 12px;
+  border-radius:14px;
+  font-size:.92rem;
+  border:1px solid rgba(255,255,255,0.55);
+  box-shadow: 0 6px 14px rgba(17,24,39,0.10);
+}
+.student-card .badge i{
+  color: var(--crimson) !important;
+  font-size:1rem;
 }
 
-.student-card .badge i {
-    color: #A82020 !important;
+/* schedule preview chip under card */
+.vl-scheduleChip{
+  margin-top: 6px;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 10px;
+  border-radius:999px;
+  background: rgba(255,255,255,0.12);
+  font-size:.8rem;
+  font-weight:800;
+  color:#fee2e2;
+}
+.vl-scheduleChip i{
+  font-size:.9rem;
 }
 
-
-/* ------------------------------------------------------
-   Mobile responsiveness
-------------------------------------------------------- */
-@media (max-width: 768px) {
-    .student-card {
-        flex-direction: column;
-        text-align: center;
-        padding: 22px;
-    }
-    .badge-grid {
-        grid-template-columns: repeat(1, 1fr); /* stack on mobile */
-        max-width: 260px;
-        margin: 0 auto;
-    }
+@media (max-width:768px){
+  .vl-header{ flex-direction:column; align-items:flex-start; }
+  .student-card{ flex-direction:column; text-align:center; }
+  .badge-grid{ grid-template-columns:1fr; max-width:300px; margin:0 auto; }
+  .student-card .avatar{ margin:0 auto; width:150px; height:150px; }
 }
 
-/* ------------------------------------------------------
-   NAVIGATION ARROWS
-------------------------------------------------------- */
-.navigation {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-
-    margin-top: 20px !important;
-    position: relative;
-    z-index: 10;
+/* ---------------- BOTTOM BAR + NAV ---------------- */
+.vl-bottomBar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  border-top:1px solid var(--border);
+  padding-top:12px;
+  margin-top:auto;
+  margin-bottom: 4px;
+}
+.vl-count{
+  font-weight:900;
+  color: var(--crimson);
 }
 
-.navigation button {
-    padding: 8px;
-    background: none;
+.vl-nav{
+  display:flex;
+  align-items:center;
+  gap:10px;
 }
 
-.arrow-btn {
-    background: none !important;
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
+.vl-arrow{
+  border: 1px solid rgba(148,163,184,0.6);
+  background: #ffffff;
+  color: #9ca3af;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display:grid;
+  place-items:center;
+  box-shadow: 0 8px 16px rgba(15,23,42,0.06);
+}
+.vl-arrow:hover{
+  background:#f9fafb;
+}
+.vl-arrow:disabled{
+  opacity:.4;
+  cursor:not-allowed;
+  box-shadow:none;
+  background:#f9fafb;
 }
 
-.arrow-animate .arrow-path {
-    animation: arrow-flash 300ms ease-in-out forwards;
+.vl-pageInfo{
+  font-weight:1000;
+  color: #9ca3af;
+  background:#fff;
+  border:1px solid rgba(148,163,184,0.6);
+  border-radius:999px;
+  padding: 8px 16px;
+  box-shadow: 0 8px 16px rgba(15,23,42,0.06);
 }
 
-/* Fixed modal overlay that visually matches a student card */
-.fixed-modal {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 2000;
+/* ---------------- MODAL POLISH ---------------- */
+.vl-modalHeader{
+  background: linear-gradient(135deg, var(--crimson), #5b1a20);
+  color:#fff;
 }
-.fixed-modal-backdrop {
-    position: absolute;
-    inset: 0;
-    background: rgba(0,0,0,0.35);
+.vl-modalHeader .modal-title{ font-weight: 950; letter-spacing:.2px; }
+.vl-modalSave{
+  background: var(--crimson) !important;
+  border-color: var(--crimson) !important;
+  font-weight: 950;
 }
-.fixed-modal-card {
-    position: relative;
-    z-index: 2001;
-    max-width: 520px;
-    width: calc(100% - 32px);
-    padding: 16px;
-    box-sizing: border-box;
+.vl-modalSave:hover{
+  background: var(--crimson-2) !important;
+  border-color: var(--crimson-2) !important;
 }
-.fixed-modal-close {
-    position: absolute;
-    right: 8px;
-    top: 8px;
-    background: transparent;
-    border: none;
-    font-size: 22px;
-    cursor: pointer;
+.vl-photoPreview{
+  width:84px;
+  height:84px;
+  border-radius:14px;
+  background:#fff;
+  border:3px solid rgba(162,52,63,.22);
+  object-fit:cover;
 }
-.fixed-modal .student-card.add-student-card {
-    display: flex;
-    gap: 14px;
-    align-items: flex-start;
-    padding: 18px;
-}
-.fixed-modal .form-control {
-    width: 100%;
-    padding: 8px 10px;
-    border-radius: 6px;
-    border: 1px solid #ccc;
-}
-.fixed-modal .mb-2 { margin-bottom: 8px; }
-.fixed-modal .form-label { font-size: 0.9rem; margin-bottom: 4px; display:block; }
-.fixed-modal .fixed-modal-cancel { background:#6c757d; color:#fff; border:none; padding:8px 12px; border-radius:6px; }
-
-.arrow-btn:focus {
-    outline: none;
+.vl-miniHint{
+  font-size:.85rem;
+  color:#6b7280;
+  margin-top:6px;
 }
 
-.arrow-path {
-    fill: #888;
-    transition: fill 0.2s ease;
+/* ---------------- ERROR BOX ---------------- */
+.vol-error{
+  background:#fff;
+  border:1px dashed rgba(162,52,63,0.35);
+  border-radius:18px;
+  padding:18px;
+  box-shadow: var(--shadow);
+}
+.vol-error__title{ font-weight:1000; color: var(--crimson); margin-bottom: 6px; }
+.vol-error__msg{ color: var(--muted); font-weight: 800; }
+.vol-error__pre{
+  margin-top: 10px;
+  white-space: pre-wrap;
+  font-size: .9rem;
+  color: #111827;
+  background: rgba(17,24,39,0.04);
+  border-radius: 12px;
+  padding: 10px;
 }
 
-.arrow-animate .arrow-path {
-    animation: arrow-flash 300ms ease-in-out forwards;
+/* ============================
+   FIX: badge/pill overlap
+============================ */
+.badge-grid{
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px 12px !important;
+  width: 100% !important;
+  max-width: 520px !important;
+  align-items: flex-start !important;
 }
 
-@keyframes arrow-flash {
-    0% { fill: #888; }
-    40% { fill: #ff0000; }
-    100% { fill: #888; }
+.student-card .badge{
+  flex: 0 1 auto !important;
+  max-width: 100% !important;
+  white-space: normal !important;
+  line-height: 1.15 !important;
+  padding: 8px 12px !important;
 }
+
+.student-card .badge i{
+  flex: 0 0 auto !important;
+}
+
+.student-card .badge{
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+}
+
+/* ==========================================================
+   CLASS SCHEDULE MODAL (legacy styling, safe to keep)
+========================================================== */
+.custom-schedule-modal{
+  border-radius: 18px;
+  font-family: "Nunito", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  overflow: hidden;
+}
+
+#classScheduleModal .custom-modal-header{
+  background-color: #ffffff;
+  color: var(--crimson);
+  font-weight: 900;
+  border-bottom: 1px solid #f1c0c3;
+}
+
+#classScheduleModal .custom-modal-header .fa-calendar-days{
+  color: var(--crimson-2);
+}
+
+#classScheduleModal .custom-modal-body{
+  background-color: #fff5f5;
+  padding: 1rem 1.5rem;
+}
+
+#classScheduleModal .schedule-table{
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+#classScheduleModal .schedule-table th,
+#classScheduleModal .schedule-table td{
+  border: 1px solid #f1c0c3;
+  padding: 0.5rem;
+}
+
+#classScheduleModal .schedule-table th{
+  background-color: #e4606d;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+#classScheduleModal .schedule-table tbody tr:nth-child(even){
+  background-color: #ffe5e8;
+}
+
+#classScheduleModal .schedule-table tbody tr:hover{
+  background-color: #f9b2bc;
+}
+
+#classScheduleModal .schedule-time{
+  font-weight: 600;
+  color: var(--crimson);
+}
+
+/* Static cell look in view mode */
+#classScheduleModal .schedule-entry{
+  font-weight: 500;
+  color: #4d0000;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  background-color: #f8d0d5;
+  margin: 2px 0;
+}
+
+/* Red-themed select, scoped ONLY to this modal */
+#classScheduleModal .schedule-select{
+  height: 30px;
+  padding: 0 0.5rem;
+  font-size: 0.85rem;
+  background-color: #fff;
+  border: 1px solid var(--crimson-2);
+  color: var(--crimson-2);
+  border-radius: 0.25rem;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+#classScheduleModal .schedule-select:hover,
+#classScheduleModal .schedule-select:focus{
+  border-color: var(--crimson);
+  box-shadow: 0 0 0 2px rgba(178,34,39,0.2);
+  outline: none;
+}
+
+#classScheduleModal .schedule-select option{
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  background-color: #fff;
+  color: var(--crimson-2);
+}
+
+#classScheduleModal .schedule-select option:disabled{
+  color: #aaa;
+  font-style: italic;
+}
+
+#classScheduleModal .schedule-select::-webkit-scrollbar{
+  width: 8px;
+  height: 8px;
+}
+#classScheduleModal .schedule-select::-webkit-scrollbar-track{
+  background: #fee2e2;
+  border-radius: 4px;
+}
+#classScheduleModal .schedule-select::-webkit-scrollbar-thumb{
+  background: var(--crimson-2);
+  border-radius: 4px;
+}
+#classScheduleModal .schedule-select::-webkit-scrollbar-thumb:hover{
+  background: var(--crimson);
+}
+
+/* ===========================
+   Hide scrollbar on this page
+=========================== */
+body.page--volunteer-list {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+body.page--volunteer-list::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* ===========================
+   Hide "Classes in AM & PM" chip
+=========================== */
+.vl-scheduleChip {
+  display: none !important;
+}
+
+/* ===== Add Volunteer: schedule picker ===== */
+.vl-btnSchedule{
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.86rem;
+  font-weight: 800;
+  border: 1px solid var(--crimson-2);
+  background: #fff;
+  color: var(--crimson-2);
+}
+.vl-btnSchedule:hover{
+  background: var(--crimson-2);
+  color: #fff;
+  box-shadow: 0 10px 20px rgba(122,35,43,0.20);
+}
+
+.vl-scheduleMetaBox{
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px dashed rgba(122,35,43,0.20);
+  background: #fff7f8;
+}
+.vl-scheduleMeta{
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+
+/* Search inputs above selects in Add Volunteer modal */
+.vl-filterWrapper{
+  position: relative;
+}
+.vl-filterIcon{
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.8rem;
+  color: rgba(0,0,0,0.25);
+}
+.vl-filterInput{
+  font-size: 0.8rem;
+  padding-left: 1.6rem;
+}
+
+/* ===== Schedule modal look (Add Volunteer) ===== */
+#vlScheduleModal .modal-content{
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+#vlScheduleModal .modal-header{
+  background: linear-gradient(135deg, var(--crimson), #b6424c);
+  color: #fff;
+  border-bottom: none;
+}
+#vlScheduleModal .modal-title{
+  font-weight: 900;
+}
+#vlScheduleModal .btn-close{
+  filter: invert(1);
+}
+
+#vlScheduleModal .modal-body{
+  background: #fff7f8;
+}
+
+#vlScheduleModal .vl-schTable{
+  font-size: 0.85rem;
+}
+#vlScheduleModal .vl-schTable th{
+  background: #f0939c;
+  color: #fff;
+  border-color: #f3c2c7;
+}
+#vlScheduleModal .vl-schTable td{
+  border-color: #f3c2c7;
+}
+#vlScheduleModal .vl-schIndex{
+  font-weight: 800;
+  color: var(--crimson);
+}
+
+#vlScheduleModal .vl-schSelect{
+  font-size: 0.85rem;
+}
+
+#vlScheduleModal .modal-footer{
+  border-top: none;
+  background: #fff;
+}
+

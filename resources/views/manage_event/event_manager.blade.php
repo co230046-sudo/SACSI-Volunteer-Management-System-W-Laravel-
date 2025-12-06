@@ -19,7 +19,8 @@
 <body>
   @include('layouts.page_loader')
   @include('layouts.navbar')
-
+  @include('layouts.back_button')
+  
   @php
     // ✅ Districts locked to 1 and 2 (requested)
     $districts = [1, 2];
@@ -49,6 +50,7 @@
           </div>
 
           <h1 class="em-h1">Pre &amp; Post Events</h1>
+          <!-- OVERLAY (unchanged as requested) -->
 
           <div class="em-controls em-controls--anchor">
 
@@ -222,6 +224,7 @@
               </div>
             </div>
           </div>
+
         </div>
 
         {{-- Total --}}

@@ -778,3 +778,30 @@ body{
   align-items:center;
   justify-content:center;
 }
+
+/* The container that holds the barangay input + suggest list */
+.em-suggest {
+  position: relative; /* anchors the absolute dropdown */
+}
+
+/* The dropdown list itself */
+#emBarangaySuggest {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+
+  z-index: 9999;        /* ensure it's on top of the panel */
+  max-height: 320px;
+  overflow: auto;
+
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.14);
+  border: 1px solid rgba(0,0,0,.08);
+}
+
+/* Optional: if any parent has overflow hidden, it will clip the dropdown */
+#emPanel {
+  overflow: visible;
+}

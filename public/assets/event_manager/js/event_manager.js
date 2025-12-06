@@ -3,32 +3,39 @@
   if (!root) return;
 
   /* ============================================================
+     IMPORTANT: Always reflect latest statuses (Upcoming/Ongoing/etc)
+     - Fixes cases where you "Cancel" an event, go back, and it still
+       looks like the old status due to bfcache (back-forward cache).
+     ============================================================ */
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted) window.location.reload(); // force fresh server data
+  });
+
+  /* ============================================================
      CONFIG
      ============================================================ */
-  const PAGE_SIZE = 9; // cards per page (client-side)
-
-  const daysFull = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+  const PAGE_SIZE = 9;
 
   const timeMeta = {
     // Morning
-    "7:30-8:20":  { label:"7:30–8:20 AM",  group:"AM", start:450,  end:500 },
-    "8:00-9:20":  { label:"8:00–9:20 AM",  group:"AM", start:480,  end:560 },
-    "8:00-10:50": { label:"8:00–10:50 AM", group:"AM", start:480,  end:650 },
-    "8:30-9:50":  { label:"8:30–9:50 AM",  group:"AM", start:510,  end:590 },
-    "8:30-11:30": { label:"8:30–11:30 AM", group:"AM", start:510,  end:690 },
-    "9:30-10:50": { label:"9:30–10:50 AM", group:"AM", start:570,  end:650 },
-    "11:00-12:20":{ label:"11:00–12:20 PM",group:"AM", start:660,  end:740 },
+    "7:30-8:20":   { label: "7:30–8:20 AM",   group: "AM", start: 450,  end: 500  },
+    "8:00-9:20":   { label: "8:00–9:20 AM",   group: "AM", start: 480,  end: 560  },
+    "8:00-10:50":  { label: "8:00–10:50 AM",  group: "AM", start: 480,  end: 650  },
+    "8:30-9:50":   { label: "8:30–9:50 AM",   group: "AM", start: 510,  end: 590  },
+    "8:30-11:30":  { label: "8:30–11:30 AM",  group: "AM", start: 510,  end: 690  },
+    "9:30-10:50":  { label: "9:30–10:50 AM",  group: "AM", start: 570,  end: 650  },
+    "11:00-12:20": { label: "11:00–12:20 PM", group: "AM", start: 660,  end: 740  },
 
     // Afternoon / Evening
-    "12:30-1:50": { label:"12:30–1:50 PM", group:"PM", start:750,  end:830 },
-    "12:30-2:50": { label:"12:30–2:50 PM", group:"PM", start:750,  end:890 },
-    "2:00-3:20":  { label:"2:00–3:20 PM",  group:"PM", start:840,  end:920 },
-    "2:00-4:50":  { label:"2:00–4:50 PM",  group:"PM", start:840,  end:1010},
-    "3:30-4:50":  { label:"3:30–4:50 PM",  group:"PM", start:930,  end:1010},
-    "5:00-6:20":  { label:"5:00–6:20 PM",  group:"PM", start:1020, end:1100},
-    "6:30-7:20":  { label:"6:30–7:20 PM",  group:"PM", start:1110, end:1160},
-    "6:30-8:50":  { label:"6:30–8:50 PM",  group:"PM", start:1110, end:1250},
-    "7:30-8:50":  { label:"7:30–8:50 PM",  group:"PM", start:1170, end:1250}
+    "12:30-1:50":  { label: "12:30–1:50 PM",  group: "PM", start: 750,  end: 830  },
+    "12:30-2:50":  { label: "12:30–2:50 PM",  group: "PM", start: 750,  end: 890  },
+    "2:00-3:20":   { label: "2:00–3:20 PM",   group: "PM", start: 840,  end: 920  },
+    "2:00-4:50":   { label: "2:00–4:50 PM",   group: "PM", start: 840,  end: 1010 },
+    "3:30-4:50":   { label: "3:30–4:50 PM",   group: "PM", start: 930,  end: 1010 },
+    "5:00-6:20":   { label: "5:00–6:20 PM",   group: "PM", start: 1020, end: 1100 },
+    "6:30-7:20":   { label: "6:30–7:20 PM",   group: "PM", start: 1110, end: 1160 },
+    "6:30-8:50":   { label: "6:30–8:50 PM",   group: "PM", start: 1110, end: 1250 },
+    "7:30-8:50":   { label: "7:30–8:50 PM",   group: "PM", start: 1170, end: 1250 }
   };
 
   /* ============================================================
@@ -38,10 +45,8 @@
     tab: (root.getAttribute("data-default-tab") || "planned").trim(),
     pageByTab: { planned: 1, ongoing: 1, completed: 1, cancelled: 1 },
 
-    // main search
     q: "",
 
-    // filters
     sort: "date_asc",
     district: "",
     month: "",
@@ -50,7 +55,6 @@
     timeslot: "",
     barangay: "",
 
-    // barangay search input (suggest only)
     barangayQuery: ""
   };
 
@@ -148,8 +152,6 @@
   const activePager = () => activePane()?.querySelector(".em-pagination");
   const cardsInActive = () => [...(activePane()?.querySelectorAll(".em-event-card") || [])];
 
-  const allCards = () => [...root.querySelectorAll(".em-event-card")];
-
   function parseJSONAttr(el, attr, fallback) {
     try {
       const raw = el.getAttribute(attr);
@@ -161,17 +163,15 @@
   }
 
   const barangaysByDistrict = (() => {
-    // Prefer data attr, fallback to window var
     const fromAttr = parseJSONAttr(root, "data-barangays-by-district", null);
     return fromAttr || window.EM_BARANGAYS_BY_DISTRICT || {};
   })();
 
   const allBarangays = (() => {
     if (Array.isArray(window.EM_ALL_BARANGAYS) && window.EM_ALL_BARANGAYS.length) return window.EM_ALL_BARANGAYS;
-    // fallback from map
     const set = new Set();
     Object.values(barangaysByDistrict || {}).forEach(arr => (arr || []).forEach(b => set.add(b)));
-    return [...set].filter(Boolean).sort((a,b)=>String(a).localeCompare(String(b)));
+    return [...set].filter(Boolean).sort((a, b) => String(a).localeCompare(String(b)));
   })();
 
   function getDistrictForBarangay(barangay) {
@@ -191,28 +191,28 @@
   function closeAllDropdowns() {
     root.querySelectorAll(".em-dd.is-open").forEach(dd => dd.classList.remove("is-open"));
   }
+
   function setPanel(open) {
     if (!panel || !toggle) return;
     panel.hidden = !open;
     toggle.setAttribute("aria-expanded", open ? "true" : "false");
     if (!open) closeAllDropdowns();
   }
+
   toggle?.addEventListener("click", (e) => {
     e.stopPropagation();
     setPanel(panel.hidden);
   });
+
   document.addEventListener("mousedown", (e) => {
-    // close dropdowns if clicking outside
     const anyDD = root.querySelector(".em-dd.is-open");
     if (anyDD && !anyDD.contains(e.target)) closeAllDropdowns();
 
-    // close main suggest if click outside search
     if (mainSuggest && !mainSuggest.hidden) {
       const wrap = mainSuggest.closest(".em-search--suggest");
       if (wrap && !wrap.contains(e.target)) mainSuggest.hidden = true;
     }
 
-    // close barangay suggest if click outside
     if (barangaySuggest && !barangaySuggest.hidden) {
       const wrap = barangaySuggest.closest(".em-suggest");
       if (wrap && !wrap.contains(e.target)) barangaySuggest.hidden = true;
@@ -256,15 +256,15 @@
     state.district = value || "";
     setDropdownValue(ddDistrict, state.district, label || "All Districts");
 
-    // When district changes, if barangay is set but doesn't belong to district, clear barangay
     if (state.barangay) {
       const bd = getDistrictForBarangay(state.barangay);
       if (state.district && bd && bd !== state.district) {
-        clearBarangayFilter();
+        clearBarangayFilter(true); // silent
       }
     }
 
-    renderBarangaySuggest(); // update list (respect district)
+    // only refresh list if the barangay input is active / overlay use
+    if (document.activeElement === barangayInput) renderBarangaySuggest();
   });
 
   wireDropdown(ddMonth, (value, label) => {
@@ -280,7 +280,7 @@
   wireDropdown(ddTimeGroup, (value, label) => {
     state.timegroup = value || "";
     setDropdownValue(ddTimeGroup, state.timegroup, label || "All Times");
-    // When group changes, keep timeslot if it matches group; otherwise clear timeslot
+
     if (state.timeslot && state.timegroup) {
       const meta = timeMeta[state.timeslot];
       if (!meta || meta.group !== state.timegroup) {
@@ -294,12 +294,16 @@
   wireDropdown(ddTimeSlot, (value, label) => {
     state.timeslot = value || "";
     setDropdownValue(ddTimeSlot, state.timeslot, label || "All Time Slots");
-    // If a slot is chosen, implicitly set group to its group (nice UX)
+
     if (state.timeslot) {
       const meta = timeMeta[state.timeslot];
       if (meta?.group) {
         state.timegroup = meta.group;
-        setDropdownValue(ddTimeGroup, state.timegroup, meta.group === "AM" ? "Morning (AM)" : "Afternoon/Evening (PM)");
+        setDropdownValue(
+          ddTimeGroup,
+          state.timegroup,
+          meta.group === "AM" ? "Morning (AM)" : "Afternoon/Evening (PM)"
+        );
       }
     }
   });
@@ -308,45 +312,54 @@
     if (!timeSlotMenu) return;
     const keys = Object.keys(timeMeta);
 
-    const filtered = keys.filter(k => {
-      if (!state.timegroup) return true;
-      return timeMeta[k].group === state.timegroup;
-    }).sort((a,b)=> timeMeta[a].start - timeMeta[b].start);
+    const filtered = keys
+      .filter(k => !state.timegroup || timeMeta[k].group === state.timegroup)
+      .sort((a, b) => timeMeta[a].start - timeMeta[b].start);
 
-    timeSlotMenu.innerHTML = `<button class="em-ddItem" type="button" data-value="">All Time Slots</button>` +
-      filtered.map(k => `<button class="em-ddItem" type="button" data-value="${escapeHtml(k)}">${escapeHtml(timeMeta[k].label)}</button>`).join("");
+    timeSlotMenu.innerHTML =
+      `<button class="em-ddItem" type="button" data-value="">All Time Slots</button>` +
+      filtered.map(k =>
+        `<button class="em-ddItem" type="button" data-value="${escapeHtml(k)}">${escapeHtml(timeMeta[k].label)}</button>`
+      ).join("");
   }
 
   /* ============================================================
-     BARANGAY AUTOSUGGEST (dropdown list)
+     BARANGAY AUTOSUGGEST (single search only)
+     - No extra searchbar inside dropdown (reverted)
      ============================================================ */
   function setBarangayFilter(name) {
     state.barangay = (name || "").trim();
-    if (!state.barangay) return clearBarangayFilter();
+    if (!state.barangay) return clearBarangayFilter(true);
 
-    // Show selected pill
     if (barangaySelectedBtn && barangaySelectedText) {
       barangaySelectedText.textContent = state.barangay;
       barangaySelectedBtn.hidden = false;
     }
 
-    // Auto-select district
     const dist = getDistrictForBarangay(state.barangay);
     if (dist) {
       state.district = dist;
       setDropdownValue(ddDistrict, dist, `District ${dist}`);
     }
 
-    // Keep input in sync
     if (barangayInput) barangayInput.value = state.barangay;
   }
 
-  function clearBarangayFilter() {
+  // silent=true prevents "reset" from popping open the suggestion list
+  function clearBarangayFilter(silent = false) {
     state.barangay = "";
     state.barangayQuery = "";
     if (barangayInput) barangayInput.value = "";
     if (barangaySelectedBtn) barangaySelectedBtn.hidden = true;
-    renderBarangaySuggest();
+
+    if (barangaySuggest) {
+      barangaySuggest.innerHTML = "";
+      barangaySuggest.hidden = true;
+    }
+
+    if (!silent && document.activeElement === barangayInput) {
+      renderBarangaySuggest();
+    }
   }
 
   function renderBarangaySuggest() {
@@ -357,17 +370,14 @@
 
     let candidates = allBarangays.slice();
 
-    // If district selected, constrain to that district list
     if (dist && barangaysByDistrict && barangaysByDistrict[dist]) {
-      candidates = (barangaysByDistrict[dist] || []).slice().sort((a,b)=>String(a).localeCompare(String(b)));
+      candidates = (barangaysByDistrict[dist] || [])
+        .slice()
+        .sort((a, b) => String(a).localeCompare(String(b)));
     }
 
-    // Filter by query
-    if (q) {
-      candidates = candidates.filter(b => String(b).toLowerCase().includes(q));
-    }
+    if (q) candidates = candidates.filter(b => String(b).toLowerCase().includes(q));
 
-    // Render (limit)
     const limited = candidates.slice(0, 60);
     const html = limited.map(b => {
       const d = getDistrictForBarangay(b);
@@ -380,7 +390,8 @@
       `;
     }).join("");
 
-    barangaySuggest.innerHTML = html || `<div class="p-3 text-muted" style="font-weight:800;">No matches.</div>`;
+    barangaySuggest.innerHTML =
+      html || `<div class="p-3 text-muted" style="font-weight:800;">No matches.</div>`;
     barangaySuggest.hidden = false;
   }
 
@@ -395,7 +406,7 @@
   }, 90));
 
   barangayClear?.addEventListener("click", () => {
-    clearBarangayFilter();
+    clearBarangayFilter(true);
     toast("Barangay cleared.");
   });
 
@@ -404,31 +415,24 @@
     if (!item) return;
     const b = item.getAttribute("data-b") || "";
     setBarangayFilter(b);
-    barangaySuggest.hidden = true;
+    if (barangaySuggest) barangaySuggest.hidden = true;
     toast(`Barangay: ${b}`);
   });
 
   barangaySelectedBtn?.addEventListener("click", () => {
-    clearBarangayFilter();
+    clearBarangayFilter(true);
     toast("Barangay cleared.");
   });
 
   /* ============================================================
      MAIN SEARCH AUTOSUGGEST
-     - Suggest from existing cards (title/date/day/time/barangay/etc)
      ============================================================ */
   function buildMainSuggestions(query) {
     const q = (query || "").trim().toLowerCase();
     if (!q) return [];
 
-    // simple tokens from data attributes per card
-    // We generate "chips" suggestions:
-    // - titles
-    // - barangays
-    // - dates
-    // - times
     const cards = cardsInActive();
-    const set = new Map(); // key -> {label, value}
+    const set = new Map();
 
     const push = (type, label, value) => {
       const key = `${type}::${value}`.toLowerCase();
@@ -504,7 +508,6 @@
     const e = Number(card.getAttribute("data-end-min") || -1);
     if (s < 0 || e < 0) return false;
 
-    // overlap: [s,e] intersects [meta.start, meta.end]
     return s < meta.end && meta.start < e;
   }
 
@@ -512,8 +515,6 @@
     if (!group) return true;
     const s = Number(card.getAttribute("data-start-min") || -1);
     if (s < 0) return false;
-    // heuristics: group by start time
-    // AM: before 12:00 (720), PM: 12:00 and after
     const inferred = s < 720 ? "AM" : "PM";
     return inferred === group;
   }
@@ -522,7 +523,6 @@
     const q = (state.q || "").trim().toLowerCase();
     const cards = cardsInActive();
 
-    // filter pass
     for (const c of cards) {
       const hay = (c.getAttribute("data-search") || "").toLowerCase();
       const cDist = (c.getAttribute("data-district") || "").trim();
@@ -542,7 +542,6 @@
       c.style.display = (okSearch && okDist && okBarangay && okMonth && okDay && okTimeGroup && okTimeSlot) ? "" : "none";
     }
 
-    // sort visible
     const visible = cards.filter(c => c.style.display !== "none");
     visible.sort((a, b) => {
       const ta = (a.getAttribute("data-title") || "").toLowerCase();
@@ -559,7 +558,6 @@
       }
     });
 
-    // pagination
     const page = state.pageByTab[state.tab] || 1;
     const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
     const safePage = Math.min(totalPages, Math.max(1, page));
@@ -568,20 +566,16 @@
     const start = (safePage - 1) * PAGE_SIZE;
     const end = start + PAGE_SIZE;
 
-    // show/hide per page
     visible.forEach((c, i) => {
       c.style.display = (i >= start && i < end) ? "" : "none";
     });
 
-    // re-append visible in sorted order (only those in current page should be visible, but order still maintained)
     const grid = activeGrid();
     if (grid) visible.forEach(c => grid.appendChild(c));
 
-    // empty state
     const empty = activeEmpty();
     if (empty) empty.hidden = visible.length !== 0;
 
-    // pager UI
     const pager = activePager();
     if (pager) {
       const prevBtn = pager.querySelector("[data-page-prev]");
@@ -591,7 +585,7 @@
       if (info) info.textContent = `${safePage} / ${totalPages}`;
       if (prevBtn) prevBtn.closest(".page-item")?.classList.toggle("disabled", safePage <= 1);
       if (nextBtn) nextBtn.closest(".page-item")?.classList.toggle("disabled", safePage >= totalPages);
-      pager.hidden = visible.length === 0; // hide pager if no results
+      pager.hidden = visible.length === 0;
     }
 
     syncCount();
@@ -615,13 +609,10 @@
     url.searchParams.set("tab", key);
     window.history.replaceState({}, "", url.toString());
 
-    // close dropdown/suggest on tab change
     mainSuggest && (mainSuggest.hidden = true);
     barangaySuggest && (barangaySuggest.hidden = true);
 
-    // reset page when switching tabs
     state.pageByTab[key] = 1;
-
     applyNow();
   }
   tabs.forEach(t => t.addEventListener("click", () => setTab(t.dataset.tab)));
@@ -650,11 +641,10 @@
   });
 
   /* ============================================================
-     APPLY / RESET
+     APPLY / RESET (overlay must NOT close)
      ============================================================ */
   applyBtn?.addEventListener("click", () => {
     commitSearch();
-    setPanel(false);
     toast("Filters applied.");
   });
 
@@ -666,7 +656,7 @@
     state.day = "";
     state.timegroup = "";
     state.timeslot = "";
-    clearBarangayFilter();
+    clearBarangayFilter(true); // ✅ silent so it doesn't open barangay list
 
     if (searchInput) searchInput.value = "";
     if (mainSuggest) mainSuggest.hidden = true;
@@ -686,21 +676,15 @@
   });
 
   /* ============================================================
-     PAGINATION BUTTONS (per active pane)
+     PAGINATION BUTTONS
      ============================================================ */
   root.addEventListener("click", (e) => {
     const prev = e.target.closest("[data-page-prev]");
     const next = e.target.closest("[data-page-next]");
     if (!prev && !next) return;
 
-    const pane = activePane();
-    if (!pane) return;
-
-    // figure current total pages from currently matched visible set (before page slicing)
     const cards = cardsInActive();
     const visibleAll = cards.filter(c => {
-      // Consider "matched" by filters: we recompute using same logic but without page masking.
-      // We'll temporarily evaluate by checking if it WOULD match.
       const q = (state.q || "").trim().toLowerCase();
       const hay = (c.getAttribute("data-search") || "").toLowerCase();
       const cDist = (c.getAttribute("data-district") || "").trim();
@@ -734,11 +718,13 @@
   function selectedChecksAllPanes() {
     return Array.from(document.querySelectorAll(".em-check:checked"));
   }
+
   function syncCount() {
     const n = selectedChecksAllPanes().length;
     if (selectedCountEl) selectedCountEl.textContent = String(n);
     if (bulkBtn) bulkBtn.disabled = n === 0;
   }
+
   document.addEventListener("change", (e) => {
     if (e.target && e.target.classList.contains("em-check")) syncCount();
   });
@@ -768,6 +754,7 @@
     return Array.from(pane.querySelectorAll(".em-event-card"))
       .filter(c => c.style.display !== "none");
   }
+
   function selectedCardsInActiveTab() {
     const pane = activePane();
     if (!pane) return [];
@@ -775,6 +762,7 @@
       .map(ch => ch.closest(".em-event-card"))
       .filter(Boolean);
   }
+
   function exportCards(cards) {
     return cards.map((c, idx) => ({
       n: idx + 1,
@@ -909,7 +897,6 @@
   /* ============================================================
      INIT
      ============================================================ */
-  // Defaults
   setDropdownValue(ddSort, "date_asc", "Sort by Date (Soonest)");
   setDropdownValue(ddDistrict, "", "All Districts");
   setDropdownValue(ddMonth, "", "All Months");
@@ -917,27 +904,20 @@
   setDropdownValue(ddTimeGroup, "", "All Times");
   setDropdownValue(ddTimeSlot, "", "All Time Slots");
 
-  // populate time slots
   renderTimeSlotMenu();
-
-  // init panel closed
   setPanel(false);
 
-  // init tab from URL or default
   const urlTab = new URL(window.location.href).searchParams.get("tab");
   setTab((urlTab || state.tab).trim());
 
-  // main suggest updates
   searchInput?.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       if (mainSuggest) mainSuggest.hidden = true;
     }
   });
 
-  // apply suggestions while typing even if panel open/closed
   searchInput?.addEventListener("input", debounce(renderMainSuggest, 80));
 
-  // server flags
   if (flags) {
     const hasSuccess = flags.getAttribute("data-has-success") === "1";
     const hasError = flags.getAttribute("data-has-error") === "1";
@@ -947,9 +927,6 @@
     else if (hasError) showNotice("Error", errorMsg || "Something went wrong.");
   }
 
-  // initial selection count
   syncCount();
-
-  // initial render
   applyNow();
 })();

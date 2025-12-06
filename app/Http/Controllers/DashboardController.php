@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\VolunteerProfile;
 use App\Models\Event;
 use Illuminate\Support\Facades\DB;
+use App\Models\ActivityLog;
 
 class DashboardController extends Controller
 {
@@ -25,10 +26,9 @@ class DashboardController extends Controller
         $cancelledEvents = Event::where('status', 'cancelled')->count();
 
         // MOST ACTIVE VOLUNTEERS
-        $topVolunteers = collect(); // default placeholder
+        $topVolunteers = collect();
 
-        if (DB::getSchemaBuilder()->hasTable('event_volunteers')) 
-        {
+        if (DB::getSchemaBuilder()->hasTable('event_volunteers')) {
             $topVolunteers = DB::table('event_volunteers')
                 ->select('volunteer_profile_id', DB::raw('COUNT(*) as total'))
                 ->groupBy('volunteer_profile_id')
@@ -51,6 +51,9 @@ class DashboardController extends Controller
             ->groupBy('day')
             ->pluck('total', 'day');
 
+        // ✅ ACTIVITY LOGS (FOR YOUR TABLE)
+        $activityLogs = ActivityLog::latest()->take(10)->get();
+
         return view('admin.dashboard', compact(
             'totalVolunteers',
             'volunteersPerLevel',
@@ -59,7 +62,8 @@ class DashboardController extends Controller
             'cancelledEvents',
             'topVolunteers',
             'recentVolunteers',
-            'eventsThisMonth'
+            'eventsThisMonth',
+            'activityLogs' // ✅ MUST BE INCLUDED
         ));
     }
 }

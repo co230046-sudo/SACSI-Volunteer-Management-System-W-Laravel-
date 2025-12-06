@@ -346,41 +346,50 @@ body.modal-open {
 @endif
 
 {{-- ACTIVITY LOG --}}
-<div class="event-wrapper">
-    <div class="events-section p-3 border rounded">
-        <h4 class="events-title mb-3">Activity Log</h4>
+<div class="events-section p-3 border rounded mt-4">
+    <h4 class="events-title mb-3">Activity Log (DEBUG)</h4>
 
-        <table class="table table-bordered mb-0 event-table">
-            <tbody>
-                <tr class="event-item">
-                    <td class="event-name">
-                        <a>
-                            Database Backup & Maintenance
-                            <span class="click-bubble"><i class="fa fa-eye"></i> View Log Entry</span>
-                        </a>
+    <table class="table table-bordered mb-0 event-table">
+        <thead>
+            <tr>
+                <th>Activity</th>
+                <th>Date & Time</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            @if(isset($logs) && $logs->count())
+                @foreach($logs->take(8) as $log)
+
+                    <tr>
+                        <td>
+                            {{ $log->title ?? $log->action ?? 'Activity Logged' }}
+                        </td>
+                        <td>
+                           {{ $log->created_at 
+                            ? \Carbon\Carbon::parse($log->created_at)->format('M d, Y - h:i A') 
+                            : 'No Date' 
+}}
+
+                        </td>
+                    </tr>
+                @endforeach
+            @else
+                <tr>
+                    <td colspan="2" class="text-center text-muted">
+                        No activity logs found.
                     </td>
-                    <td class="event-datetime">Nov 14, 2025 - 11:00 PM</td>
                 </tr>
-
-                <tr class="event-item">
-                    <td class="event-name">
-                        <a>
-                            User Account Creation: John Doe
-                            <span class="click-bubble"><i class="fa fa-eye"></i> View Log Entry</span>
-                        </a>
-                    </td>
-                    <td class="event-datetime">Nov 10, 2025 - 10:00 AM</td>
-                </tr>
-            </tbody>
-        </table>
-
-    </div>
+            @endif
+        </tbody>
+    </table>
 </div>
+<button class="system-log-btn" onclick="openAllLogsModal()">
+    <i class="fas fa-list"></i> View All Activity Logs
+</button>
 
-</div>
 
-</div>
-</div>
+
 
 {{-- ADMIN PROFILES MODAL --}}
 <div id="adminProfilesModal" class="styled-modal">
@@ -464,44 +473,87 @@ body.modal-open {
     </div>
 </div>
 
+<!-- ✅ ACTIVITY LOG MODAL -->
+<!-- ✅ ALL ACTIVITY LOGS POP-UP MODAL -->
+<div id="allActivityLogsModal" class="styled-modal">
 
+    <div class="styled-modal-content activity-popup">
+
+        <span class="modal-close" onclick="closeAllLogsModal()">
+            <i class="fas fa-times"></i>
+        </span>
+
+        <div class="modal-header">
+            <i class="fas fa-book modal-icon"></i>
+            <h3 class="modal-title">All Activity Logs</h3>
+        </div>
+
+        <div class="activity-table-wrapper">
+            <table class="table table-striped styled-table mt-3 mb-0">
+                <thead>
+                    <tr>
+                        <th>Activity</th>
+                        <th>Date & Time</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @forelse($logs as $log)
+                        <tr>
+                            <td>
+                                {{ $log->title ?? $log->action ?? 'Activity Logged' }}
+                            </td>
+                            <td>
+                                {{ $log->created_at 
+                                    ? \Carbon\Carbon::parse($log->created_at)->format('M d, Y - h:i A') 
+                                    : 'No Date' 
+                                }}
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="2" class="text-center text-muted py-4">
+                                No activity logs found.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-
-document.addEventListener("DOMContentLoaded", () => {
-
-    const btn = document.getElementById("toggleButton");
-
-    if (btn) {
-        btn.onclick = () => {
-            document.getElementById("adminProfilesModal").style.display = "flex";
-        };
-    }
-
-});
-
 /* ============================================================
-   FIXED MODAL HANDLING — NO WHITE BAR + NO BACKGROUND SCROLL
+   ADMIN PROFILE MODALS & ACTIVITY LOG SYSTEM (FULL FIXED)
 ============================================================ */
 
+/* ✅ OPEN ADMIN PROFILES MODAL */
 document.addEventListener("DOMContentLoaded", () => {
     const btn = document.getElementById("toggleButton");
-
     if (btn) {
         btn.onclick = () => openAdminProfilesModal();
     }
 });
 
+/* ✅ OPEN ADMIN PROFILES MODAL */
 function openAdminProfilesModal() {
     document.body.classList.add("modal-open");
     document.getElementById("adminProfilesModal").style.display = "flex";
 }
 
+/* ✅ CLOSE ADMIN PROFILES MODAL */
 function closeAdminProfilesModal() {
     document.body.classList.remove("modal-open");
     document.getElementById("adminProfilesModal").style.display = "none";
 }
 
+/* ✅ OPEN ADMIN LOGS MODAL (AJAX) */
 function openAdminLogsModal(id) {
 
     fetch(`/admin/profile/logs/${id}`)
@@ -521,10 +573,21 @@ function openAdminLogsModal(id) {
                     </tr>`;
             } else {
                 data.logs.forEach(log => {
+
+                    const text =
+                        log.title ||
+                        log.action ||
+                        log.description ||
+                        '(no description)';
+
+                    const date = log.created_at
+                        ? new Date(log.created_at).toLocaleString()
+                        : 'No Date';
+
                     body.innerHTML += `
                         <tr>
-                            <td>${log.description ?? '(no description)'}</td>
-                            <td>${new Date(log.created_at).toLocaleString()}</td>
+                            <td>${text}</td>
+                            <td>${date}</td>
                         </tr>`;
                 });
             }
@@ -535,15 +598,24 @@ function openAdminLogsModal(id) {
         .catch(err => console.error("Log fetch error:", err));
 }
 
+/* ✅ CLOSE ADMIN LOGS MODAL */
 function closeAdminLogsModal() {
     document.body.classList.remove("modal-open");
     document.getElementById("adminLogsModal").style.display = "none";
 }
+/* ✅ OPEN ALL ACTIVITY LOGS POP-UP */
+function openAllLogsModal() {
+    document.body.classList.add("modal-open");
+    document.getElementById("allActivityLogsModal").style.display = "flex";
+}
 
-
-
-
+/* ✅ CLOSE ALL ACTIVITY LOGS POP-UP */
+function closeAllLogsModal() {
+    document.body.classList.remove("modal-open");
+    document.getElementById("allActivityLogsModal").style.display = "none";
+}
 
 </script>
+
 
 </section>

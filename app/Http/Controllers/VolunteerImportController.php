@@ -323,457 +323,492 @@ class VolunteerImportController extends Controller
     }
 
     /**
-     * Time Range Helper
-     * Supports:
-     *  - Standard HH:MM-HH:MM
-     *  - 12:30-1:50 style ranges (treated as 12:30-13:50)
-     */
-    private function parseTimeRange($range)
-    {
-        $range = trim($range);
-        if ($range === '' || !str_contains($range, '-')) {
-            return null;
-        }
-
-        [$start, $end] = explode('-', $range, 2);
-        $start = trim($start);
-        $end   = trim($end);
-
-        // Must be HH:MM-HH:MM
-        if (!preg_match('/^\d{1,2}:\d{2}$/', $start)) return null;
-        if (!preg_match('/^\d{1,2}:\d{2}$/', $end))   return null;
-
-        [$sh, $sm] = array_map('intval', explode(':', $start));
-        [$eh, $em] = array_map('intval', explode(':', $end));
-
-        $startMin = $sh * 60 + $sm;
-        $endMin   = $eh * 60 + $em;
-
-        // Handle 12:30-1:50 (12-hour schedule, PM)
-        if ($endMin <= $startMin) {
-
-            // If start is noon or later (>=12) and end is a small hour (1–7),
-            // assume end time is PM and add 12h.
-            if ($sh >= 12 && $eh >= 1 && $eh <= 7) {
-                $eh     += 12;
-                $endMin  = $eh * 60 + $em;
-            }
-        }
-
-        // Still invalid? Reject
-        if ($endMin <= $startMin) {
-            return null;
-        }
-
-        return (object)[
-            'start' => $startMin,
-            'end'   => $endMin,
-        ];
-    }
-
-    /**
-     * Schedule Overlap Checker
-     */
-    private function rangesOverlap($a, $b)
-    {
-        return $a->start < $b->end && $b->start < $a->end;
-    }
-
-    /**
-     * Try to smart-match a barangay string to locations table.
-     * - Ignores case
-     * - Collapses extra spaces
-     * - Allows small misspellings via levenshtein distance
-     *
-     * @return object|null  (barangay, district_id)
-     */
-    private function smartMatchBarangay(?string $raw)
-    {
-        $raw = trim((string) $raw);
-        if ($raw === '') {
-            return null;
-        }
-
-        // Normalize: lowercase, collapse spaces
-        $needle = strtolower(preg_replace('/\s+/', ' ', $raw));
-
-        // Cache locations in static variable to avoid repeated queries
-        static $locationCache = null;
-
-        if ($locationCache === null) {
-            $rows = DB::table('locations')
-                ->select('barangay', 'district_id')
-                ->get();
-
-            $locationCache = [];
-            foreach ($rows as $row) {
-                $normalizedName = strtolower(preg_replace('/\s+/', ' ', trim($row->barangay)));
-                $locationCache[] = (object)[
-                    'barangay'     => $row->barangay,
-                    'district_id'  => $row->district_id,
-                    'normalized'   => $normalizedName,
-                ];
-            }
-        }
-
-        $best = null;
-        $bestDist = PHP_INT_MAX;
-
-        foreach ($locationCache as $loc) {
-            // Exact normalized match → immediate win
-            if ($loc->normalized === $needle) {
-                return (object)[
-                    'barangay'    => $loc->barangay,
-                    'district_id' => $loc->district_id,
-                ];
-            }
-
-            // Approximate match
-            $dist = levenshtein($needle, $loc->normalized);
-
-            if ($dist < $bestDist) {
-                $bestDist = $dist;
-                $best = $loc;
-            }
-        }
-
-        // Decide if "close enough"
-        $len = strlen($needle);
-        $threshold = max(2, (int) floor($len / 4)); // tune if needed
-
-        if ($best && $bestDist <= $threshold) {
-            return (object)[
-                'barangay'    => $best->barangay,
-                'district_id' => $best->district_id,
-            ];
-        }
-
+ * Time Range Helper
+ * Supports:
+ *  - Standard HH:MM-HH:MM
+ *  - 12:30-1:50 style ranges (treated as 12:30-13:50)
+ */
+private function parseTimeRange($range)
+{
+    $range = trim((string) $range);
+    if ($range === '' || !str_contains($range, '-')) {
         return null;
     }
 
-    /**
-     * normalizeRow
-     */
-    private function normalizeRow(array $row, array $header): array
-    {
-        /**
-         * Flexible Header Mapping
-         */
-        $mapping = [
-            // --- FULL NAME ---
-            'full_name' => 'full_name','fullname' => 'full_name','full name' => 'full_name',
-            'first name' => 'first_name','firstname' => 'first_name',
-            'middle name' => 'middle_name','middlename' => 'middle_name',
-            'last name' => 'last_name','lastname' => 'last_name','surname' => 'last_name',
+    [$start, $end] = explode('-', $range, 2);
+    $start = trim($start);
+    $end   = trim($end);
 
-            // --- SCHOOL ID ---
-            'id number' => 'id_number','school id' => 'id_number',
-            'school id number' => 'id_number','id' => 'id_number',
+    // Must be HH:MM-HH:MM
+    if (!preg_match('/^\d{1,2}:\d{2}$/', $start)) return null;
+    if (!preg_match('/^\d{1,2}:\d{2}$/', $end))   return null;
 
-            // --- CONTACT NUMBER ---
-            'contact number' => 'contact_number','contact_number' => 'contact_number',
-            'phone' => 'contact_number','phone number' => 'contact_number',
-            'contact no' => 'contact_number','contact #' => 'contact_number',
+    [$sh, $sm] = array_map('intval', explode(':', $start));
+    [$eh, $em] = array_map('intval', explode(':', $end));
 
-            // --- EMERGENCY CONTACT ---
-            'emergency number' => 'emergency_contact',
-            'emergency_contact' => 'emergency_contact',
-            'emergency contact' => 'emergency_contact',
-            'emergency contact number' => 'emergency_contact',
-            'emergency no' => 'emergency_contact',
-            'emergency #' => 'emergency_contact',
+    // Basic sanity: 0–23 hours, 0–59 minutes
+    if ($sh < 0 || $sh > 23 || $eh < 0 || $eh > 23) return null;
+    if ($sm < 0 || $sm > 59 || $em < 0 || $em > 59) return null;
 
-            // --- EMAIL ---
-            'email address' => 'email','email' => 'email',
-            'school email address' => 'email','school email' => 'email',
-            'adzu email' => 'email','email add' => 'email',
+    $startMin = $sh * 60 + $sm;
+    $endMin   = $eh * 60 + $em;
 
-            // --- FB ---
-            'fb link' => 'fb_messenger','facebook profile link' => 'fb_messenger',
-            'messenger' => 'fb_messenger','fb' => 'fb_messenger',
+    // Handle 12:30-1:50 (12-hour schedule, PM)
+    if ($endMin <= $startMin) {
+        // If start is noon or later (>=12) and end is a small hour (1–7),
+        // assume end time is PM and add 12h.
+        if ($sh >= 12 && $eh >= 1 && $eh <= 7) {
+            $eh     += 12;
+            $endMin  = $eh * 60 + $em;
+        }
+    }
 
-            // --- BARANGAY ---
-            'barangay' => 'barangay','brgy' => 'barangay',
-            'district' => 'district',
+    // Still invalid? Reject (end not after start)
+    if ($endMin <= $startMin) {
+        return null;
+    }
 
-            // --- COURSE ---
-            'course' => 'course','strand' => 'course','program' => 'course',
+    return (object)[
+        'start' => $startMin,
+        'end'   => $endMin,
+    ];
+}
 
-            // --- YEAR LEVEL ---
-            'year' => 'year_level','year level' => 'year_level','yearlevel' => 'year_level',
-            'year_level' => 'year_level',
+/**
+ * Schedule Overlap Checker
+ */
+private function rangesOverlap($a, $b)
+{
+    // Standard open-interval overlap
+    return $a->start < $b->end && $b->start < $a->end;
+}
 
-            // --- SCHEDULES ---
-            'monday schedule' => 'monday','monday' => 'monday',
-            'tuesday schedule' => 'tuesday','tuesday' => 'tuesday',
-            'wednesday schedule' => 'wednesday','wednesday' => 'wednesday',
-            'thursday schedule' => 'thursday','thursday' => 'thursday',
-            'friday schedule' => 'friday','friday' => 'friday',
-            'saturday schedule' => 'saturday','saturday' => 'saturday',
+/**
+ * Try to smart-match a barangay string to locations table.
+ * - Ignores case
+ * - Collapses extra spaces
+ * - Allows small misspellings via levenshtein distance
+ *
+ * @return object|null  (barangay, district_id)
+ */
+private function smartMatchBarangay(?string $raw)
+{
+    $raw = trim((string) $raw);
+    if ($raw === '') {
+        return null;
+    }
 
-            // --- CERTIFICATES ---
-            'certificates' => 'certificates',
-            'certificate uploads' => 'certificates',
+    // Normalize: lowercase, collapse spaces
+    $needle = strtolower(preg_replace('/\s+/', ' ', $raw));
 
-            // --- PROFILE PICTURE ---
-            'profile picture' => 'profile_picture',
-            'profile_photo' => 'profile_picture',
-            'google drive link to your profile picture (jpg or png)' => 'profile_picture',
+    // Cache locations in static variable to avoid repeated queries
+    static $locationCache = null;
+
+    if ($locationCache === null) {
+        $rows = DB::table('locations')
+            ->select('barangay', 'district_id')
+            ->get();
+
+        $locationCache = [];
+        foreach ($rows as $row) {
+            // skip rows with empty barangay to avoid weird matches
+            if (!trim((string) $row->barangay)) {
+                continue;
+            }
+
+            $normalizedName = strtolower(preg_replace(
+                '/\s+/',
+                ' ',
+                trim((string) $row->barangay)
+            ));
+
+            $locationCache[] = (object)[
+                'barangay'     => $row->barangay,
+                'district_id'  => $row->district_id,
+                'normalized'   => $normalizedName,
+            ];
+        }
+    }
+
+    if (empty($locationCache)) {
+        return null;
+    }
+
+    $best = null;
+    $bestDist = PHP_INT_MAX;
+
+    foreach ($locationCache as $loc) {
+        // Exact normalized match → immediate win
+        if ($loc->normalized === $needle) {
+            return (object)[
+                'barangay'    => $loc->barangay,
+                'district_id' => $loc->district_id,
+            ];
+        }
+
+        // Approximate match
+        $dist = levenshtein($needle, $loc->normalized);
+
+        if ($dist < $bestDist) {
+            $bestDist = $dist;
+            $best = $loc;
+        }
+    }
+
+    // Decide if "close enough"
+    $len = strlen($needle);
+    $threshold = max(2, (int) floor($len / 4)); // tune if needed
+
+    if ($best && $bestDist <= $threshold) {
+        return (object)[
+            'barangay'    => $best->barangay,
+            'district_id' => $best->district_id,
         ];
+    }
 
-        $normalized = [];
+    return null;
+}
 
-        /**
-         * Helpers
-         */
-        $fixTime = function ($t) {
-            $t = trim($t);
-            return preg_match('/^\d{1,2}$/', $t) ? $t . ":00" : $t;
-        };
+/**
+ * normalizeRow
+ */
+private function normalizeRow(array $row, array $header): array
+{
+    /**
+     * Flexible Header Mapping
+     */
+    $mapping = [
+        // --- FULL NAME ---
+        'full_name' => 'full_name','fullname' => 'full_name','full name' => 'full_name',
+        'first name' => 'first_name','firstname' => 'first_name',
+        'middle name' => 'middle_name','middlename' => 'middle_name',
+        'last name' => 'last_name','lastname' => 'last_name','surname' => 'last_name',
 
-        $cleanSchedule = function ($raw) use ($fixTime) {
-            if (!$raw) return [];
+        // --- SCHOOL ID ---
+        'id number' => 'id_number','school id' => 'id_number',
+        'school id number' => 'id_number','id' => 'id_number',
 
-            $raw = preg_replace('/\[[MAE]\]/i', '', $raw);
-            $raw = str_replace(['–',';',','], ['-',' ',' '], $raw);
-            $raw = preg_replace('/\s+/', ' ', trim($raw));
+        // --- CONTACT NUMBER ---
+        'contact number' => 'contact_number','contact_number' => 'contact_number',
+        'phone' => 'contact_number','phone number' => 'contact_number',
+        'contact no' => 'contact_number','contact #' => 'contact_number',
 
-            if ($raw === "" || stripos($raw, "no class") !== false) return [];
+        // --- EMERGENCY CONTACT ---
+        'emergency number' => 'emergency_contact',
+        'emergency_contact' => 'emergency_contact',
+        'emergency contact' => 'emergency_contact',
+        'emergency contact number' => 'emergency_contact',
+        'emergency no' => 'emergency_contact',
+        'emergency #' => 'emergency_contact',
 
-            $parts = explode(' ', $raw);
+        // --- EMAIL ---
+        'email address' => 'email','email' => 'email',
+        'school email address' => 'email','school email' => 'email',
+        'adzu email' => 'email','email add' => 'email',
 
-            return array_values(array_filter(array_map(function($slot) use ($fixTime) {
-                if (!str_contains($slot, '-')) return null;
-                [$a,$b] = explode('-', $slot);
-                return $fixTime($a) . "-" . $fixTime($b);
-            }, $parts)));
-        };
+        // --- FB ---
+        'fb link' => 'fb_messenger','facebook profile link' => 'fb_messenger',
+        'messenger' => 'fb_messenger','fb' => 'fb_messenger',
 
-        $scheduleDays = ['monday','tuesday','wednesday','thursday','friday','saturday'];
-        foreach ($scheduleDays as $d) $normalized[$d] = [];
+        // --- BARANGAY ---
+        'barangay' => 'barangay','brgy' => 'barangay',
+        'district' => 'district',
 
+        // --- COURSE ---
+        'course' => 'course','strand' => 'course','program' => 'course',
 
-        /**
-         * Process headers
-         */
-        foreach ($header as $i => $colRaw) {
+        // --- YEAR LEVEL ---
+        'year' => 'year_level','year level' => 'year_level','yearlevel' => 'year_level',
+        'year_level' => 'year_level',
 
-            $keyRaw = strtolower(trim($colRaw));
-            $value  = trim((string)($row[$i] ?? ''));
+        // --- SCHEDULES ---
+        'monday schedule' => 'monday','monday' => 'monday',
+        'tuesday schedule' => 'tuesday','tuesday' => 'tuesday',
+        'wednesday schedule' => 'wednesday','wednesday' => 'wednesday',
+        'thursday schedule' => 'thursday','thursday' => 'thursday',
+        'friday schedule' => 'friday','friday' => 'friday',
+        'saturday schedule' => 'saturday','saturday' => 'saturday',
 
-            // Ignore timestamp/date columns
-            if (in_array($keyRaw, ['timestamp','time submitted','date'])) continue;
+        // --- CERTIFICATES ---
+        'certificates' => 'certificates',
+        'certificate uploads' => 'certificates',
 
-            // ⭐ NEW FIX — Ignore "Do you have a Monday class?"
-            if (preg_match('/do you have.*class\?/i', $keyRaw)) {
-                continue;
+        // --- PROFILE PICTURE ---
+        'profile picture' => 'profile_picture',
+        'profile_photo' => 'profile_picture',
+        'google drive link to your profile picture (jpg or png)' => 'profile_picture',
+    ];
+
+    $normalized = [];
+
+    /**
+     * Helpers
+     */
+    $fixTime = function ($t) {
+        $t = trim($t);
+        return preg_match('/^\d{1,2}$/', $t) ? $t . ":00" : $t;
+    };
+
+    $cleanSchedule = function ($raw) use ($fixTime) {
+        if (!$raw) return [];
+
+        $raw = preg_replace('/\[[MAE]\]/i', '', $raw);           // strip [M], [A], [E]
+        $raw = str_replace(['–',';',','], ['-',' ',' '], $raw);  // normalize separators
+        $raw = preg_replace('/\s+/', ' ', trim($raw));
+
+        if ($raw === "" || stripos($raw, "no class") !== false) return [];
+
+        $parts = explode(' ', $raw);
+
+        return array_values(array_filter(array_map(function($slot) use ($fixTime) {
+            if (!str_contains($slot, '-')) return null;
+            [$a,$b] = explode('-', $slot);
+            return $fixTime($a) . "-" . $fixTime($b);
+        }, $parts)));
+    };
+
+    $scheduleDays = ['monday','tuesday','wednesday','thursday','friday','saturday'];
+    foreach ($scheduleDays as $d) $normalized[$d] = [];
+
+    /**
+     * Process headers
+     */
+    foreach ($header as $i => $colRaw) {
+
+        $keyRaw = strtolower(trim((string) $colRaw));
+        $value  = isset($row[$i]) ? trim((string)$row[$i]) : '';
+
+        // Ignore timestamp/date columns
+        if (in_array($keyRaw, ['timestamp','time submitted','date'], true)) continue;
+
+        // Ignore yes/no helper questions like "Do you have a Monday class?"
+        if (preg_match('/do you have.*class\?/i', $keyRaw)) {
+            continue;
+        }
+
+        // Map header → internal field
+        $mapped =
+            ($mapping[$keyRaw] ?? null)
+            ?? ($mapping[preg_replace('/\s+/', ' ', $keyRaw)] ?? null)
+            ?? ($mapping[str_replace([' ', '-'], '_', $keyRaw)] ?? null);
+
+        // Schedule columns
+        if (in_array($mapped, $scheduleDays, true)) {
+            // Skip if there are absolutely no digits (e.g. all text)
+            if (!preg_match('/\d/', $value)) continue;
+
+            $slots = $cleanSchedule($value);
+            if (!empty($slots)) {
+                $normalized[$mapped] = array_values(array_unique(
+                    array_merge($normalized[$mapped], $slots)
+                ));
             }
+            continue;
+        }
 
-            // Map header → internal field
-            $mapped =
-                $mapping[$keyRaw]
-                ?? $mapping[preg_replace('/\s+/', ' ', $keyRaw)]
-                ?? $mapping[str_replace([' ', '-'], '_', $keyRaw)]
-                ?? null;
-
-            // Schedule columns
-            if (in_array($mapped, $scheduleDays)) {
-                if (!preg_match('/\d/', $value)) continue;
-                $slots = $cleanSchedule($value);
-                if (!empty($slots)) {
-                    $normalized[$mapped] = array_values(array_unique(
-                        array_merge($normalized[$mapped], $slots)
-                    ));
-                }
-                continue;
-            }
-
-            // Profile picture
-            if ($mapped === 'profile_picture') {
+        // Profile picture
+        if ($mapped === 'profile_picture') {
+            if ($value !== '') {
                 $converted = $this->convertDriveLinkToDownloadUrl($value);
                 $localPath = $this->downloadDriveImage($converted);
                 $normalized['profile_picture'] = $value;
                 $normalized['profile_picture_local'] = $localPath;
-                continue;
             }
-
-            // Normal mapped fields
-            if ($mapped) {
-                $normalized[$mapped] = $value;
-            }
+            continue;
         }
 
-        /**
-         * Merge names → full_name
-         */
-        $fn = $normalized['first_name'] ?? '';
-        $mn = $normalized['middle_name'] ?? '';
-        $ln = $normalized['last_name'] ?? '';
-
-        if (empty($normalized['full_name']) && ($fn || $ln)) {
-            $normalized['full_name'] =
-                trim(
-                    ucwords(strtolower($fn)) . ' ' .
-                    ($mn ? strtoupper($mn[0]) . '. ' : '') .
-                    ucwords(strtolower($ln))
-                );
+        // Normal mapped fields
+        if ($mapped) {
+            $normalized[$mapped] = $value;
         }
-
-        /**
-         * Normalize Barangay (fuzzy match)
-         */
-        if (!empty($normalized['barangay'])) {
-            $cleanBrgy = ucwords(strtolower(trim($normalized['barangay'])));
-            $match = $this->smartMatchBarangay($cleanBrgy);
-            if ($match) {
-                $normalized['barangay'] = $match->barangay;
-                $normalized['district'] = $match->district_id;
-            }
-        }
-
-        /**
-         * Normalize Course
-         */
-        if (!empty($normalized['course'])) {
-            $c = trim($normalized['course']);
-            $db = DB::table('courses')
-                ->whereRaw('LOWER(course_name)=?', [strtolower($c)])
-                ->value('course_name');
-            $normalized['course'] = $db ?? ucwords(strtolower($c));
-        }
-
-        /**
-         * Normalize year level
-         */
-        if (!empty($normalized['year_level'])) {
-            $yl = strtolower($normalized['year_level']);
-            foreach (['1','2','3','4'] as $n) {
-                if (str_contains($yl, $n)) $normalized['year_level'] = $n;
-            }
-        }
-
-        /**
-         * Build final class schedule string
-         */
-        $out = [];
-        foreach (['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'] as $day) {
-            $slots = $normalized[strtolower($day)] ?? [];
-            $out[] = $day . ': ' . (empty($slots) ? 'No Class' : implode(' ', $slots));
-        }
-        $normalized['class_schedule'] = implode(' ', $out);
-
-        /**
-         * Ensure required keys exist
-         */
-        foreach ([
-            'full_name','id_number','email','contact_number','emergency_contact',
-            'fb_messenger','barangay','district','course','year_level',
-            'class_schedule','certificates','profile_picture','profile_picture_local'
-        ] as $k) {
-            if (!isset($normalized[$k])) $normalized[$k] = '';
-        }
-
-        /**
-         * Normalize PH numbers
-         */
-        foreach (['contact_number', 'emergency_contact'] as $field) {
-            if (!empty($normalized[$field])) {
-                $normalized[$field] = preg_replace('/[^\d+]/', '', $normalized[$field]);
-            }
-        }
-
-        return $normalized;
     }
 
     /**
-     * Validate ONE normalized row
+     * Merge names → full_name
      */
-    private function validateRow(array $data)
-    {
-        $errors = [];
+    $fn = $normalized['first_name'] ?? '';
+    $mn = $normalized['middle_name'] ?? '';
+    $ln = $normalized['last_name'] ?? '';
 
-        // Full Name
-        if (empty($data['full_name']) ||
-            !preg_match("/^[A-Za-zÑñ\s\.\'-]+$/u", $data['full_name'])) {
-            $errors['full_name'] = 'Full Name is required and only letters allowed.';
-        }
-
-        // School ID
-        if (empty($data['id_number']) ||
-            !preg_match('/^\d{6,7}$/', $data['id_number'])) {
-            $errors['id_number'] = 'School ID must be 6 or 7 digits.';
-        }
-
-        // Course
-        if (empty($data['course']) ||
-            !preg_match('/^[A-Za-z\s]+$/u', $data['course'])) {
-            $errors['course'] = 'Course is required.';
-        }
-
-        // Year
-        if (empty($data['year_level']) ||
-            !in_array((string)$data['year_level'], ['1','2','3','4'])) {
-            $errors['year_level'] = 'Year must be 1–4.';
-        }
-
-        // Numbers
-        $cn = $data['contact_number'] ?? '';
-        $ec = $data['emergency_contact'] ?? '';
-
-        if (!preg_match('/^(09\d{9}|\+639\d{9})$/', $cn)) {
-            $errors['contact_number'] = 'Contact Number must be a valid PH number.';
-        }
-
-        if (!preg_match('/^(09\d{9}|\+639\d{9})$/', $ec)) {
-            $errors['emergency_contact'] = 'Emergency Contact must be a valid PH number.';
-        }
-
-        if ($cn && $ec && $cn === $ec) {
-            $errors['emergency_contact'] =
-                'Emergency Contact must be DIFFERENT from Contact Number.';
-        }
-
-        // Email
-        if (empty($data['email']) ||
-            !filter_var($data['email'], FILTER_VALIDATE_EMAIL) ||
-            !preg_match('/@(gmail\.com|adzu\.edu\.ph)$/i', $data['email'])) {
-            $errors['email'] = 'Email must end with @gmail.com or @adzu.edu.ph.';
-        }
-
-        // Barangay
-        if (empty(trim($data['barangay'] ?? ''))) {
-            $errors['barangay'] = 'Barangay is required.';
-        } else {
-            $match = $this->smartMatchBarangay($data['barangay']);
-            if (!$match) {
-                $errors['barangay'] = "Invalid barangay: '{$data['barangay']}'";
-            }
-        }
-
-        // Schedules
-        foreach (['monday','tuesday','wednesday','thursday','friday','saturday'] as $day) {
-            $slots = $data[$day] ?? [];
-            $parsed = [];
-
-            foreach ($slots as $slot) {
-                $range = $this->parseTimeRange($slot);
-                if (!$range) {
-                    $errors[$day][] = "Invalid time format '$slot'";
-                    continue;
-                }
-
-                foreach ($parsed as $p) {
-                    if ($this->rangesOverlap($range, $p['range'])) {
-                        $errors[$day][] = "Conflict: '$slot' overlaps '{$p['raw']}'";
-                    }
-                }
-
-                $parsed[] = ['raw'=>$slot,'range'=>$range];
-            }
-        }
-
-        return empty($errors) ? null : $errors;
+    if (empty($normalized['full_name']) && ($fn || $ln)) {
+        $normalized['full_name'] =
+            trim(
+                ucwords(strtolower($fn)) . ' ' .
+                ($mn ? strtoupper($mn[0]) . '. ' : '') .
+                ucwords(strtolower($ln))
+            );
     }
+
+    /**
+     * Normalize Barangay (fuzzy match)
+     */
+    if (!empty($normalized['barangay'])) {
+        $cleanBrgy = ucwords(strtolower(trim($normalized['barangay'])));
+        $match = $this->smartMatchBarangay($cleanBrgy);
+        if ($match) {
+            $normalized['barangay'] = $match->barangay;
+            $normalized['district'] = $match->district_id; // this is district_id semantically
+        }
+    }
+
+    /**
+     * Normalize Course
+     */
+    if (!empty($normalized['course'])) {
+        $c = trim($normalized['course']);
+        $db = DB::table('courses')
+            ->whereRaw('LOWER(course_name)=?', [strtolower($c)])
+            ->value('course_name');
+        $normalized['course'] = $db ?? ucwords(strtolower($c));
+    }
+
+    /**
+     * Normalize year level
+     */
+    if (!empty($normalized['year_level'])) {
+        $yl = strtolower($normalized['year_level']);
+        foreach (['1','2','3','4'] as $n) {
+            if (str_contains($yl, $n)) {
+                $normalized['year_level'] = $n;
+                break;
+            }
+        }
+    }
+
+    /**
+     * Build final class schedule string
+     */
+    $out = [];
+    foreach (['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'] as $day) {
+        $slots = $normalized[strtolower($day)] ?? [];
+        $out[] = $day . ': ' . (empty($slots) ? 'No Class' : implode(' ', $slots));
+    }
+    $normalized['class_schedule'] = implode(' ', $out);
+
+    /**
+     * Ensure required keys exist
+     */
+    foreach ([
+        'full_name','id_number','email','contact_number','emergency_contact',
+        'fb_messenger','barangay','district','course','year_level',
+        'class_schedule','certificates','profile_picture','profile_picture_local'
+    ] as $k) {
+        if (!array_key_exists($k, $normalized)) {
+            $normalized[$k] = '';
+        }
+    }
+
+    /**
+     * Normalize PH numbers
+     */
+    foreach (['contact_number', 'emergency_contact'] as $field) {
+        if (!empty($normalized[$field])) {
+            $normalized[$field] = preg_replace('/[^\d+]/', '', $normalized[$field]);
+        }
+    }
+
+    return $normalized;
+}
+
+/**
+ * Validate ONE normalized row
+ */
+private function validateRow(array $data)
+{
+    $errors = [];
+
+    // Full Name
+    if (empty($data['full_name']) ||
+        !preg_match("/^[A-Za-zÑñ\s\.\'-]+$/u", $data['full_name'])) {
+        $errors['full_name'] = 'Full Name is required and only letters allowed.';
+    }
+
+    // School ID
+    if (empty($data['id_number']) ||
+        !preg_match('/^\d{6,7}$/', (string)$data['id_number'])) {
+        $errors['id_number'] = 'School ID must be 6 or 7 digits.';
+    }
+
+    // Course
+    if (empty($data['course']) ||
+        !preg_match('/^[A-Za-z\s]+$/u', $data['course'])) {
+        $errors['course'] = 'Course is required.';
+    }
+
+    // Year
+    if (empty($data['year_level']) ||
+        !in_array((string)$data['year_level'], ['1','2','3','4'], true)) {
+        $errors['year_level'] = 'Year must be 1–4.';
+    }
+
+    // Numbers
+    $cn = $data['contact_number'] ?? '';
+    $ec = $data['emergency_contact'] ?? '';
+
+    if (!preg_match('/^(09\d{9}|\+639\d{9})$/', $cn)) {
+        $errors['contact_number'] = 'Contact Number must be a valid PH number.';
+    }
+
+    if (!preg_match('/^(09\d{9}|\+639\d{9})$/', $ec)) {
+        $errors['emergency_contact'] = 'Emergency Contact must be a valid PH number.';
+    }
+
+    if ($cn && $ec && $cn === $ec) {
+        $errors['emergency_contact'] =
+            'Emergency Contact must be DIFFERENT from Contact Number.';
+    }
+
+    // Email
+    if (empty($data['email']) ||
+        !filter_var($data['email'], FILTER_VALIDATE_EMAIL) ||
+        !preg_match('/@(gmail\.com|adzu\.edu\.ph)$/i', $data['email'])) {
+        $errors['email'] = 'Email must end with @gmail.com or @adzu.edu.ph.';
+    }
+
+    // Barangay
+    if (empty(trim($data['barangay'] ?? ''))) {
+        $errors['barangay'] = 'Barangay is required.';
+    } else {
+        $match = $this->smartMatchBarangay($data['barangay']);
+        if (!$match) {
+            $errors['barangay'] = "Invalid barangay: '{$data['barangay']}'";
+        }
+    }
+
+    // Schedules
+    foreach (['monday','tuesday','wednesday','thursday','friday','saturday'] as $day) {
+        $slots = $data[$day] ?? [];
+
+        // Safety: if somehow a string sneaks in, turn into single slot array
+        if (!is_array($slots)) {
+            $slots = trim((string)$slots) !== '' ? [trim((string)$slots)] : [];
+        }
+
+        $parsed = [];
+
+        foreach ($slots as $slot) {
+            $slot = trim((string)$slot);
+            if ($slot === '') continue;
+
+            $range = $this->parseTimeRange($slot);
+            if (!$range) {
+                $errors[$day][] = "Invalid time format '$slot'";
+                continue;
+            }
+
+            foreach ($parsed as $p) {
+                if ($this->rangesOverlap($range, $p['range'])) {
+                    $errors[$day][] = "Conflict: '$slot' overlaps '{$p['raw']}'";
+                }
+            }
+
+            $parsed[] = ['raw'=>$slot,'range'=>$range];
+        }
+    }
+
+    return empty($errors) ? null : $errors;
+}
+
 
     /**
      * Update / Correct Volunteer Fields
@@ -2103,7 +2138,7 @@ class VolunteerImportController extends Controller
                 return $result;
             };
 
-            $oldParts = $normalize($oldSchedule);
+            $oldParts    = $normalize($oldSchedule);
             $newPartsRaw = $normalize($scheduleString);
 
             $clean = fn($arr) => array_values(array_filter($arr, fn($v) => trim($v) !== ""));
@@ -2150,11 +2185,11 @@ class VolunteerImportController extends Controller
                 $cleanNew = $clean($newParts[$day]);
                 $cleanOld = $clean($oldParts[$day]);
 
-                $added = array_diff($cleanNew, $cleanOld);
+                $added   = array_diff($cleanNew, $cleanOld);
                 $removed = array_diff($cleanOld, $cleanNew);
 
                 $dayChanges[$day] = [
-                    'added' => $added,
+                    'added'   => $added,
                     'removed' => $removed
                 ];
 
@@ -2166,7 +2201,25 @@ class VolunteerImportController extends Controller
             /* -------------------------
             SAVE
             --------------------------*/
+            // Update display string
             $entries[$id]['class_schedule'] = trim($scheduleString);
+
+            // 🔹 NEW: update underlying per-day arrays used by validateRow()
+            foreach ($days as $day) {
+                $key = strtolower($day); // "Monday" → "monday"
+                $entries[$id][$key] = $clean($newParts[$day]);
+            }
+
+            // 🔹 Optional: clear schedule-related errors for those days (if any)
+            if (isset($entries[$id]['errors']) && is_array($entries[$id]['errors'])) {
+                foreach ($days as $day) {
+                    $k = strtolower($day);
+                    if (isset($entries[$id]['errors'][$k])) {
+                        unset($entries[$id]['errors'][$k]);
+                    }
+                }
+            }
+
             session([$type . 'Entries' => $entries]);
 
             /* -------------------------
@@ -2198,21 +2251,19 @@ class VolunteerImportController extends Controller
             };
 
             /* -------------------------
-            BUILD FULL MODAL MESSAGE (Old-style formatting)
+            BUILD FULL MODAL MESSAGE
             --------------------------*/
 
             // Build clean entry name using resolver
             $resolved = $this->resolveEntryData($entry, $rowNumber);
             $name = $resolved['name'];
 
-
-            // FLASH BAR — EXACT FORMAT YOU REQUESTED
+            // FLASH BAR
             $flashMessage = "
                 Update Class Schedule Entry #{$rowNumber} — {$name}
                 | <span class='show-modal-details' 
                     style='color:#007bff; cursor:pointer;'>Show More</span>
                 ";
-
 
             /* -------------------------
             MODAL BODY
@@ -2261,10 +2312,7 @@ class VolunteerImportController extends Controller
 
                 // Separator under each day
                 $fullMessage .= "<hr style='margin: 8px 0; border-top: 1px solid #ccc;'>";
-
             }
-
-
 
             /* -------------------------
             LOG FACT
@@ -2285,16 +2333,16 @@ class VolunteerImportController extends Controller
             RETURN TO VIEW
             --------------------------*/
             return redirect()->back()
-            ->with('success', $flashMessage)
-            ->with('success_schedule', $fullMessage)  // <-- HTML preserved
-            ->with('last_updated_table', $type)
-            ->with('last_updated_index', $id);
+                ->with('success', $flashMessage)
+                ->with('success_schedule', $fullMessage)  // <-- HTML preserved
+                ->with('last_updated_table', $type)
+                ->with('last_updated_index', $id);
 
-
-            } catch (\Exception $e) {
-                return redirect()->back()->with('error', $e->getMessage());
-            }
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
         }
+    }
+
 
     
     /**

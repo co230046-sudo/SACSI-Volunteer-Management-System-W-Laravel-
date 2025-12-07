@@ -1,3 +1,4 @@
+@include('layouts.back_button')
 @include('layouts.navbar')
 @include('layouts.page_loader')
 

@@ -1,5 +1,4 @@
 :root{
-  /* slightly lighter crimson */
   --crimson: #a2343f;
   --crimson-2: #b83f4c;
 
@@ -11,6 +10,12 @@
   --shadow: 0 12px 28px rgba(17, 24, 39, 0.10);
   --shadow-strong: 0 18px 40px rgba(17, 24, 39, 0.16);
 }
+
+/* Put this near the top of Volunteer_List.css */
+.page--volunteer-list {
+  --vl-crimson: #b3263a; /* ← use the exact hex from your card background */
+}
+
 
 html, body{ height:100%; }
 body.page--volunteer-list{
@@ -406,10 +411,10 @@ body.page--volunteer-list{
   .vl-grid{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
-/* ---------------- VOLUNTEER CARD ---------------- */
+/* ---------------- VOLUNTEER CARD (NEW LAYOUT) ---------------- */
 .student-card{
   display:flex;
-  align-items:flex-start;
+  align-items:center;
   gap:22px;
   width:100%;
   background: var(--crimson);
@@ -435,67 +440,75 @@ body.page--volunteer-list{
   transition: .22s ease;
 }
 .student-card:hover .avatar{ transform: scale(1.03); }
+
 .student-card .meta{
   flex:1;
   display:flex;
   flex-direction:column;
-  gap:10px;
+  gap:6px;
   min-width:0;
 }
-.student-card .meta .name{
-  font-weight:1000;
-  font-size:1.45rem;
-  margin:0;
-  line-height:1.1;
-}
 
-.badge-grid{
-  display:grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap:10px 12px;
-  width:100%;
-  max-width:440px;
-}
-.student-card .badge{
+/* rows inside card */
+.vl-row{
   display:flex;
   align-items:center;
   gap:8px;
-  background:#fff;
-  color: var(--crimson) !important;
-  font-weight:900;
-  padding: 8px 12px;
-  border-radius:14px;
-  font-size:.92rem;
-  border:1px solid rgba(255,255,255,0.55);
-  box-shadow: 0 6px 14px rgba(17,24,39,0.10);
 }
-.student-card .badge i{
-  color: var(--crimson) !important;
-  font-size:1rem;
+.vl-row + .vl-row{
+  margin-top:4px;
 }
 
-/* schedule preview chip under card */
-.vl-scheduleChip{
-  margin-top: 6px;
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
+/* text that truncates with tooltip */
+.vl-name,
+.vl-course,
+.vl-location{
+  flex:1 1 auto;
+  min-width:0;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.vl-name{
+  font-weight:1000;
+  font-size:1.35rem;
+  line-height:1.1;
+}
+
+.vl-course,
+.vl-location{
+  font-weight:800;
+  font-size:0.95rem;
+}
+
+/* pill used for year + district */
+.vl-pillSmall{
+  flex:0 0 auto;
   padding:4px 10px;
   border-radius:999px;
-  background: rgba(255,255,255,0.12);
-  font-size:.8rem;
-  font-weight:800;
-  color:#fee2e2;
-}
-.vl-scheduleChip i{
-  font-size:.9rem;
+  background:#fff;
+  color: var(--crimson);
+  font-weight:900;
+  font-size:0.8rem;
+  border:1px solid rgba(255,255,255,0.65);
+  box-shadow: 0 6px 14px rgba(17,24,39,0.10);
 }
 
 @media (max-width:768px){
   .vl-header{ flex-direction:column; align-items:flex-start; }
-  .student-card{ flex-direction:column; text-align:center; }
-  .badge-grid{ grid-template-columns:1fr; max-width:300px; margin:0 auto; }
-  .student-card .avatar{ margin:0 auto; width:150px; height:150px; }
+  .student-card{
+    flex-direction:column;
+    text-align:left;
+    align-items:flex-start;
+  }
+  .student-card .avatar{
+    width:140px;
+    height:140px;
+  }
+  .vl-row{
+    width:100%;
+  }
 }
 
 /* ---------------- BOTTOM BAR + NAV ---------------- */
@@ -598,36 +611,6 @@ body.page--volunteer-list{
   background: rgba(17,24,39,0.04);
   border-radius: 12px;
   padding: 10px;
-}
-
-/* ============================
-   FIX: badge/pill overlap
-============================ */
-.badge-grid{
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: 10px 12px !important;
-  width: 100% !important;
-  max-width: 520px !important;
-  align-items: flex-start !important;
-}
-
-.student-card .badge{
-  flex: 0 1 auto !important;
-  max-width: 100% !important;
-  white-space: normal !important;
-  line-height: 1.15 !important;
-  padding: 8px 12px !important;
-}
-
-.student-card .badge i{
-  flex: 0 0 auto !important;
-}
-
-.student-card .badge{
-  overflow: hidden !important;
-  white-space: nowrap !important;
-  text-overflow: ellipsis !important;
 }
 
 /* ==========================================================
@@ -759,7 +742,7 @@ body.page--volunteer-list::-webkit-scrollbar {
 }
 
 /* ===========================
-   Hide "Classes in AM & PM" chip
+   Hide old schedule chip (no longer rendered, but safe)
 =========================== */
 .vl-scheduleChip {
   display: none !important;
@@ -857,3 +840,88 @@ body.page--volunteer-list::-webkit-scrollbar {
   background: #fff;
 }
 
+/* Time-block dropdown only */
+.vl-ddPortal--time {
+  max-height: 490px;            /* overall box height */
+}
+
+/* The list area INSIDE the time dropdown */
+.vl-ddPortal--time .vl-ddPortalBody {
+  max-height: 320px;            /* 360 - (tabs + search header ≈ 100px) */
+  overflow-y: auto;             /* scroll just the options, not the header */
+  padding-block: 4px 8px;
+}
+
+body.vl-portalOpen {
+  overflow: hidden;
+}
+
+.vl-rowContact {
+  margin-top: 0.15rem;
+}
+
+.vl-rowContact {
+  margin-top: 0.15rem;
+}
+
+.vl-contact {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.student-card .avatar-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.student-card .status-dot {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid #fff;  /* halo so it stands out */
+}
+
+/* Active = green, Inactive/Alumni = gray */
+.student-card .status-dot--active {
+  background-color: #22c55e;
+}
+
+.student-card .status-dot--inactive {
+  background-color: #9ca3af;
+}
+
+.vl-panelGrid {
+  display: grid;
+  gap: 18px 24px;
+}
+
+/* Desktop: 4 columns → second row becomes: Year / Day / Time / Status */
+@media (min-width: 992px) {
+  .vl-panelGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Volunteer List header */
+.page--volunteer-list .vl-kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.page--volunteer-list .vl-kicker .vl-titleIcon {
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--vl-crimson);   /* same crimson as cards */
+}
+
+.page--volunteer-list .vl-kicker h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--vl-crimson);   /* same crimson as cards */
+}

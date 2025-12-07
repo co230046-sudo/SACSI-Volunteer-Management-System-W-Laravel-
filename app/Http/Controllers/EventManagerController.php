@@ -10,32 +10,45 @@ class EventManagerController extends Controller
 {
     public function index(Request $request)
     {
-        // ✅ Return all events (JS will paginate/filter/sort; no refresh needed)
-        $upcomingEvents = Event::query()
-            ->with('location')
-            ->where('status', 'planned')
-            ->orderBy('start_datetime', 'asc')
-            ->get();
+        $now = now();
 
-        $ongoingEvents = Event::query()
-            ->with('location')
-            ->where('status', 'ongoing')
-            ->orderBy('start_datetime', 'asc')
-            ->get();
+        // Base query with relation
+        $base = Event::query()->with('location');
 
-        $completedEvents = Event::query()
-            ->with('location')
-            ->where('status', 'completed')
-            ->orderBy('start_datetime', 'desc')
-            ->get();
-
-        $cancelledEvents = Event::query()
-            ->with('location')
+        // CANCELLED – always by explicit status
+        $cancelledEvents = (clone $base)
             ->where('status', 'cancelled')
             ->orderBy('start_datetime', 'desc')
             ->get();
 
-        // ✅ Only District 1 and 2 + barangays (used by JS autosuggest + auto district)
+        // All NON-cancelled events – we'll split these by dates
+        $nonCancelled = (clone $base)
+            ->where('status', '!=', 'cancelled');
+
+        // UPCOMING: starts in the future
+        $upcomingEvents = (clone $nonCancelled)
+            ->where('start_datetime', '>', $now)
+            ->orderBy('start_datetime', 'asc')
+            ->get();
+
+        // ONGOING: already started, not yet finished (or no end)
+        $ongoingEvents = (clone $nonCancelled)
+            ->where('start_datetime', '<=', $now)
+            ->where(function ($q) use ($now) {
+                $q->whereNull('end_datetime')
+                  ->orWhere('end_datetime', '>=', $now);
+            })
+            ->orderBy('start_datetime', 'asc')
+            ->get();
+
+        // COMPLETED: ended in the past
+        $completedEvents = (clone $nonCancelled)
+            ->whereNotNull('end_datetime')
+            ->where('end_datetime', '<', $now)
+            ->orderBy('end_datetime', 'desc')
+            ->get();
+
+        // ✅ Only District 1 and 2 barangays (used by JS autosuggest + auto district)
         $locations = Location::query()
             ->select('district_id', 'barangay')
             ->whereIn('district_id', [1, 2])
@@ -50,6 +63,7 @@ class EventManagerController extends Controller
             ->map(fn ($items) => $items->pluck('barangay')->values()->all())
             ->toArray();
 
+        // Which tab should be active when page loads
         $defaultTab = $request->query('tab', 'planned');
 
         return view('manage_event.event_manager', compact(

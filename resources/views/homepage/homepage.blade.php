@@ -345,6 +345,7 @@
                 $monthNum = $start ? $start->format('m') : '';
 
                 $startMin = $start ? ((int)$start->format('H') * 60 + (int)$start->format('i')) : -1;
+                $endMin   = $end   ? ((int)$end->format('H') * 60 + (int)$end->format('i')) : -1;
 
                 // ✅ Week label should be Mon–Fri (not Mon–Sun)
                 $wkStart = $start ? $start->copy()->startOfWeek(\Carbon\Carbon::MONDAY) : null;
@@ -356,12 +357,14 @@
               @endphp
 
               <div class="event-card hp-event"
+                   data-id="{{ $event->event_id }}"
                    data-title="{{ e($title) }}"
                    data-date="{{ $sortDate }}"
                    data-date-text="{{ e($dateText) }}"
                    data-day="{{ e($dayName) }}"
                    data-time-text="{{ e($timeText) }}"
                    data-start-min="{{ $startMin }}"
+                   data-end-min="{{ $endMin }}"
                    data-week="{{ e($weekKey) }}"
                    data-week-label="{{ e($weekLabel) }}"
                    data-month="{{ $monthNum }}"
@@ -451,6 +454,7 @@
                 $monthNum = $start ? $start->format('m') : '';
 
                 $startMin = $start ? ((int)$start->format('H') * 60 + (int)$start->format('i')) : -1;
+                $endMin   = $end   ? ((int)$end->format('H') * 60 + (int)$end->format('i')) : -1;
 
                 // ✅ Week label Mon–Fri
                 $wkStart = $start ? $start->copy()->startOfWeek(\Carbon\Carbon::MONDAY) : null;
@@ -462,18 +466,21 @@
               @endphp
 
               <div class="event-card hp-event"
+                   data-id="{{ $event->event_id }}"
                    data-title="{{ e($title) }}"
                    data-date="{{ $sortDate }}"
                    data-date-text="{{ e($dateText) }}"
                    data-day="{{ e($dayName) }}"
                    data-time-text="{{ e($timeText) }}"
                    data-start-min="{{ $startMin }}"
+                   data-end-min="{{ $endMin }}"
                    data-week="{{ e($weekKey) }}"
                    data-week-label="{{ e($weekLabel) }}"
                    data-month="{{ $monthNum }}"
                    data-district="{{ $districtId }}"
                    data-barangay="{{ e(strtolower($barangay)) }}"
                    data-hay="{{ e($hay) }}">
+
                 <div class="event-header">
                   <h3>{{ $title }}</h3>
                 </div>
@@ -546,7 +553,7 @@
   </script>
 
   {{-- Homepage JS (external) --}}
-  <script src="{{ asset('assets/js/script.js') }}"></script>
+  <script src="{{ asset('assets/homepage/js/script.js') }}"></script>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>

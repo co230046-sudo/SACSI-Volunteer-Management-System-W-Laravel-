@@ -27,8 +27,8 @@
 <body class="page--volunteer-list">
   @include('layouts.page_loader')
   @include('layouts.navbar')
-    @include('layouts.back_button')
-    
+  @include('layouts.back_button')
+
   <section class="vl-page">
     <div id="vlRoot"
          class="vl-root"
@@ -38,8 +38,8 @@
          data-districts='@json($districts)'>
 
       <div class="vl-header">
-        <div class="vl-title">
-          <div class="vl-kicker"><i class="fa-solid fa-user-group"></i> Volunteer Lists</div>
+        <div class="vl-kicker">
+          <i class="fa-solid fa-user-group vl-titleIcon"></i>
           <h1>Volunteer Lists</h1>
         </div>
 
@@ -148,7 +148,7 @@
                 <div class="vl-ddMenu" data-dd-menu></div>
               </div>
             </div>
-
+            
             <div class="vl-field">
               <label>Available At (Time Block)</label>
               <div class="vl-dd" data-dd="block">
@@ -159,8 +159,18 @@
                 <div class="vl-ddMenu" data-dd-menu></div>
               </div>
             </div>
-          </div>
 
+             <div class="vl-field">
+            <div class="vl-dd" data-dd="status">
+              <label>Status</label>
+              <button type="button" class="vl-ddBtn">
+                <span data-dd-text>All Status</span>
+                <i class="fa-solid fa-chevron-down"></i>
+              </button>
+            </div>
+          </div>
+          </div>
+          
           <div class="vl-panelFooter">
             <button id="vlReset" class="vl-btn vl-btnGhost" type="button">Reset</button>
             <button id="vlApply" class="vl-btn vl-btnSolid" type="button">

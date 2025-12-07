@@ -7,9 +7,9 @@
      MATCH EVENT MANAGER BEHAVIOR
      - "Pending" vs "Applied" state (filters only apply on Apply click)
      - Week filter becomes Day filter (Mon/Tue/...)
-     - Time filter becomes Time Group + Time Slot with search (same logic)
-     - ADD: Homepage autosuggest like Event Manager (does NOT auto-apply)
-     - Keep homepage classes (.hp-*) and HTML ids you already have
+     - Time filter becomes Time Group + Time Slot with search
+     - ADD: Homepage autosuggest like Event Manager, but:
+       * Clicking a suggestion goes directly to event details
      ============================================================ */
 
   /* ---------- config ---------- */
@@ -66,9 +66,9 @@
   const searchBtn = document.getElementById("hpSearchBtn");
   const searchClear = document.getElementById("hpSearchClear");
 
-  // --- autosuggest (optional, created if missing) ---
+  // --- autosuggest (use existing box if present) ---
   const searchWrap = searchInput?.closest(".hp-search") || searchInput?.parentElement || null;
-  let mainSuggest = document.getElementById("hpMainSuggest"); // if you already have it in HTML
+  let mainSuggest = document.getElementById("hpMainSuggest");
   if (!mainSuggest && searchWrap) {
     mainSuggest = document.createElement("div");
     mainSuggest.id = "hpMainSuggest";
@@ -153,7 +153,7 @@
   });
 
   document.addEventListener("mousedown", (e) => {
-    // close dd
+    // close dropdowns
     const anyDD = root.querySelector(".hp-dd.is-open");
     if (anyDD && !anyDD.contains(e.target)) closeAllDropdowns();
 
@@ -307,10 +307,6 @@
 
   /* ============================================================
      TIME GROUP + TIME SLOT (Event Manager logic)
-     - We keep your single "Filter by Time" field but inject:
-       (1) Time Group row (All / AM / PM)
-       (2) Search bar
-       (3) Time Slot list populated from timeMeta
   ============================================================ */
   function ensureTimeMenuScaffold() {
     if (!timeSlotMenu) return;
@@ -421,45 +417,55 @@
   }
 
   /* ============================================================
-     AUTOSUGGEST (like Event Manager) for the main search
-     - Suggests from the ACTIVE tab cards using data attributes
-     - Does NOT apply filters until Apply is clicked
+     AUTOSUGGEST for the main search
+     - From ACTIVE tab's cards
+     - Clicking suggestion -> Go to event details
      ============================================================ */
   function buildMainSuggestions(query) {
     const q = (query || "").trim().toLowerCase();
     if (!q) return [];
 
     const cards = cardsInActive();
-    const set = new Map(); // key -> {type, value}
+    const set = new Map(); // key -> {type, value, id, url}
 
-    const push = (type, value) => {
+    const push = (type, value, card) => {
       const v = (value || "").trim();
       if (!v) return;
-      const key = `${type}::${v}`.toLowerCase();
-      if (!set.has(key)) set.set(key, { type, value: v });
+
+      const id = card.getAttribute("data-id") || "";
+      const detailLink = card.querySelector(".detail-link");
+      const url = detailLink ? (detailLink.getAttribute("href") || "") : "";
+
+      // make key unique per event + text
+      const key = `${type}::${v.toLowerCase()}::${id || url}`;
+      if (!set.has(key)) {
+        set.set(key, { type, value: v, id, url });
+      }
     };
 
     for (const c of cards) {
-      const title = (c.getAttribute("data-title") || "").trim();
+      const title    = (c.getAttribute("data-title") || "").trim();
       const barangay = (c.getAttribute("data-barangay") || "").trim();
       const district = (c.getAttribute("data-district") || "").trim();
-      const dateTxt = (c.getAttribute("data-date-text") || c.getAttribute("data-date-label") || c.getAttribute("data-date-str") || "").trim();
-      const day = (c.getAttribute("data-day") || "").trim();
-      const timeTxt = (c.getAttribute("data-time-text") || c.getAttribute("data-time-label") || c.getAttribute("data-time") || "").trim();
-      const code = (c.getAttribute("data-code") || "").trim();
-      const venue = (c.getAttribute("data-venue") || "").trim();
+      const dateTxt  = (c.getAttribute("data-date-text") || c.getAttribute("data-date-label") || c.getAttribute("data-date-str") || "").trim();
+      const day      = (c.getAttribute("data-day") || "").trim();
+      const timeTxt  = (c.getAttribute("data-time-text") || c.getAttribute("data-time-label") || c.getAttribute("data-time") || "").trim();
+      const code     = (c.getAttribute("data-code") || "").trim();
+      const venue    = (c.getAttribute("data-venue") || "").trim();
 
       const hay = `${title} ${barangay} ${district} ${dateTxt} ${day} ${timeTxt} ${code} ${venue}`.toLowerCase();
       if (!hay.includes(q)) continue;
 
-      if (title && title.toLowerCase().includes(q)) push("Title", title);
-      if (barangay && barangay.toLowerCase().includes(q)) push("Barangay", barangay);
-      if (day && day.toLowerCase().includes(q)) push("Day", day);
-      if (dateTxt && dateTxt.toLowerCase().includes(q)) push("Date", dateTxt);
-      if (timeTxt && timeTxt.toLowerCase().includes(q)) push("Time", timeTxt);
-      if (code && code.toLowerCase().includes(q)) push("Code", code);
-      if (venue && venue.toLowerCase().includes(q)) push("Venue", venue);
-      if (district && (`district ${district}`).includes(q)) push("District", `District ${district}`);
+      if (title && title.toLowerCase().includes(q))       push("Title",    title,    c);
+      if (barangay && barangay.toLowerCase().includes(q)) push("Barangay", barangay, c);
+      if (day && day.toLowerCase().includes(q))           push("Day",      day,      c);
+      if (dateTxt && dateTxt.toLowerCase().includes(q))   push("Date",     dateTxt,  c);
+      if (timeTxt && timeTxt.toLowerCase().includes(q))   push("Time",     timeTxt,  c);
+      if (code && code.toLowerCase().includes(q))         push("Code",     code,     c);
+      if (venue && venue.toLowerCase().includes(q))       push("Venue",    venue,    c);
+      if (district && (`district ${district}`).includes(q)) {
+        push("District", `District ${district}`, c);
+      }
     }
 
     return [...set.values()].slice(0, 10);
@@ -477,7 +483,10 @@
     }
 
     mainSuggest.innerHTML = items.map(it => `
-      <div class="hp-suggest-item" data-v="${escapeHtml(it.value)}">
+      <div class="hp-suggest-item"
+           data-v="${escapeHtml(it.value)}"
+           data-id="${escapeHtml(it.id || "")}"
+           data-url="${escapeHtml(it.url || "")}">
         <div>${escapeHtml(it.value)}</div>
         <div class="hp-suggest-meta">${escapeHtml(it.type)}</div>
       </div>
@@ -489,15 +498,35 @@
   mainSuggest?.addEventListener("click", (e) => {
     const item = e.target.closest(".hp-suggest-item");
     if (!item) return;
+
+    const url = item.getAttribute("data-url") || "";
+    const id  = item.getAttribute("data-id") || "";
+
+    // 1) Direct URL available -> go there
+    if (url) {
+      window.location.href = url;
+      return;
+    }
+
+    // 2) Try to find card by id and use its detail-link
+    if (id) {
+      const card = cardsInActive().find(c => (c.getAttribute("data-id") || "") === id);
+      const link = card?.querySelector(".detail-link");
+      if (link?.href) {
+        window.location.href = link.href;
+        return;
+      }
+    }
+
+    // 3) Fallback: old behavior (fill search only)
     const v = item.getAttribute("data-v") || "";
     if (searchInput) searchInput.value = v;
     pending.q = v;
     mainSuggest.hidden = true;
-    // IMPORTANT: do NOT apply automatically; Apply button applies.
   });
 
   /* ============================================================
-     FILTERING (Event Manager logic)
+     FILTERING
      ============================================================ */
   function cardMatchesTimeSlot(card, slotKey) {
     if (!slotKey) return true;
@@ -535,14 +564,14 @@
       const cMonth = (c.getAttribute("data-month") || "").trim();
       const cDay = (c.getAttribute("data-day") || "").trim();
 
-      const okSearch = !q || hay.includes(q);
-      const okDist = !applied.district || cDist === applied.district;
+      const okSearch   = !q || hay.includes(q);
+      const okDist     = !applied.district || cDist === applied.district;
       const okBarangay = !applied.barangay || cBarangay === applied.barangay;
-      const okMonth = !applied.month || cMonth === String(applied.month);
-      const okDay = !applied.day || cDay === applied.day;
+      const okMonth    = !applied.month || cMonth === String(applied.month);
+      const okDay      = !applied.day || cDay === applied.day;
 
       const okTimeGroup = cardMatchesTimeGroup(c, applied.timegroup);
-      const okTimeSlot = cardMatchesTimeSlot(c, applied.timeslot);
+      const okTimeSlot  = cardMatchesTimeSlot(c, applied.timeslot);
 
       c.classList.toggle(
         "is-hidden",
@@ -571,7 +600,7 @@
   }
 
   /* ============================================================
-     TABS (apply immediately on tab change)
+     TABS
      ============================================================ */
   function setTab(key) {
     applied.tab = key;
@@ -585,7 +614,6 @@
 
     panes.forEach(p => (p.hidden = (p.dataset.pane !== key)));
 
-    // close suggest on tab change
     if (mainSuggest) mainSuggest.hidden = true;
 
     applyNow();
@@ -593,7 +621,7 @@
   tabs.forEach(t => t.addEventListener("click", () => setTab(t.dataset.tab)));
 
   /* ============================================================
-     SEARCH (pending only; autosuggest while typing; no auto-apply)
+     SEARCH (pending only; autosuggest while typing)
      ============================================================ */
   const commitPendingSearch = () => {
     pending.q = (searchInput?.value || "").trim();
@@ -612,7 +640,7 @@
     if (e.key === "Enter") {
       commitPendingSearch();
       if (mainSuggest) mainSuggest.hidden = true;
-      // do NOT apply instantly
+      // no instant apply
     }
   });
 
@@ -625,7 +653,6 @@
     if (searchInput) searchInput.value = "";
     pending.q = "";
     if (mainSuggest) mainSuggest.hidden = true;
-    // do not apply until Apply click
   });
 
   /* ============================================================
@@ -727,14 +754,11 @@
      APPLY / RESET
      ============================================================ */
   applyBtn?.addEventListener("click", () => {
-    // copy pending -> applied
     Object.assign(applied, pending);
 
-    // normalize UI labels for time dropdown
     if (!applied.timeslot) setDropdownValue(ddTimeSlot, "", "All Time Slots");
 
     applyNow();
-    // keep panel open
   });
 
   resetBtn?.addEventListener("click", () => {
@@ -765,7 +789,6 @@
     renderTimeSlotMenu();
 
     applyNow();
-    // keep panel open
   });
 
   /* ============================================================

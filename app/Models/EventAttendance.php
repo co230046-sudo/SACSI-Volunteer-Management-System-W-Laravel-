@@ -8,7 +8,7 @@ class EventAttendance extends Model
 {
     protected $table = 'event_attendances';
     protected $primaryKey = 'attendance_id';
-    public $timestamps = false; // your migration doesn't add created_at/updated_at
+    public $timestamps = false;
 
     protected $fillable = [
         'event_id',
@@ -23,4 +23,21 @@ class EventAttendance extends Model
         'attendance_time',
         'import_batch',
     ];
+
+    protected $casts = [
+        'walk_in'        => 'boolean',
+        'attendance_time'=> 'datetime',
+        'import_batch'   => 'integer',
+    ];
+
+    public function event()
+    {
+        return $this->belongsTo(Event::class, 'event_id', 'event_id');
+    }
+
+    public function volunteer()
+    {
+        // assumes primary key is volunteer_id in VolunteerProfile
+        return $this->belongsTo(VolunteerProfile::class, 'volunteer_id', 'volunteer_id');
+    }
 }

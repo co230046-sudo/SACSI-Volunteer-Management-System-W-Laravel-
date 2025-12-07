@@ -59,45 +59,48 @@
   /* ============================================================
      DOM
      ============================================================ */
-  const tabs = [...root.querySelectorAll(".em-tab[data-tab]")];
-  const panes = [...root.querySelectorAll(".em-pane")];
+  const tabs   = [...root.querySelectorAll(".em-tab[data-tab]")];
+  const panes  = [...root.querySelectorAll(".em-pane")];
 
   const searchInput = document.getElementById("emSearch");
   const searchClear = document.getElementById("emSearchClear");
   const mainSuggest = document.getElementById("emMainSuggest");
 
-  const panel = document.getElementById("emPanel");
+  const panel  = document.getElementById("emPanel");
   const toggle = document.getElementById("emFilterToggle");
   const applyBtn = document.getElementById("emApply");
   const resetBtn = document.getElementById("emReset");
 
-  const ddSort = root.querySelector('.em-dd[data-dd="sort"]');
-  const ddDistrict = root.querySelector('.em-dd[data-dd="district"]');
-  const ddMonth = root.querySelector('.em-dd[data-dd="month"]');
-  const ddDay = root.querySelector('.em-dd[data-dd="day"]');
+  const ddSort      = root.querySelector('.em-dd[data-dd="sort"]');
+  const ddDistrict  = root.querySelector('.em-dd[data-dd="district"]');
+  const ddMonth     = root.querySelector('.em-dd[data-dd="month"]');
+  const ddDay       = root.querySelector('.em-dd[data-dd="day"]');
   const ddTimeGroup = root.querySelector('.em-dd[data-dd="timegroup"]');
-  const ddTimeSlot = root.querySelector('.em-dd[data-dd="timeslot"]');
+  const ddTimeSlot  = root.querySelector('.em-dd[data-dd="timeslot"]');
   const timeSlotMenu = document.getElementById("emTimeSlotMenu");
 
-  const barangayInput = document.getElementById("emBarangaySearch");
-  const barangayClear = document.getElementById("emBarangayClear");
+  const barangayInput   = document.getElementById("emBarangaySearch");
+  const barangayClear   = document.getElementById("emBarangayClear");
   const barangaySuggest = document.getElementById("emBarangaySuggest");
-  const barangaySelectedBtn = document.getElementById("emBarangaySelected");
+  const barangaySelectedBtn  = document.getElementById("emBarangaySelected");
   const barangaySelectedText = document.getElementById("emBarangaySelectedText");
 
   const copyBtn = document.getElementById("emCopyBtn");
   const printBtn = document.getElementById("emPrintBtn");
 
-  const bulkBtn = document.getElementById("emBulkDeleteBtn");
+  const bulkBtn         = document.getElementById("emBulkDeleteBtn");
   const selectedCountEl = document.getElementById("emSelectedCount");
-  const selectAllBtn = document.getElementById("emSelectAllBtn");
+  const selectAllBtn    = document.getElementById("emSelectAllBtn");
 
-  const confirmCountEl = document.getElementById("emConfirmCount");
-  const confirmListEl = document.getElementById("emConfirmList");
+  const confirmCountEl   = document.getElementById("emConfirmCount");
+  const confirmListEl    = document.getElementById("emConfirmList");
   const hiddenInputsWrap = document.getElementById("emBulkHiddenInputs");
 
   const toastEl = document.getElementById("emToast");
-  const flags = document.getElementById("emServerFlags");
+  const flags   = document.getElementById("emServerFlags");
+
+  // Activity Log button
+  const logBtn = document.getElementById("emLogBtn");
 
   /* ===== Modals ===== */
   const bsModal = (id) => {
@@ -111,8 +114,8 @@
   const mNoCopy   = bsModal("emModalNoCopy");
   const mNoPrint  = bsModal("emModalNoPrint");
   const mNoDelete = bsModal("emModalNoDelete");
+  const mLogs     = bsModal("emActivityModal");
 
-  // generic notice (for things like popup blocked or server error)
   const noticeTitle = document.getElementById("emNoticeTitle");
   const noticeBody  = document.getElementById("emNoticeBody");
   const showNotice = (title, body) => {
@@ -149,11 +152,12 @@
     toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1400);
   };
 
-  const activePane = () => panes.find(p => p.dataset.pane === state.tab);
-  const activeGrid = () => activePane()?.querySelector(".em-grid");
+  const activePane  = () => panes.find(p => p.dataset.pane === state.tab);
+  const activeGrid  = () => activePane()?.querySelector(".em-grid");
   const activeEmpty = () => activePane()?.querySelector("[data-empty]");
   const activePager = () => activePane()?.querySelector(".em-pagination");
   const cardsInActive = () => [...(activePane()?.querySelectorAll(".em-event-card") || [])];
+  const allCards = () => [...root.querySelectorAll(".em-event-card")];
 
   function parseJSONAttr(el, attr, fallback) {
     try {
@@ -237,7 +241,7 @@
 
   function wireDropdown(dd, onPick) {
     if (!dd) return;
-    const btn = dd.querySelector(".em-ddBtn");
+    const btn  = dd.querySelector(".em-ddBtn");
     const menu = dd.querySelector("[data-dd-menu]");
 
     btn?.addEventListener("click", (e) => {
@@ -439,64 +443,92 @@
   });
 
   /* ============================================================
-     MAIN SEARCH AUTOSUGGEST
+     MAIN SEARCH AUTOSUGGEST → EVENT HITS
      ============================================================ */
-  function buildMainSuggestions(query) {
+  function buildEventSuggestions(query) {
     const q = (query || "").trim().toLowerCase();
     if (!q) return [];
 
-    const cards = cardsInActive();
-    const set = new Map();
-
-    const push = (type, label, value) => {
-      const key = `${type}::${value}`.toLowerCase();
-      if (!set.has(key)) set.set(key, { type, label, value });
-    };
+    const cards = allCards();
+    const hits = [];
 
     for (const c of cards) {
       const title    = (c.getAttribute("data-title") || "").trim();
+      const venue    = (c.getAttribute("data-venue") || "").trim();
       const barangay = (c.getAttribute("data-barangay") || "").trim();
-      const district = (c.getAttribute("data-district") || "").trim();
+      const distRaw  = (c.getAttribute("data-district") || "").trim();
+      const districtLabel = distRaw ? `District ${distRaw}` : "";
       const date     = (c.getAttribute("data-date") || "").trim();
       const day      = (c.getAttribute("data-day") || "").trim();
       const time     = (c.getAttribute("data-time") || "").trim();
       const code     = (c.getAttribute("data-code") || "").trim();
-      const venue    = (c.getAttribute("data-venue") || "").trim();
+      const status   = (c.getAttribute("data-status") || "").trim();
 
-      const hay = `${title} ${barangay} ${district} ${date} ${day} ${time} ${code} ${venue}`.toLowerCase();
+      const hay = `${title} ${venue} ${barangay} ${districtLabel} ${date} ${day} ${time} ${code} ${status}`.toLowerCase();
       if (!hay.includes(q)) continue;
 
-      if (title && title.toLowerCase().includes(q))     push("Title",    title,    title);
-      if (barangay && barangay.toLowerCase().includes(q)) push("Barangay", barangay, barangay);
-      if (day && day.toLowerCase().includes(q))         push("Day",      day,      day);
-      if (date && date.toLowerCase().includes(q))       push("Date",     date,     date);
-      if (time && time.toLowerCase().includes(q))       push("Time",     time,     time);
-      if (code && code.toLowerCase().includes(q))       push("Code",     code,     code);
-      if (venue && venue.toLowerCase().includes(q))     push("Venue",    venue,    venue);
-      if (district && (`district ${district}`).includes(q)) {
-        push("District", `District ${district}`, `District ${district}`);
-      }
+      let score = 0;
+      if (title.toLowerCase().includes(q))         score += 5;
+      if (code.toLowerCase().includes(q))          score += 4;
+      if (venue.toLowerCase().includes(q))         score += 3;
+      if (barangay.toLowerCase().includes(q))      score += 2;
+      if (districtLabel.toLowerCase().includes(q)) score += 1;
+      if (status.toLowerCase().includes(q))        score += 1;
+      if (date.toLowerCase().includes(q) ||
+          day.toLowerCase().includes(q)  ||
+          time.toLowerCase().includes(q)) score += 1;
+
+      hits.push({
+        card: c,
+        score,
+        title: title || "Untitled Event",
+        venue,
+        barangay,
+        district: distRaw,
+        districtLabel,
+        date,
+        day,
+        time,
+        code,
+        status
+      });
     }
 
-    return [...set.values()].slice(0, 10);
+    hits.sort((a, b) => b.score - a.score);
+    return hits.slice(0, 8);
   }
 
   function renderMainSuggest() {
-    if (!mainSuggest) return;
-    const q = (searchInput?.value || "").trim();
-    const items = buildMainSuggestions(q);
-    if (!q || items.length === 0) {
+    if (!mainSuggest || !searchInput) return;
+    const q = searchInput.value || "";
+    const hits = buildEventSuggestions(q);
+
+    if (!q.trim() || hits.length === 0) {
       mainSuggest.hidden = true;
       mainSuggest.innerHTML = "";
       return;
     }
 
-    mainSuggest.innerHTML = items.map(it => `
-      <div class="em-suggest-item" data-v="${escapeHtml(it.value)}">
-        <div>${escapeHtml(it.value)}</div>
-        <div class="em-suggest-meta">${escapeHtml(it.type)}</div>
-      </div>
-    `).join("");
+    mainSuggest.innerHTML = hits.map(h => {
+      const metaPieces = [
+        h.date ? (h.day ? `${h.date} (${h.day})` : h.date) : "",
+        h.time,
+        h.venue,
+        h.barangay,
+        h.districtLabel,
+        h.code ? `Code: ${h.code}` : "",
+        h.status
+      ].filter(Boolean);
+
+      return `
+        <button type="button"
+                class="em-suggest-item em-suggest-item--event"
+                data-url="${escapeHtml(h.card.getAttribute("data-detail-url") || "#")}">
+          <div class="em-suggest-main">${escapeHtml(h.title)}</div>
+          <div class="em-suggest-meta">${escapeHtml(metaPieces.join(" • "))}</div>
+        </button>
+      `;
+    }).join("");
 
     mainSuggest.hidden = false;
   }
@@ -504,13 +536,23 @@
   mainSuggest?.addEventListener("click", (e) => {
     const item = e.target.closest(".em-suggest-item");
     if (!item) return;
-    const v = item.getAttribute("data-v") || "";
-    if (searchInput) searchInput.value = v;
-    state.q = v;
-    mainSuggest.hidden = true;
+    const url = item.getAttribute("data-url");
+    if (url) window.location.href = url;
+  });
+
+  function goToBestMatchEvent(query) {
+    const hits = buildEventSuggestions(query);
+    if (hits.length) {
+      const url = hits[0].card.getAttribute("data-detail-url");
+      if (url) {
+        window.location.href = url;
+        return;
+      }
+    }
+    state.q = (query || "").trim();
     state.pageByTab[state.tab] = 1;
     applyNow();
-  });
+  }
 
   /* ============================================================
      FILTERING + SORTING + PAGINATION
@@ -652,10 +694,23 @@
     commitSearch();
   }, 120));
 
+  searchInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      goToBestMatchEvent(searchInput.value || "");
+    } else if (e.key === "Escape") {
+      if (mainSuggest) mainSuggest.hidden = true;
+      searchInput.blur();
+    }
+  });
+
   searchClear?.addEventListener("click", () => {
     if (searchInput) searchInput.value = "";
     state.q = "";
-    if (mainSuggest) mainSuggest.hidden = true;
+    if (mainSuggest) {
+      mainSuggest.hidden = true;
+      mainSuggest.innerHTML = "";
+    }
     state.pageByTab[state.tab] = 1;
     applyNow();
   });
@@ -742,9 +797,6 @@
   function syncCount() {
     const n = selectedChecksAllPanes().length;
     if (selectedCountEl) selectedCountEl.textContent = String(n);
-
-    // 🔁 We NO LONGER disable the bulk button so "Nothing to delete"
-    //     can show. You can style an "empty" state via class if you want.
     if (bulkBtn) {
       bulkBtn.classList.toggle("em-bulk-empty", n === 0);
     }
@@ -763,13 +815,12 @@
     const checks = cards.map(c => c.querySelector(".em-check")).filter(Boolean);
 
     if (!checks.length) {
-      // Already no visible events in this tab; re-use "Nothing to delete" modal
       mNoDelete?.show();
       return;
     }
 
     const anyUnchecked = checks.some(ch => !ch.checked);
-    checks.forEach(ch => ch.checked = anyUnchecked);
+    checks.forEach(ch => { ch.checked = anyUnchecked; });
     syncCount();
     toast(anyUnchecked ? "Selected visible events." : "Unselected visible events.");
   });
@@ -805,12 +856,10 @@
     }));
   }
 
-  // COPY
   copyBtn?.addEventListener("click", async () => {
     const selected = selectedCardsInActiveTab();
     const cards    = selected.length ? selected : activeVisibleCards();
 
-    // ❌ NO events -> show Blade modal instead of JS text
     if (!cards.length) {
       mNoCopy?.show();
       return;
@@ -838,12 +887,10 @@
     }
   });
 
-  // PRINT
   printBtn?.addEventListener("click", () => {
     const selected = selectedCardsInActiveTab();
     const cards    = selected.length ? selected : activeVisibleCards();
 
-    // ❌ NO events -> show Blade modal instead of JS text
     if (!cards.length) {
       mNoPrint?.show();
       return;
@@ -922,7 +969,6 @@
   bulkBtn?.addEventListener("click", () => {
     const selected = selectedChecksAllPanes();
 
-    // ❌ Nothing selected -> show Blade modal
     if (!selected.length) {
       mNoDelete?.show();
       return;
@@ -970,6 +1016,61 @@
   });
 
   /* ============================================================
+     EVENT ACTIVITY LOG (modal) – JS filters (Apply-only)
+     ============================================================ */
+  const logFilterForm   = document.getElementById("emLogFilterForm");
+  const logStartInput   = logFilterForm?.querySelector('input[name="log_start"]');
+  const logEndInput     = logFilterForm?.querySelector('input[name="log_end"]');
+  const logSearchInput  = logFilterForm?.querySelector('input[name="log_search"]');
+  const logActionSelect = logFilterForm?.querySelector('select[name="log_action"]');
+  const logResetBtn     = document.getElementById("emLogResetBtn");
+  const logTable        = document.querySelector("#emActivityModal .em-log-table");
+  const logRows         = logTable ? [...logTable.querySelectorAll("tbody tr.em-log-row")] : [];
+
+  function applyLogFilters() {
+    if (!logTable || !logRows.length) return;
+
+    const start  = (logStartInput?.value || "").trim();        // yyyy-mm-dd
+    const end    = (logEndInput?.value || "").trim();          // yyyy-mm-dd
+    const search = (logSearchInput?.value || "").trim().toLowerCase();
+    const action = (logActionSelect?.value || "").trim();
+
+    logRows.forEach(row => {
+      const rowAction = (row.dataset.action || "").trim();
+      const rowDate   = (row.dataset.date || "").trim();       // yyyy-mm-dd
+      const hay       = (row.dataset.search || "").toLowerCase();
+
+      const okAction = !action || rowAction === action;
+      const okSearch = !search || hay.includes(search);
+
+      let okDate = true;
+      if (start && rowDate) okDate = okDate && (rowDate >= start);
+      if (end && rowDate)   okDate = okDate && (rowDate <= end);
+
+      const show = okAction && okSearch && okDate;
+      row.style.display = show ? "" : "none";
+    });
+  }
+
+  if (logFilterForm) {
+    logFilterForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      applyLogFilters();
+    });
+
+    logResetBtn?.addEventListener("click", () => {
+      if (logStartInput)   logStartInput.value   = "";
+      if (logEndInput)     logEndInput.value     = "";
+      if (logSearchInput)  logSearchInput.value  = "";
+      if (logActionSelect) logActionSelect.value = "";
+      applyLogFilters();
+    });
+
+    // Respect any default values from backend on first open
+    applyLogFilters();
+  }
+
+  /* ============================================================
      INIT
      ============================================================ */
   setDropdownValue(ddSort, "date_asc", "Sort by Date (Soonest)");
@@ -985,15 +1086,6 @@
   const urlTab = new URL(window.location.href).searchParams.get("tab");
   setTab((urlTab || state.tab).trim());
 
-  searchInput?.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      if (mainSuggest) mainSuggest.hidden = true;
-    }
-  });
-
-  // (extra suggest refresh)
-  searchInput?.addEventListener("input", debounce(renderMainSuggest, 80));
-
   if (flags) {
     const hasSuccess = flags.getAttribute("data-has-success") === "1";
     const hasError   = flags.getAttribute("data-has-error") === "1";
@@ -1005,4 +1097,9 @@
 
   syncCount();
   applyNow();
+
+  // When clicking "Activity Log", re-apply filters (Bootstrap data attributes handle opening)
+  logBtn?.addEventListener("click", () => {
+    applyLogFilters();
+  });
 })();

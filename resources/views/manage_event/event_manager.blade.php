@@ -20,12 +20,12 @@
   @include('layouts.page_loader')
   @include('layouts.navbar')
   @include('layouts.back_button')
-
+  
   @php
-    // ✅ Districts locked to 1 and 2
+    // ✅ Districts locked to 1 and 2 (requested)
     $districts = [1, 2];
 
-    // ✅ Flatten all barangays from barangaysByDistrict
+    // ✅ Flatten all barangays from barangaysByDistrict (controller provides this)
     $allBarangays = collect($barangaysByDistrict ?? [])
       ->flatten()
       ->filter(fn($b) => is_string($b) && trim($b) !== '')
@@ -33,6 +33,8 @@
       ->sort()
       ->values()
       ->all();
+
+     use Illuminate\Support\Str;
   @endphp
 
   <div class="em-wrap">
@@ -50,30 +52,21 @@
           </div>
 
           <h1 class="em-h1">Pre &amp; Post Events</h1>
+          <!-- OVERLAY (unchanged as requested) -->
 
           <div class="em-controls em-controls--anchor">
+
             {{-- MAIN SEARCH with autosuggest dropdown --}}
             <div class="em-search em-search--suggest" role="search">
               <i class="fa-solid fa-magnifying-glass"></i>
-              <input id="emSearch"
-                     type="text"
-                     placeholder="Search title, venue, barangay, district, code…"
-                     autocomplete="off" />
-              <button class="em-search-clear"
-                      id="emSearchClear"
-                      type="button"
-                      aria-label="Clear search">
+              <input id="emSearch" type="text" placeholder="Search title, venue, barangay, district, code…" autocomplete="off" />
+              <button class="em-search-clear" id="emSearchClear" type="button" aria-label="Clear search">
                 <i class="fa-solid fa-xmark"></i>
               </button>
-              <div class="em-suggest-box em-suggest-box--main"
-                   id="emMainSuggest"
-                   hidden></div>
+              <div class="em-suggest-box em-suggest-box--main" id="emMainSuggest" hidden></div>
             </div>
 
-            <button class="em-pill em-pill--brand"
-                    type="button"
-                    id="emFilterToggle"
-                    aria-expanded="false">
+            <button class="em-pill em-pill--brand" type="button" id="emFilterToggle" aria-expanded="false">
               <i class="fa-solid fa-sliders"></i> Filter &amp; Sort
               <i class="fa-solid fa-chevron-down ms-1"></i>
             </button>
@@ -84,6 +77,17 @@
 
             <button class="em-pill em-pill--soft" type="button" id="emPrintBtn">
               <i class="fa-solid fa-print"></i> Print
+            </button>
+
+            {{-- Event Log button --}}
+            <button
+              id="emLogBtn"
+              type="button"
+              class="em-pill em-pill--soft"
+              data-bs-toggle="modal"
+              data-bs-target="#emActivityModal">
+              <i class="fa-regular fa-clock"></i>
+              Event Log
             </button>
 
             <button class="em-pill em-pill--danger" type="button" id="emBulkDeleteBtn">
@@ -98,36 +102,25 @@
 
                 {{-- Column 1: Sort + Month + Day + Time --}}
                 <div class="em-panel-col">
+
                   <div class="em-field">
-                    <label class="em-label">
-                      <i class="fa-solid fa-arrow-up-wide-short"></i> Sort by
-                    </label>
+                    <label class="em-label"><i class="fa-solid fa-arrow-up-wide-short"></i> Sort by</label>
                     <div class="em-dd hpLike" data-dd="sort">
                       <button class="em-ddBtn" type="button">
                         <span data-dd-text>Sort by Date (Soonest)</span>
                         <i class="fa-solid fa-chevron-down"></i>
                       </button>
                       <div class="em-ddMenu" data-dd-menu>
-                        <button class="em-ddItem" type="button" data-value="date_asc">
-                          Sort by Date (Soonest)
-                        </button>
-                        <button class="em-ddItem" type="button" data-value="date_desc">
-                          Sort by Date (Latest)
-                        </button>
-                        <button class="em-ddItem" type="button" data-value="title_asc">
-                          Sort by Title (A–Z)
-                        </button>
-                        <button class="em-ddItem" type="button" data-value="title_desc">
-                          Sort by Title (Z–A)
-                        </button>
+                        <button class="em-ddItem" type="button" data-value="date_asc">Sort by Date (Soonest)</button>
+                        <button class="em-ddItem" type="button" data-value="date_desc">Sort by Date (Latest)</button>
+                        <button class="em-ddItem" type="button" data-value="title_asc">Sort by Title (A–Z)</button>
+                        <button class="em-ddItem" type="button" data-value="title_desc">Sort by Title (Z–A)</button>
                       </div>
                     </div>
                   </div>
 
                   <div class="em-field">
-                    <label class="em-label">
-                      <i class="fa-regular fa-calendar"></i> Filter by Month
-                    </label>
+                    <label class="em-label"><i class="fa-regular fa-calendar"></i> Filter by Month</label>
                     <div class="em-dd hpLike" data-dd="month">
                       <button class="em-ddBtn" type="button">
                         <span data-dd-text>All Months</span>
@@ -135,21 +128,15 @@
                       </button>
                       <div class="em-ddMenu" data-dd-menu>
                         <button class="em-ddItem" type="button" data-value="">All Months</button>
-                        @for($m = 1; $m <= 12; $m++)
-                          <button class="em-ddItem"
-                                  type="button"
-                                  data-value="{{ $m }}">
-                            {{ \Carbon\Carbon::create()->month($m)->format('F') }}
-                          </button>
+                        @for($m=1;$m<=12;$m++)
+                          <button class="em-ddItem" type="button" data-value="{{ $m }}">{{ \Carbon\Carbon::create()->month($m)->format('F') }}</button>
                         @endfor
                       </div>
                     </div>
                   </div>
 
                   <div class="em-field">
-                    <label class="em-label">
-                      <i class="fa-regular fa-calendar-check"></i> Filter by Day
-                    </label>
+                    <label class="em-label"><i class="fa-regular fa-calendar-check"></i> Filter by Day</label>
                     <div class="em-dd hpLike" data-dd="day">
                       <button class="em-ddBtn" type="button">
                         <span data-dd-text>All Days</span>
@@ -166,9 +153,7 @@
 
                   <div class="em-field em-field--inline2">
                     <div class="em-field">
-                      <label class="em-label">
-                        <i class="fa-regular fa-sun"></i> Time Group
-                      </label>
+                      <label class="em-label"><i class="fa-regular fa-sun"></i> Time Group</label>
                       <div class="em-dd hpLike" data-dd="timegroup">
                         <button class="em-ddBtn" type="button">
                           <span data-dd-text>All Times</span>
@@ -183,9 +168,7 @@
                     </div>
 
                     <div class="em-field">
-                      <label class="em-label">
-                        <i class="fa-regular fa-clock"></i> Time Slot
-                      </label>
+                      <label class="em-label"><i class="fa-regular fa-clock"></i> Time Slot</label>
                       <div class="em-dd hpLike" data-dd="timeslot">
                         <button class="em-ddBtn" type="button">
                           <span data-dd-text>All Time Slots</span>
@@ -198,14 +181,13 @@
                       </div>
                     </div>
                   </div>
+
                 </div>
 
                 {{-- Column 2: District + Barangay Search/Suggest --}}
                 <div class="em-panel-col">
                   <div class="em-field">
-                    <label class="em-label">
-                      <i class="fa-solid fa-map-location-dot"></i> Filter by District
-                    </label>
+                    <label class="em-label"><i class="fa-solid fa-map-location-dot"></i> Filter by District</label>
                     <div class="em-dd hpLike" data-dd="district">
                       <button class="em-ddBtn" type="button">
                         <span data-dd-text>All Districts</span>
@@ -214,40 +196,27 @@
                       <div class="em-ddMenu" data-dd-menu id="emDistrictMenu">
                         <button class="em-ddItem" type="button" data-value="">All Districts</button>
                         @foreach($districts as $dist)
-                          <button class="em-ddItem" type="button" data-value="{{ $dist }}">
-                            District {{ $dist }}
-                          </button>
+                          <button class="em-ddItem" type="button" data-value="{{ $dist }}">District {{ $dist }}</button>
                         @endforeach
                       </div>
                     </div>
                   </div>
 
                   <div class="em-field">
-                    <label class="em-label">
-                      <i class="fa-solid fa-map"></i> Filter by Barangay
-                    </label>
+                    <label class="em-label"><i class="fa-solid fa-map"></i> Filter by Barangay</label>
 
                     <div class="em-suggest">
                       <div class="em-suggest-input">
                         <i class="fa-solid fa-magnifying-glass"></i>
-                        <input id="emBarangaySearch"
-                               type="text"
-                               placeholder="Search barangay…"
-                               autocomplete="off" />
-                        <button class="em-suggest-clear"
-                                id="emBarangayClear"
-                                type="button"
-                                aria-label="Clear barangay search">
+                        <input id="emBarangaySearch" type="text" placeholder="Search barangay…" autocomplete="off" />
+                        <button class="em-suggest-clear" id="emBarangayClear" type="button" aria-label="Clear barangay search">
                           <i class="fa-solid fa-xmark"></i>
                         </button>
                       </div>
 
                       <div class="em-suggest-box" id="emBarangaySuggest" hidden></div>
 
-                      <button class="em-pill em-pill--soft em-pill--mini mt-2"
-                              type="button"
-                              id="emBarangaySelected"
-                              hidden>
+                      <button class="em-pill em-pill--soft em-pill--mini mt-2" type="button" id="emBarangaySelected" hidden>
                         <i class="fa-solid fa-location-dot"></i>
                         <span id="emBarangaySelectedText"></span>
                         <i class="fa-solid fa-xmark ms-1"></i>
@@ -268,6 +237,7 @@
               </div>
             </div>
           </div>
+
         </div>
 
         {{-- Total --}}
@@ -276,10 +246,7 @@
             <i class="fa-solid fa-layer-group"></i>
             Total:
             <strong id="emTotalCount">
-              {{ $upcomingEvents->count()
-                 + $ongoingEvents->count()
-                 + $completedEvents->count()
-                 + $cancelledEvents->count() }}
+              {{ $upcomingEvents->count() + $ongoingEvents->count() + $completedEvents->count() + $cancelledEvents->count() }}
             </strong>
           </div>
         </div>
@@ -287,72 +254,82 @@
 
       {{-- Tabs --}}
       <nav class="em-tabs" role="tablist" aria-label="Event status tabs">
-        <button class="em-tab" type="button" data-tab="planned" aria-selected="false">
-          <i class="fa-regular fa-calendar-check"></i>
-          Upcoming
-          <span class="em-count" id="emCountPlanned">{{ $upcomingEvents->count() }}</span>
-        </button>
+      <button class="em-tab" type="button" data-tab="planned" aria-selected="false">
+        <i class="fa-regular fa-calendar-check"></i>
+        Upcoming
+        <span class="em-count" id="emCountPlanned">{{ $upcomingEvents->count() }}</span>
+      </button>
 
-        <button class="em-tab" type="button" data-tab="ongoing" aria-selected="false">
-          <i class="fa-solid fa-hourglass-half"></i>
-          Ongoing
-          <span class="em-count" id="emCountOngoing">{{ $ongoingEvents->count() }}</span>
-        </button>
+      <button class="em-tab" type="button" data-tab="ongoing" aria-selected="false">
+        <i class="fa-solid fa-hourglass-half"></i>
+        Ongoing
+        <span class="em-count" id="emCountOngoing">{{ $ongoingEvents->count() }}</span>
+      </button>
 
-        <button class="em-tab" type="button" data-tab="completed" aria-selected="false">
-          <i class="fa-regular fa-circle-check"></i>
-          Completed
-          <span class="em-count" id="emCountCompleted">{{ $completedEvents->count() }}</span>
-        </button>
+      <button class="em-tab" type="button" data-tab="completed" aria-selected="false">
+        <i class="fa-regular fa-circle-check"></i>
+        Completed
+        <span class="em-count" id="emCountCompleted">{{ $completedEvents->count() }}</span>
+      </button>
 
-        <button class="em-tab" type="button" data-tab="cancelled" aria-selected="false">
-          <i class="fa-solid fa-ban"></i>
-          Cancelled
-          <span class="em-count" id="emCountCancelled">{{ $cancelledEvents->count() }}</span>
-        </button>
+      <button class="em-tab" type="button" data-tab="cancelled" aria-selected="false">
+        <i class="fa-solid fa-ban"></i>
+        Cancelled
+        <span class="em-count" id="emCountCancelled">{{ $cancelledEvents->count() }}</span>
+      </button>
 
-        <button class="em-tab em-tab--selectall ms-auto"
-                type="button"
-                id="emSelectAllBtn"
-                aria-label="Select all visible events">
-          <i class="fa-regular fa-square-check"></i>
-          Select All (Tab)
-        </button>
-      </nav>
+      {{-- NEW EVENT pill --}}
+      <a href="{{ route('events.create') }}"
+        class="em-tab em-tab--new"
+        data-tooltip="Create and post a new volunteer event.">
+        <i class="fa-regular fa-calendar-plus"></i>
+        <span>New Event</span>
+      </a>
+
+      <button class="em-tab em-tab--selectall ms-auto" type="button" id="emSelectAllBtn" aria-label="Select all visible events">
+        <i class="fa-regular fa-square-check"></i>
+        Select All (Tab)
+      </button>
+    </nav>
 
       <main class="em-content">
 
         @php
-          function emCard($event, $status) {
+          function emCard($event, $status){
             $start = $event->start_datetime ? \Carbon\Carbon::parse($event->start_datetime) : null;
             $end   = $event->end_datetime ? \Carbon\Carbon::parse($event->end_datetime) : null;
 
-            $dateText = $start ? $start->format('M d, Y') : 'Date TBA';
+            $dateText = 'Date TBA';
+            $timeText = 'Time TBA';
             $dayName  = $start ? $start->format('l') : '';
 
-            $timeText = 'Time TBA';
             if ($start && $end) {
-              $timeText = $start->format('h:i A') . ' - ' . $end->format('h:i A');
+              if ($start->isSameDay($end)) {
+                $dateText = $start->format('M d, Y');
+                $timeText = $start->format('h:i A') . ' - ' . $end->format('h:i A');
+              } else {
+                // Multi-day: show both start/end clearly
+                $dateText = $start->format('M d, Y') . ' – ' . $end->format('M d, Y');
+                $timeText = $start->format('M d, Y h:i A') . ' – ' . $end->format('M d, Y h:i A');
+              }
             } elseif ($start) {
+              $dateText = $start->format('M d, Y');
               $timeText = $start->format('h:i A');
             }
 
             $venue = $event->venue ?: '—';
             $code  = $event->event_code ?: '—';
 
-            $barangay = trim((string) ($event->location?->barangay ?? ''));
+            $barangay = $event->location?->barangay ?? '';
             $districtId = $event->location?->district_id ?? $event->district_id;
             $districtLabel = $districtId ? "District {$districtId}" : '';
 
-            $month = $start ? (int) $start->format('n') : 0;
+            $month = $start ? (int)$start->format('n') : 0;
 
             $startMin = $start ? ((int)$start->format('H') * 60 + (int)$start->format('i')) : -1;
             $endMin   = $end   ? ((int)$end->format('H') * 60 + (int)$end->format('i'))   : -1;
 
             $ts = $start ? $start->timestamp : 0;
-
-            $statusLabel = ucfirst($status);
-            $eventId = $event->event_id ?? $event->id;
 
             $searchHaystack = implode(' | ', array_filter([
               $event->title,
@@ -363,8 +340,10 @@
               $dateText,
               $timeText,
               $dayName,
-              $statusLabel,
             ]));
+
+            $statusLabel = ucfirst($status);
+            $eventId = $event->event_id ?? $event->id;
         @endphp
 
         <article class="em-event em-event-card"
@@ -389,10 +368,10 @@
           <div class="em-event-top">
             <label class="em-select" title="Select for bulk delete">
               <input type="checkbox"
-                     class="em-check"
-                     value="{{ $eventId }}"
-                     data-title="{{ $event->title ?? 'Untitled Event' }}"
-                     aria-label="Select event {{ $event->title ?? 'Untitled Event' }}">
+                    class="em-check"
+                    value="{{ $eventId }}"
+                    data-title="{{ $event->title ?? 'Untitled Event' }}"
+                    aria-label="Select event {{ $event->title ?? 'Untitled Event' }}">
               <span class="em-check-ui" aria-hidden="true"></span>
             </label>
 
@@ -412,9 +391,7 @@
                   <span class="em-day-pill">{{ $dayName }}</span>
                 @endif
               </div>
-              <div class="em-meta-row">
-                <i class="fa-regular fa-clock"></i> {{ $timeText }}
-              </div>
+              <div class="em-meta-row"><i class="fa-regular fa-clock"></i> {{ $timeText }}</div>
               <div class="em-meta-row">
                 <i class="fa-solid fa-location-dot"></i>
                 <span class="em-venue">{{ $venue }}</span>
@@ -423,19 +400,13 @@
                 @endif
               </div>
               @if($barangay)
-                <div class="em-meta-row">
-                  <i class="fa-solid fa-map"></i> {{ $barangay }}
-                </div>
+                <div class="em-meta-row"><i class="fa-solid fa-map"></i> {{ $barangay }}</div>
               @endif
-              <div class="em-meta-row">
-                <i class="fa-solid fa-hashtag"></i>
-                Code: <strong>{{ $code }}</strong>
-              </div>
+              <div class="em-meta-row"><i class="fa-solid fa-hashtag"></i> Code: <strong>{{ $code }}</strong></div>
             </div>
 
             <div class="em-actions">
-              <a class="em-btn em-btn--primary"
-                 href="{{ route('event.details.show', $event->event_id) }}">
+              <a class="em-btn em-btn--primary" href="{{ route('event.details.show', $event->event_id) }}">
                 <i class="fa-regular fa-eye"></i> View
               </a>
 
@@ -465,19 +436,9 @@
 
           <nav class="em-pagination" aria-label="Upcoming pagination">
             <ul class="pagination mb-0 em-pageArrows">
-              <li class="page-item">
-                <button class="page-link" type="button" data-page-prev>
-                  <i class="fa-solid fa-chevron-left"></i>
-                </button>
-              </li>
-              <li class="page-item disabled">
-                <span class="page-link em-pageInfo" data-pageinfo>1 / 1</span>
-              </li>
-              <li class="page-item">
-                <button class="page-link" type="button" data-page-next>
-                  <i class="fa-solid fa-chevron-right"></i>
-                </button>
-              </li>
+              <li class="page-item"><button class="page-link" type="button" data-page-prev><i class="fa-solid fa-chevron-left"></i></button></li>
+              <li class="page-item disabled"><span class="page-link em-pageInfo" data-pageinfo>1 / 1</span></li>
+              <li class="page-item"><button class="page-link" type="button" data-page-next><i class="fa-solid fa-chevron-right"></i></button></li>
             </ul>
           </nav>
         </section>
@@ -497,19 +458,9 @@
 
           <nav class="em-pagination" aria-label="Ongoing pagination">
             <ul class="pagination mb-0 em-pageArrows">
-              <li class="page-item">
-                <button class="page-link" type="button" data-page-prev>
-                  <i class="fa-solid fa-chevron-left"></i>
-                </button>
-              </li>
-              <li class="page-item disabled">
-                <span class="page-link em-pageInfo" data-pageinfo>1 / 1</span>
-              </li>
-              <li class="page-item">
-                <button class="page-link" type="button" data-page-next>
-                  <i class="fa-solid fa-chevron-right"></i>
-                </button>
-              </li>
+              <li class="page-item"><button class="page-link" type="button" data-page-prev><i class="fa-solid fa-chevron-left"></i></button></li>
+              <li class="page-item disabled"><span class="page-link em-pageInfo" data-pageinfo>1 / 1</span></li>
+              <li class="page-item"><button class="page-link" type="button" data-page-next><i class="fa-solid fa-chevron-right"></i></button></li>
             </ul>
           </nav>
         </section>
@@ -529,19 +480,9 @@
 
           <nav class="em-pagination" aria-label="Completed pagination">
             <ul class="pagination mb-0 em-pageArrows">
-              <li class="page-item">
-                <button class="page-link" type="button" data-page-prev>
-                  <i class="fa-solid fa-chevron-left"></i>
-                </button>
-              </li>
-              <li class="page-item disabled">
-                <span class="page-link em-pageInfo" data-pageinfo>1 / 1</span>
-              </li>
-              <li class="page-item">
-                <button class="page-link" type="button" data-page-next>
-                  <i class="fa-solid fa-chevron-right"></i>
-                </button>
-              </li>
+              <li class="page-item"><button class="page-link" type="button" data-page-prev><i class="fa-solid fa-chevron-left"></i></button></li>
+              <li class="page-item disabled"><span class="page-link em-pageInfo" data-pageinfo>1 / 1</span></li>
+              <li class="page-item"><button class="page-link" type="button" data-page-next><i class="fa-solid fa-chevron-right"></i></button></li>
             </ul>
           </nav>
         </section>
@@ -561,23 +502,12 @@
 
           <nav class="em-pagination" aria-label="Cancelled pagination">
             <ul class="pagination mb-0 em-pageArrows">
-              <li class="page-item">
-                <button class="page-link" type="button" data-page-prev>
-                  <i class="fa-solid fa-chevron-left"></i>
-                </button>
-              </li>
-              <li class="page-item disabled">
-                <span class="page-link em-pageInfo" data-pageinfo>1 / 1</span>
-              </li>
-              <li class="page-item">
-                <button class="page-link" type="button" data-page-next>
-                  <i class="fa-solid fa-chevron-right"></i>
-                </button>
-              </li>
+              <li class="page-item"><button class="page-link" type="button" data-page-prev><i class="fa-solid fa-chevron-left"></i></button></li>
+              <li class="page-item disabled"><span class="page-link em-pageInfo" data-pageinfo>1 / 1</span></li>
+              <li class="page-item"><button class="page-link" type="button" data-page-next><i class="fa-solid fa-chevron-right"></i></button></li>
             </ul>
           </nav>
         </section>
-
       </main>
     </div>
   </div>
@@ -589,16 +519,13 @@
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content em-modal">
         <div class="modal-header">
-          <h5 class="modal-title">
-            <i class="fa-regular fa-trash-can me-2"></i> Confirm delete
-          </h5>
+          <h5 class="modal-title"><i class="fa-regular fa-trash-can me-2"></i> Confirm delete</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
 
         <div class="modal-body">
           <div class="em-confirm-lead">
-            You are about to delete
-            <strong><span id="emConfirmCount">0</span></strong> event(s).
+            You are about to delete <strong><span id="emConfirmCount">0</span></strong> event(s).
           </div>
           <div class="text-muted small mt-1">This action cannot be undone.</div>
           <div class="em-confirm-list mt-3" id="emConfirmList"></div>
@@ -607,10 +534,7 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
 
-          <form method="POST"
-                action="{{ route('events.bulkDestroy') }}"
-                id="emBulkDeleteForm"
-                class="m-0">
+          <form method="POST" action="{{ route('events.bulkDestroy') }}" id="emBulkDeleteForm" class="m-0">
             @csrf
             @method('DELETE')
             <div id="emBulkHiddenInputs"></div>
@@ -625,9 +549,7 @@
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content em-modal">
         <div class="modal-header">
-          <h5 class="modal-title">
-            <i class="fa-regular fa-circle-check me-2"></i> Success
-          </h5>
+          <h5 class="modal-title"><i class="fa-regular fa-circle-check me-2"></i> Success</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">{{ session('success') ?? 'Done.' }}</div>
@@ -656,7 +578,133 @@
     </div>
   </div>
 
-  {{-- Server flags --}}
+  {{-- Event Activity Log Modal (EventLogs only) --}}
+  <div class="modal fade" id="emActivityModal" tabindex="-1" aria-labelledby="emActivityLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable em-activity-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="emActivityLabel">
+            <i class="fa-regular fa-clock me-2"></i>Activity Log
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Filters -->
+          <form id="emLogFilterForm" class="row g-3 mb-3">
+            <div class="col-12 col-md-4">
+              <label class="form-label mb-1 small fw-semibold">Start date</label>
+              <input
+                type="date"
+                name="log_start"
+                class="form-control form-control-sm"
+                value="{{ request('log_start') }}">
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label mb-1 small fw-semibold">End date</label>
+              <input
+                type="date"
+                name="log_end"
+                class="form-control form-control-sm"
+                value="{{ request('log_end') }}">
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label mb-1 small fw-semibold">Action</label>
+              <select name="log_action" class="form-select form-select-sm">
+                <option value="">All actions</option>
+                @foreach($eventLogActions as $action)
+                  <option
+                    value="{{ $action }}"
+                    @selected(request('log_action') === $action)
+                  >
+                    {{ $action }}
+                  </option>
+                @endforeach
+              </select>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label mb-1 small fw-semibold">Search</label>
+              <input
+                type="text"
+                name="log_search"
+                class="form-control form-control-sm"
+                placeholder="Search by user, event, barangay, etc…">
+            </div>
+          </form>
+
+          <!-- Table -->
+          <div class="table-responsive">
+            <table class="table table-sm align-middle em-log-table">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 170px;">Date &amp; Time</th>
+                  <th style="width: 120px;">Action</th>
+                  <th style="width: 150px;">User</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                @foreach(($eventLogs ?? []) as $log)
+                  @php
+                    $ts = $log->timestamp ?? $log->created_at ?? null;
+                    $when = $ts ? $ts->format('Y-m-d H:i') : '';
+                    $dateOnly = $ts ? $ts->format('Y-m-d') : '';
+                    $adminName = optional($log->admin)->name ?? optional($log->admin)->username ?? '—';
+                  @endphp
+
+                  <tr
+                    class="em-log-row"
+                    data-action="{{ $log->action }}"     {{-- e.g. "Create", "Edit", "Delete" --}}
+                    data-date="{{ $dateOnly }}"          {{-- yyyy-mm-dd --}}
+                    data-search="{{ Str::lower(
+                      trim(
+                        $when . ' ' .
+                        $log->action . ' ' .
+                        $adminName . ' ' .
+                        ($log->details ?? '')
+                      )
+                    ) }}"
+                  >
+                    <td>{{ $when }}</td>
+                    <td>{{ $log->action }}</td>
+                    <td>{{ $adminName }}</td>
+                    <td>
+                      <div class="small text-muted">
+                        {{ $log->details ?? '—' }}
+                      </div>
+                    </td>
+                  </tr>
+                @endforeach
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button
+            id="emLogResetBtn"
+            type="button"
+            class="btn btn-outline-secondary btn-sm">
+            Reset
+          </button>
+
+          <button
+            type="submit"
+            form="emLogFilterForm"
+            class="btn btn-primary btn-sm">
+            Apply
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+
   <div id="emServerFlags"
       data-has-success="{{ session()->has('success') ? '1' : '0' }}"
       data-success-msg="{{ session('success') ? e(session('success')) : '' }}"
@@ -665,7 +713,7 @@
       hidden>
   </div>
 
-  {{-- "Nothing to copy" --}}
+  {{-- Nothing to copy --}}
   <div class="modal fade" id="emModalNoCopy" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content em-modal">
@@ -677,8 +725,7 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          There are no visible or selected events to copy.
-          Try selecting events or adjusting your filters.
+          There are no visible or selected events to copy. Try selecting events or adjusting your filters.
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
@@ -687,7 +734,7 @@
     </div>
   </div>
 
-  {{-- "Nothing to print" --}}
+  {{-- Nothing to print --}}
   <div class="modal fade" id="emModalNoPrint" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content em-modal">
@@ -699,8 +746,7 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          There are no visible or selected events to print.
-          Try selecting events or adjusting your filters.
+          There are no visible or selected events to print. Try selecting events or adjusting your filters.
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
@@ -709,7 +755,7 @@
     </div>
   </div>
 
-  {{-- "Nothing to delete" --}}
+  {{-- Nothing to delete --}}
   <div class="modal fade" id="emModalNoDelete" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content em-modal">
@@ -721,8 +767,7 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          No events are selected. Please tick at least one checkbox before
-          using bulk delete or select-all actions.
+          No events are selected. Please tick at least one checkbox before using bulk delete or select-all actions.
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
@@ -730,6 +775,18 @@
       </div>
     </div>
   </div>
+
+  @if(request('show_log_modal') === '1')
+  <script>
+  document.addEventListener('DOMContentLoaded', function () {
+      var el = document.getElementById('emActivityModal');
+      if (el && window.bootstrap) {
+          var modal = new bootstrap.Modal(el);
+          modal.show();
+      }
+  });
+  </script>
+  @endif
 
   {{-- Data payloads for JS --}}
   <script>

@@ -21,176 +21,208 @@ class EventDetailsController extends Controller
     private const STATUS_COMPLETED = 'completed';
     private const STATUS_CANCELLED = 'cancelled';
 
-        public function show($eventId)
-        {
-            $event = Event::with([
-                'location',
-                'eventType',
-                'creator',
-                'organizers',
-                'expectedVolunteers.volunteer.course',
-            ])->findOrFail($eventId);
+    public function show($eventId)
+    {
+        $event = Event::with([
+            'location',
+            'eventType',
+            'creator',
+            'organizers',
+            'expectedVolunteers.volunteer.course',
+            'attendances.volunteer.course',
+        ])->findOrFail($eventId);
 
-            $defaultAvatar = asset('storage/defaults/default_user.png');
+        $defaultAvatar = asset('storage/defaults/default_user.png');
 
-            // ============================================================
-            // Expected list (Roster)
-            // ============================================================
-            $attendeesExpectedJs = $event->expectedVolunteers
-                ->filter(fn($ev) => $ev->volunteer)
-                ->map(function ($ev) use ($defaultAvatar) {
-                    $v = $ev->volunteer;
-
-                    $avatar = !empty($v->profile_picture_path)
-                        ? asset('storage/' . ltrim($v->profile_picture_path, '/'))
-                        : (!empty($v->profile_picture_url) ? $v->profile_picture_url : $defaultAvatar);
-
-                    return [
-                        'id'          => $v->volunteer_id,
-                        'name'        => $v->full_name,
-                        'course'      => optional($v->course)->course_name,
-                        'profile_pic' => $avatar,
-                        'profile_url' => route('volunteers.show', $v->volunteer_id),
-                    ];
-                })
-                ->values();
-
-            $expectedCount = $event->expectedVolunteers->count();
-
-            // ============================================================
-            // Status derive
-            // ============================================================
-            $now   = Carbon::now();
-            $start = $event->start_datetime ? Carbon::parse($event->start_datetime) : null;
-            $end   = $event->end_datetime ? Carbon::parse($event->end_datetime) : null;
-
-            $derivedStatus = $this->deriveStatus($event->status, $start, $end, $now);
-
-            // ============================================================
-        // Actual attendance ✅ match in PHP with priority
         // ============================================================
-        $attendeesActualJs = collect();
-        $actualCount = $presentCount = $lateCount = $walkInCount = 0;
+        // ROSTER (Expected Volunteers)
+        // ============================================================
+        $expectedRows = $event->expectedVolunteers ?? collect();
 
-        $attendanceEnabled = in_array($derivedStatus, [self::STATUS_ONGOING, self::STATUS_COMPLETED], true);
+        $attendeesExpectedJs = $expectedRows
+            ->filter(fn($ev) => $ev->volunteer)
+            ->map(function ($ev) use ($defaultAvatar) {
+                $v = $ev->volunteer;
 
-        if (Schema::hasTable('event_attendances')) {
-            try {
-                $rows = DB::table('event_attendances')
-                    ->where('event_id', $event->event_id)
-                    ->get();
-
-                if ($rows->count() > 0) $attendanceEnabled = true;
-
-                $actualCount  = $rows->count();
-                $presentCount = $rows->where('status', 'present')->count();
-                $lateCount    = $rows->where('status', 'late')->count();
-                $walkInCount  = $rows->where('walk_in', 1)->count();
-
-                // Pull identifiers from attendance
-                $volunteerIds = $rows->pluck('volunteer_id')
-                    ->filter(fn($x) => $x !== null && $x !== '')
-                    ->map(fn($x) => trim((string)$x))
-                    ->filter(fn($x) => is_numeric($x))
-                    ->map(fn($x) => (int)$x)
-                    ->unique()
-                    ->values();
-
-                $schoolIds = $rows->pluck('school_id')
-                    ->filter(fn($x) => $x !== null && $x !== '')
-                    ->map(fn($x) => trim((string)$x))
-                    ->unique()
-                    ->values();
-
-                $emails = $rows->pluck('school_email')
-                    ->filter(fn($x) => $x !== null && $x !== '')
-                    ->map(fn($x) => strtolower(trim((string)$x)))
-                    ->unique()
-                    ->values();
-
-                // Fetch profiles into 3 maps
-                $profilesByVolunteerId = collect();
-                $profilesByIdNumber    = collect();
-                $profilesByEmail       = collect();
-
-                if (Schema::hasTable('volunteer_profiles')) {
-                    if ($volunteerIds->count()) {
-                        $profilesByVolunteerId = DB::table('volunteer_profiles')
-                            ->whereIn('volunteer_id', $volunteerIds->all())
-                            ->get()
-                            ->keyBy('volunteer_id');
-                    }
-
-                    if ($schoolIds->count()) {
-                        $profilesByIdNumber = DB::table('volunteer_profiles')
-                            ->whereIn('id_number', $schoolIds->all())
-                            ->get()
-                            ->keyBy(fn($p) => trim((string)$p->id_number));
-                    }
-
-                    if ($emails->count()) {
-                        // IMPORTANT: don't do whereIn(DB::raw('LOWER(email)')) - it can be finicky.
-                        // Instead, fetch candidates by email and key them normalized in PHP.
-                        $rowsByEmail = DB::table('volunteer_profiles')
-                            ->whereIn('email', $emails->all()) // assumes stored emails are same-case; your SQL shows it is.
-                            ->get();
-
-                        $profilesByEmail = $rowsByEmail->keyBy(fn($p) => strtolower(trim((string)$p->email)));
-                    }
+                $avatar = $defaultAvatar;
+                if (!empty($v->profile_picture_path)) {
+                    $avatar = $this->toPublicStorageUrl((string)$v->profile_picture_path) ?? $defaultAvatar;
+                } elseif (!empty($v->profile_picture_url)) {
+                    $avatar = (string)$v->profile_picture_url;
                 }
 
-                $attendeesActualJs = $rows->map(function ($r) use ($defaultAvatar, $profilesByVolunteerId, $profilesByIdNumber, $profilesByEmail) {
-                    $rawVolunteerId = trim((string)($r->volunteer_id ?? ''));
-                    $rawSchoolId    = trim((string)($r->school_id ?? ''));
-                    $rawEmail       = strtolower(trim((string)($r->school_email ?? '')));
+                return [
+                    'id'          => $v->volunteer_id,
+                    'name'        => $v->full_name,
+                    'course'      => optional($v->course)->course_name,
+                    'email'       => $v->school_email ?? $v->email ?? null,
+                    'school_id'   => $v->school_id ?? $v->id_number ?? null,
+                    'profile_pic' => $avatar,
+                    'profile_url' => route('volunteers.show', $v->volunteer_id),
+                ];
+            })
+            ->values();
 
-                    // 1) volunteer_id
-                    $vp = null;
-                    if ($rawVolunteerId !== '' && is_numeric($rawVolunteerId)) {
-                        $vp = $profilesByVolunteerId[(int)$rawVolunteerId] ?? null;
-                    }
-                    // 2) school_id -> id_number
-                    if (!$vp && $rawSchoolId !== '') {
-                        $vp = $profilesByIdNumber[$rawSchoolId] ?? null;
-                    }
-                    // 3) email
-                    if (!$vp && $rawEmail !== '') {
-                        $vp = $profilesByEmail[$rawEmail] ?? null;
-                    }
+        $expectedCount = $expectedRows->count();
 
-                    $vid = null;
-                    if ($vp && !empty($vp->volunteer_id)) $vid = (int)$vp->volunteer_id;
-                    elseif ($rawVolunteerId !== '' && is_numeric($rawVolunteerId)) $vid = (int)$rawVolunteerId;
+        // ============================================================
+        // Status derive
+        // ============================================================
+        $now   = Carbon::now();
+        $start = $event->start_datetime ? Carbon::parse($event->start_datetime) : null;
+        $end   = $event->end_datetime   ? Carbon::parse($event->end_datetime)   : null;
 
-                    $avatar = $defaultAvatar;
-                    if ($vp && !empty($vp->profile_picture_path)) {
-                        $avatar = asset('storage/' . ltrim(str_replace('\\','/', (string)$vp->profile_picture_path), '/'));
-                    } elseif ($vp && !empty($vp->profile_picture_url)) {
-                        $avatar = (string)$vp->profile_picture_url;
-                    }
+        $derivedStatus = $this->deriveStatus($event->status, $start, $end, $now);
+        $event->status = $derivedStatus;
 
-                    return [
-                        'id'          => $vid ?: ('walkin_' . ($r->attendance_id ?? uniqid())),
-                        'name'        => ($vp->full_name ?? null) ?: ($r->full_name ?? '—'),
-                        'course'      => null,
-                        'email'       => $r->school_email ?? null,
-                        'school_id'   => $r->school_id ?? null,
-                        'status'      => $r->status ?? 'present',
-                        'source'      => $r->source ?? null,
-                        'walk_in'     => (bool)($r->walk_in ?? false),
-                        'profile_pic' => $avatar,
-                        'profile_url' => $vid ? route('volunteers.show', $vid) : null,
-                    ];
-                })->values();
-
-            } catch (\Throwable $e) {
-                $attendeesActualJs = collect();
-                $actualCount = $presentCount = $lateCount = $walkInCount = 0;
-            }
+        // ============================================================
+        // ACTUAL ATTENDANCE (EventAttendance, eager-loaded)
+        // ============================================================
+        $attendanceRows = collect();
+        if (Schema::hasTable('event_attendances')) {
+            $attendanceRows = $event->attendances ?? collect();
         }
 
+        $actualCount = $attendanceRows->count();
 
-        $event->status = $derivedStatus;
+        // late is merged into present
+        $attendedRows = $attendanceRows->filter(function ($att) {
+            $s = strtolower((string)($att->status ?? ''));
+            return in_array($s, ['present', 'late', ''], true);
+        });
+
+        $presentCount = $attendedRows->count();
+        $lateCount    = 0; // we no longer expose late separately
+        $walkInCount  = $attendanceRows->where('walk_in', 1)->count();
+
+        $attendeesActualJs = collect();
+
+        // Map of attendance rows by volunteer_id for roster lookups
+        $attendanceByVolunteer = $attendanceRows
+            ->whereNotNull('volunteer_id')
+            ->keyBy('volunteer_id');
+
+        // 1) Everyone on the roster -> Present / Absent
+        foreach ($expectedRows as $ev) {
+            $vol = $ev->volunteer;
+            if (!$vol) {
+                continue;
+            }
+
+            $volunteerId = $vol->volunteer_id;
+
+            $att = $attendanceByVolunteer->get($volunteerId);
+            $status = 'absent';
+            $walkIn = false;
+            $email = $vol->school_email ?? $vol->email ?? null;
+            $schoolId = $vol->school_id ?? $vol->id_number ?? null;
+            $sourceLabel = 'No check-in';
+
+            if ($att) {
+                $statusRaw = strtolower((string)($att->status ?? 'present'));
+
+                // Normalize 'late' -> 'present' for UI
+                if (in_array($statusRaw, ['present', 'late', ''], true)) {
+                    $status = 'present';
+                } else {
+                    $status = $statusRaw;
+                }
+
+                $walkIn = (bool)($att->walk_in ?? false);
+
+                if (!empty($att->school_email)) {
+                    $email = $att->school_email;
+                }
+                if (!empty($att->school_id)) {
+                    $schoolId = $att->school_id;
+                }
+
+                $sourceLabel = $this->formatAttendanceSource($att);
+            }
+
+            $avatar = $defaultAvatar;
+            if (!empty($vol->profile_picture_path)) {
+                $avatar = $this->toPublicStorageUrl((string)$vol->profile_picture_path) ?? $defaultAvatar;
+            } elseif (!empty($vol->profile_picture_url)) {
+                $avatar = (string)$vol->profile_picture_url;
+            }
+
+            $attendeesActualJs->push([
+                'id'          => $volunteerId,
+                'name'        => $vol->full_name,
+                'course'      => optional($vol->course)->course_name,
+                'email'       => $email,
+                'school_id'   => $schoolId,
+                'status'      => $status, // 'present' or 'absent'
+                'walk_in'     => $walkIn,
+                'source'      => $sourceLabel,
+                'profile_pic' => $avatar,
+                'profile_url' => route('volunteers.show', $volunteerId),
+            ]);
+        }
+
+        // 2) Walk-ins: rows not tied to roster (or volunteer_id null)
+        $rosterVolunteerIds = $expectedRows
+            ->pluck('volunteer_id')
+            ->filter()
+            ->map(fn($id) => (int)$id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $walkIns = $attendanceRows
+            ->filter(function ($att) use ($rosterVolunteerIds) {
+                if (!$att->volunteer_id) return true;
+                return !in_array((int)$att->volunteer_id, $rosterVolunteerIds, true);
+            });
+
+        foreach ($walkIns as $att) {
+            $vol = $att->volunteer; // may be null if we couldn't resolve
+
+            $statusRaw = strtolower((string)($att->status ?? 'present'));
+            $status = in_array($statusRaw, ['present', 'late', ''], true) ? 'present' : $statusRaw;
+
+            $volunteerId = $vol?->volunteer_id ?? null;
+
+            $email    = $att->school_email
+                ?? ($vol->school_email ?? $vol->email ?? null);
+            $schoolId = $att->school_id
+                ?? ($vol->school_id ?? $vol->id_number ?? null);
+
+            $avatar = $defaultAvatar;
+            if ($vol) {
+                if (!empty($vol->profile_picture_path)) {
+                    $avatar = $this->toPublicStorageUrl((string)$vol->profile_picture_path) ?? $defaultAvatar;
+                } elseif (!empty($vol->profile_picture_url)) {
+                    $avatar = (string)$vol->profile_picture_url;
+                }
+            }
+
+            $attendeesActualJs->push([
+                'id'          => $volunteerId ?: ('walkin_' . ($att->attendance_id ?? uniqid())),
+                'name'        => $vol?->full_name ?? $att->full_name ?? 'Walk-in',
+                'course'      => optional($vol?->course)->course_name,
+                'email'       => $email,
+                'school_id'   => $schoolId,
+                'status'      => $status,           // 'present' or custom
+                'walk_in'     => true,
+                'source'      => $this->formatAttendanceSource($att),
+                'profile_pic' => $avatar,
+                'profile_url' => $volunteerId ? route('volunteers.show', $volunteerId) : null,
+            ]);
+        }
+
+        $attendeesActualJs = $attendeesActualJs->values();
+
+        $absentCount = $attendeesActualJs->where('status', 'absent')->count();
+
+        // ============================================================
+        // Attendance UI gating
+        // ============================================================
+        $attendanceEnabled = in_array($derivedStatus, [self::STATUS_ONGOING, self::STATUS_COMPLETED], true);
+        if ($actualCount > 0) {
+            $attendanceEnabled = true;
+        }
 
         $attendanceUi = [
             'enabled' => $attendanceEnabled,
@@ -198,6 +230,28 @@ class EventDetailsController extends Controller
                 ? null
                 : 'Attendance is disabled for upcoming events. It becomes available when the event starts (or after an attendance import).',
         ];
+
+        // Simple flag for "has attendance" used by JS gating
+        $hasAttendanceImport = $actualCount > 0;
+
+        // Max volunteers (optional column)
+        $maxVolunteers = Schema::hasColumn('events', 'max_volunteers')
+            ? ($event->max_volunteers ?? null)
+            : null;
+
+        // Default tab: Attendance if we have any actual attendance; otherwise Roster
+        $defaultTab = $actualCount > 0 ? 'actual' : 'expected';
+
+        // Per-event logs for the Event Details page
+        $eventLogs = EventLog::where('event_id', $event->event_id)
+            ->orderBy('timestamp', 'desc')
+            ->get();
+
+        $factLogs = FactLog::where('entity_type', 'Event')
+            ->where('entity_id', $event->event_id)
+            ->orderBy('timestamp', 'desc')
+            ->limit(50)
+            ->get();
 
         return view(self::EVENT_DETAILS_VIEW, compact(
             'event',
@@ -208,37 +262,33 @@ class EventDetailsController extends Controller
             'presentCount',
             'lateCount',
             'walkInCount',
-            'attendanceUi'
+            'absentCount',
+            'attendanceUi',
+            'hasAttendanceImport',
+            'maxVolunteers',
+            'defaultTab',
+            'eventLogs',
+            'factLogs'
         ));
     }
 
-
-
     /**
      * Converts profile_picture_path into a public URL.
-     * Accepts:
-     * - "profile_pictures/volunteers/x.jpg"
-     * - "/profile_pictures/volunteers/x.jpg"
-     * - "C:\xampp\htdocs\...\storage\app\public\profile_pictures\volunteers\x.jpg"
      */
     private function toPublicStorageUrl(string $path): ?string
     {
         $p = trim($path);
         if ($p === '') return null;
 
-        // normalize slashes
         $p = str_replace('\\', '/', $p);
 
-        // If it's already a URL, just return it
         if (preg_match('~^https?://~i', $p)) return $p;
 
-        // If someone stored an absolute Windows path, strip everything up to "/storage/app/public/"
         $needle = '/storage/app/public/';
         if (stripos($p, $needle) !== false) {
             $p = substr($p, stripos($p, $needle) + strlen($needle));
         }
 
-        // Also support stripping from "/public/" if that’s what got stored
         if (stripos($p, '/public/') !== false && stripos($p, $needle) === false) {
             $p = substr($p, stripos($p, '/public/') + strlen('/public/'));
         }
@@ -246,6 +296,26 @@ class EventDetailsController extends Controller
         $p = ltrim($p, '/');
 
         return asset('storage/' . $p);
+    }
+
+    /**
+     * Small helper to render a readable source/when label for attendance pills.
+     */
+    private function formatAttendanceSource($attendance): ?string
+    {
+        try {
+            if (!empty($attendance->attendance_time)) {
+                $dt = $attendance->attendance_time instanceof Carbon
+                    ? $attendance->attendance_time
+                    : Carbon::parse($attendance->attendance_time);
+
+                return $dt->format('M d, Y · h:i A');
+            }
+        } catch (\Throwable $e) {
+            // fall back to raw source
+        }
+
+        return $attendance->source ?? null;
     }
 
     /**
@@ -278,13 +348,21 @@ class EventDetailsController extends Controller
 
             $event->save();
 
-            $this->logEvent($event->event_id, $admin->admin_id, 'Cancel', "Cancelled event. Reason: {$reason}");
-            $this->logFact($admin->admin_id, $event, 'Cancel', [
-                'event_id'   => $event->event_id,
-                'event_code' => $event->event_code ?? null,
-                'title'      => $event->title ?? null,
-                'reason'     => $reason,
-            ]);
+            // Event log keeps the human-readable reason
+            $this->logEvent(
+                $event->event_id,
+                $admin->admin_id,
+                'Cancel',
+                "Cancelled event. Reason: {$reason}"
+            );
+
+            // Fact log just records the action (no reason dump)
+            $this->logFact(
+                $admin->admin_id,
+                $event,
+                'Cancel',
+                'Event cancelled.'
+            );
 
             DB::commit();
 
@@ -330,14 +408,22 @@ class EventDetailsController extends Controller
             $event->save();
 
             $details = $reason !== '' ? "Restored event. Reason: {$reason}" : "Restored event.";
-            $this->logEvent($event->event_id, $admin->admin_id, 'Restore', $details);
 
-            $this->logFact($admin->admin_id, $event, 'Restore', [
-                'event_id'   => $event->event_id,
-                'event_code' => $event->event_code ?? null,
-                'title'      => $event->title ?? null,
-                'reason'     => $reason !== '' ? $reason : null,
-            ]);
+            // Event log with optional reason
+            $this->logEvent(
+                $event->event_id,
+                $admin->admin_id,
+                'Restore',
+                $details
+            );
+
+            // Fact log only records the action
+            $this->logFact(
+                $admin->admin_id,
+                $event,
+                'Restore',
+                'Event restored.'
+            );
 
             DB::commit();
 
@@ -379,7 +465,7 @@ class EventDetailsController extends Controller
 
     private function logFact(?int $adminId, $entity, ?string $action = null, $details = null): FactLog
     {
-        $admin = Auth::guard('admin')->user();
+        $admin   = Auth::guard('admin')->user();
         $adminId = is_numeric($adminId) ? (int)$adminId : ($admin->admin_id ?? null);
 
         $encodedDetails = is_array($details) || is_object($details)

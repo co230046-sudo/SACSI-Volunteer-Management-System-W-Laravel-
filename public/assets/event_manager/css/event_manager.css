@@ -38,9 +38,17 @@ body{
   border:1px solid rgba(17,24,39,.08);
   border-radius:var(--radius);
   box-shadow:var(--shadow);
-  overflow:hidden;
   position:relative;
   min-height: calc(100vh - 80px - 64px);
+  overflow: visible;
+}
+.em-content{
+  padding:18px 20px 22px;
+  background: linear-gradient(180deg, rgba(247,247,248,0), rgba(247,247,248,.9));
+
+  /* keep rounded bottom and clip scrollable content only */
+  border-radius: 0 0 var(--radius) var(--radius);
+  overflow: hidden;
 }
 
 .em-card::before{
@@ -804,4 +812,337 @@ body{
 /* Optional: if any parent has overflow hidden, it will clip the dropdown */
 #emPanel {
   overflow: visible;
+}
+
+ /* MAIN search autosuggest dropdown */
+.em-search--suggest {
+  position: relative;
+}
+
+.em-suggest-box--main {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+
+  /* 👉 anchor to the LEFT of the search, no centering */
+  left: 0;
+  transform: none;
+
+  /* 👉 a bit wider + more of it to the right */
+  width: min(1100px, calc(100vw - 80px));
+
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 22px 55px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+  max-height: 420px;
+  padding: 6px 0;
+}
+
+/* Base box (barangay etc. can still use this) */
+.em-suggest-box {
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
+  overflow: hidden;
+}
+
+/* Each suggestion item */
+.em-suggest-item {
+  display: block;
+  width: 100%;
+  padding: 10px 20px;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.em-suggest-item + .em-suggest-item {
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+/* Event-style suggestion: title + meta line */
+.em-suggest-item--event .em-suggest-main {
+  font-weight: 800;
+  font-size: 1.02rem;
+  color: #1f2933;
+}
+
+.em-suggest-item--event .em-suggest-meta {
+  margin-top: 2px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #6b7280;
+}
+
+/* Hover / focus */
+.em-suggest-item:hover,
+.em-suggest-item:focus-visible {
+  background: #fff5f6;
+  outline: none;
+}
+
+.em-suggest-item:focus-visible {
+  box-shadow: inset 0 0 0 1px rgba(171, 35, 58, 0.35);
+}
+
+/* keep the red gradient on primary buttons and avoid white-ish hover */
+.em-btn--primary {
+  background: linear-gradient(135deg, rgba(178,58,69,.96), rgba(143,42,51,.96));
+  border: 1px solid rgba(143,42,51,.25);
+  color: #fff;
+  box-shadow: 0 14px 24px rgba(178,58,69,.18);
+}
+
+/* override the generic .em-btn:hover so primary never goes pale */
+.em-btn--primary:hover {
+  background: linear-gradient(135deg, rgba(178,58,69,.98), rgba(143,42,51,.98)); /* same or slightly stronger */
+  border-color: rgba(143,42,51,.35);
+  color: #fff !important;
+  box-shadow: 0 18px 30px rgba(178,58,69,.22);
+  filter: none; /* kill the brightness() if you keep it elsewhere */
+}
+
+/* ===== Event Activity Log (modal) ===== */
+.em-log-filters{
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(178,58,69,.04), rgba(143,42,51,.02));
+  border: 1px solid rgba(178,58,69,.16);
+}
+
+.em-log-filters .form-label-sm{
+  font-weight: 900;
+  color: rgba(17,24,39,.72);
+}
+
+.em-log-filters .form-control-sm,
+.em-log-filters .form-select-sm{
+  border-radius: 999px;
+  border-color: rgba(17,24,39,.12);
+  box-shadow: 0 8px 16px rgba(0,0,0,.04);
+  font-weight: 800;
+}
+
+.em-log-filters .form-control-sm:focus,
+.em-log-filters .form-select-sm:focus{
+  border-color: rgba(178,58,69,.50);
+  box-shadow: var(--brand-ring);
+}
+
+.em-log-apply-btn{
+  border-radius: 999px;
+  font-weight: 900;
+  background: linear-gradient(135deg, rgba(178,58,69,.96), rgba(143,42,51,.96));
+  border-color: rgba(143,42,51,.30);
+  color:#fff;
+  box-shadow: 0 10px 20px rgba(178,58,69,.24);
+}
+
+.em-log-apply-btn:hover{
+  filter: brightness(1.05);
+  color:#fff;
+}
+
+.em-log-reset-btn{
+  border-radius: 999px;
+  font-weight: 900;
+  border-color: rgba(17,24,39,.12);
+  background:#fff;
+}
+
+.em-log-reset-btn:hover{
+  background: rgba(178,58,69,.06);
+  border-color: rgba(178,58,69,.18);
+  color: var(--brand-ink);
+}
+
+.em-log-table thead th{
+  background: rgba(178,58,69,.06);
+  border-bottom: 1px solid rgba(178,58,69,.22);
+  color: var(--brand-ink);
+  font-weight: 900;
+}
+
+.em-log-table tbody tr:nth-child(even){
+  background: rgba(248,250,252,.70);
+}
+
+.em-log-table tbody tr:hover{
+  background: rgba(255,245,246,1);
+}
+
+.em-log-table td,
+.em-log-table th{
+  font-size: 0.9rem;
+}
+
+/* ============================
+   Activity Log – filter inputs
+   ============================ */
+
+.em-activity-dialog .form-control,
+.em-activity-dialog .form-select {
+  border-radius: 999px;               /* pill-y */
+  border: 1px solid #e5e7eb;
+  font-size: 0.875rem;
+  padding: 0.45rem 0.9rem;
+  height: 38px;
+  box-shadow: none;
+  outline: none;
+  color: #111827;
+  background-color: #fff;
+}
+
+.em-activity-dialog .form-control::placeholder {
+  color: #9ca3af;
+}
+
+.em-activity-dialog .form-control:focus,
+.em-activity-dialog .form-select:focus {
+  border-color: #7a232b;
+  box-shadow: 0 0 0 1px rgba(122, 35, 43, 0.08);
+}
+
+/* Make the select look like your custom dropdown, not Bootstrap */
+.em-activity-dialog .form-select {
+  padding-right: 2.2rem;              /* space for arrow */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%239ca3af'%3E%3Cpath d='M4.22 5.97a.75.75 0 011.06 0L8 8.69l2.72-2.72a.75.75 0 111.06 1.06L8.53 10.3a1 1 0 01-1.06 0L4.22 7.03a.75.75 0 010-1.06z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+  background-size: 12px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+/* Label style to match EM filters */
+.em-activity-dialog .form-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6b7280;
+}
+
+/* Optional: cleaner header/footer inside modal */
+.em-activity-dialog .modal-header,
+.em-activity-dialog .modal-footer {
+  border: 0;
+}
+
+/* ============================
+   Activity Log – modal height
+   ============================ */
+
+.em-activity-dialog.modal-dialog-scrollable {
+  /* give it a fixed-ish tall height instead of shrinking to content */
+  height: calc(100vh - 4rem);          /* ~full viewport, with margin */
+  max-height: calc(100vh - 4rem);
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+.em-activity-dialog.modal-dialog-scrollable .modal-content {
+  height: 100%;
+  max-height: 100%;
+}
+
+.em-activity-dialog.modal-dialog-scrollable .modal-body {
+  overflow-y: auto;                    /* table scrolls inside modal */
+}
+
+/* ============================
+   Activity Log – footer buttons
+   ============================ */
+
+.em-activity-dialog .modal-footer {
+  border-top: 0;
+  padding: 0.75rem 1.5rem 1.25rem;
+  gap: 0.5rem;
+}
+
+/* base style for both buttons */
+.em-activity-dialog .modal-footer .btn {
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  padding: 0.4rem 1.3rem;
+  box-shadow: none;
+  outline: none;
+}
+
+/* Reset = soft grey pill */
+.em-activity-dialog #emLogResetBtn {
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  color: #374151;
+}
+
+.em-activity-dialog #emLogResetBtn:hover {
+  background-color: #f3f4f6;
+}
+
+/* Apply = brand pill (same as other EM primary buttons) */
+.em-activity-dialog .modal-footer .btn-primary {
+  background-color: #7a232b;
+  border-color: #7a232b;
+  color: #fff;
+}
+
+.em-activity-dialog .modal-footer .btn-primary:hover {
+  background-color: #681d24;
+  border-color: #681d24;
+}
+
+/* remove Bootstrap focus ring, use subtle outline instead */
+.em-activity-dialog .modal-footer .btn:focus-visible {
+  box-shadow: 0 0 0 2px rgba(122, 35, 43, 0.25);
+}
+
+/* ============================
+   New Event pill in tabs row
+   ============================ */
+
+.em-tab--new {
+  margin-left: 0.5rem;
+  text-decoration: none;
+  background-color: #7a232b;          /* same deep red you use for active tab */
+  border-color: #7a232b;
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(122, 35, 43, 0.35);
+}
+
+.em-tab--new i {
+  font-size: 0.95rem;
+}
+
+.em-tab--new span {
+  font-weight: 800;
+}
+
+/* keep hover/active feeling like other primary pills */
+.em-tab--new:hover {
+  text-decoration: none;
+  background-color: #681d24;
+  border-color: #681d24;
+  color: #ffffff;
+}
+
+.em-tab--new:active {
+  transform: translateY(1px);
+  box-shadow: 0 3px 10px rgba(122, 35, 43, 0.4);
+}
+
+/* kill default link focus outline, use soft glow like the rest */
+.em-tab--new:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(122, 35, 43, 0.35);
 }

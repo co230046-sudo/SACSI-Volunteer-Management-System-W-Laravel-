@@ -11,6 +11,7 @@
 #Student-Section {
     opacity: 1;
     padding-top: 20px;
+    margin-top: 20px;
 }
 
 /* DASHBOARD CARDS */
@@ -105,6 +106,20 @@ $totalVolunteers = $totalVolunteers ?? 0;
 <div class="container mt-4">
 
     <h2 class="section-title"><i class="fa fa-chart-line"></i> Dashboard Overview</h2>
+        <div class="d-flex gap-2 mb-3">
+            <button class="btn btn-danger" onclick="printDashboard()">
+                <i class="fa fa-print"></i> Print
+            </button>
+
+            <button class="btn btn-success" onclick="downloadCSV()">
+                <i class="fa fa-file-csv"></i> Export CSV
+            </button>
+
+            <button class="btn btn-primary" onclick="downloadNumbers()">
+                <i class="fa fa-file-excel"></i> Download for Numbers
+            </button>
+        </div>
+
 
     <!-- TOP CARDS -->
     <div class="row g-4">
@@ -386,6 +401,64 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
 });
+/* ===============================
+   ✅ PRINT DASHBOARD
+================================ */
+function printDashboard() {
+    window.print();
+}
+
+/* ===============================
+   ✅ EXPORT TO CSV
+================================ */
+function downloadCSV() {
+    let csv = [];
+    csv.push(["Dashboard Report"]);
+    csv.push(["Generated:", new Date().toLocaleString()]);
+    csv.push([]);
+
+    csv.push(["Metric", "Value"]);
+    csv.push(["Total Volunteers", {{ $totalVolunteers ?? 0 }}]);
+    csv.push(["Upcoming Events", {{ $upcomingEvents ?? 0 }}]);
+    csv.push(["Completed Events", {{ $completedEvents ?? 0 }}]);
+    csv.push(["Cancelled Events", {{ $cancelledEvents ?? 0 }}]);
+    csv.push([]);
+
+    csv.push(["Volunteers Per Year Level"]);
+    csv.push(["Year Level", "Total"]);
+
+    const levelData = @json($volunteersPerLevel ?? []);
+    Object.entries(levelData).forEach(([key, value]) => {
+        csv.push([key, value]);
+    });
+
+    csv.push([]);
+    csv.push(["Events This Month"]);
+    csv.push(["Month", "Total"]);
+
+    const monthData = @json($eventsThisMonth ?? []);
+    Object.entries(monthData).forEach(([key, value]) => {
+        csv.push([key, value]);
+    });
+
+    const csvContent = csv.map(e => e.join(",")).join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "dashboard_report.csv";
+    a.click();
+}
+
+/* ===============================
+   ✅ DOWNLOAD FOR APPLE NUMBERS
+   (Uses CSV which Numbers opens natively)
+================================ */
+function downloadNumbers() {
+    downloadCSV(); // Numbers opens CSV perfectly
+}
 </script>
 
 

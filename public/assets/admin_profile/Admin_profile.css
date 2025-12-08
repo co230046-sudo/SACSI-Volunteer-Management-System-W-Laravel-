@@ -16,8 +16,13 @@ body {
   overflow-x: hidden;
   overflow-y: auto;
   background: #f8f9fa;
-  font-family: Arial, sans-serif;
+
+  font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.2px;
 }
+
+
 
 /* Prevent scroll only when modal is open */
 body.modal-open {
@@ -103,9 +108,10 @@ section {
 
 .volunteer-name {
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 900;   /* ✅ EXTRA BOLD */
   color: #333;
 }
+
 
 .volunteer-title {
   font-size: 1rem;
@@ -269,6 +275,7 @@ section {
   text-align: center !important;
   vertical-align: middle !important;
   padding: 12px 16px;
+  font-weight: 800 !important;   /* ✅ makes Activity Log bold */
 }
 
 /* ✅ Proper column balance */
@@ -404,7 +411,11 @@ section {
   overflow-wrap: break-word;
   line-height: 1.4;
   width: 200px;
+
+  /* ✅ BOLD TEXT */
+  font-weight: 800;
 }
+
 
 /* ==============================
    ICON ANIMATION (SAFE)
@@ -1251,4 +1262,23 @@ section {
 .styled-table td.actions-cell i {
     font-size: 12px !important;
     margin-right: 4px !important;
+
+/* ✅ GLOBAL BOLD UI TEXT */
+/* ✅ GLOBAL BOLD UI TEXT — FINAL APPLY */
+h1, h2, h3, h4, h5, h6,
+.volunteer-name,
+.events-title,
+.admin-name,
+.admin-details-title,
+.modal-title,
+.info-card,
+.system-log-btn,
+.admin-btn,
+.em-btn,
+.em-tab {
+  font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.4px;
 }
+
+  }

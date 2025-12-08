@@ -1,3 +1,6 @@
+/* =========================================================
+   VOLUNTEER LIST: cards, filters, search → profile behaviour
+========================================================= */
 (() => {
   const root = document.getElementById("vlRoot");
   if (!root) return;
@@ -30,6 +33,7 @@
   const ddYear     = root.querySelector('.vl-dd[data-dd="year"]');
   const ddDay      = root.querySelector('.vl-dd[data-dd="day"]');
   const ddBlock    = root.querySelector('.vl-dd[data-dd="block"]');
+  const ddStatus  = root.querySelector('.vl-dd[data-dd="status"]');
 
   // Add-volunteer modal preview
   const photoInput        = document.getElementById("vlPhotoInput");
@@ -68,7 +72,8 @@
     district: "",
     year_level: "",
     day: "",
-    schedule_day: ""
+    schedule_day: "",
+    status: ""
   };
   const pending = { ...applied };
 
@@ -118,7 +123,7 @@
   }
 
   /* =========================================================
-     TIME META (for filter + schedule summarizer)
+     TIME META (for filter dropdown)
   ========================================================= */
   const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
@@ -141,97 +146,105 @@
     "6:30-8:50":  { label:"6:30–8:50 PM",  group:"PM", start:1110, end:1250},
     "7:30-8:50":  { label:"7:30–8:50 PM",  group:"PM", start:1170, end:1250}
   };
-  const TIME_OPTIONS = Object.keys(TIME_META);
 
-  function normalizeTimeRange(str) {
-    if (!str) return "";
-    str = str.replace(/[,;]+/g," ").trim();
-    const p = str.split("-").map(s => s.trim());
-    if (p.length !== 2) return str;
-    const fix = t => /^\d{1,2}$/.test(t) ? t + ":00" : t;
-    const n = `${fix(p[0])}-${fix(p[1])}`;
-    return TIME_META[n] ? n : n;
-  }
-
-  function parseRange(str) {
-    const key = normalizeTimeRange(str);
-    if (!key.includes("-")) return null;
-
-    if (TIME_META[key]) return { start: TIME_META[key].start, end: TIME_META[key].end };
-
-    const [s,e] = key.split("-");
-    const [sh,sm] = s.split(":").map(Number);
-    const [eh,em] = e.split(":").map(Number);
-    if ([sh,sm,eh,em].some(isNaN)) return null;
-
-    return { start: sh*60+sm, end: eh*60+em };
-  }
-
-  function rangesOverlap(a, b) {
-    const ra = parseRange(a);
-    const rb = parseRange(b);
-    return !!(ra && rb && ra.start < rb.end && rb.start < ra.end);
-  }
-
-  function summarizeSchedule(scheduleStr){
-    if (!scheduleStr || !scheduleStr.trim()) return null;
-
-    let hasAM = false;
-    let hasPM = false;
-
-    for (const [range, meta] of Object.entries(TIME_META)) {
-      if (scheduleStr.includes(range)) {
-        if (meta.group === "AM") hasAM = true;
-        else if (meta.group === "PM") hasPM = true;
-      }
+    function formatYearLevel(year) {
+    const map = {
+        1: "1st Year",
+        2: "2nd Year",
+        3: "3rd Year",
+        4: "4th Year",
+    };
+    const key = Number(year);
+    return map[key] || "Year N/A";
     }
 
-    if (!hasAM && !hasPM) return "Schedule set";
-    if (hasAM && hasPM)   return "Classes in AM & PM";
-    if (hasAM)            return "Classes in AM";
-    return "Classes in PM";
-  }
-
+  /* =========================================================
+     CARD RENDERING (new aligned layout)
+  ========================================================= */
   function renderCard(v) {
-    const avatar = resolveAvatar(v);
-    const id     = encodeURIComponent(v.volunteer_id);
-    const scheduleSummary = summarizeSchedule(v.class_schedule || "");
+  const avatar = resolveAvatar(v);
+  const id     = encodeURIComponent(v.volunteer_id);
 
-    const a = document.createElement("a");
-    a.className = "student-card";
-    a.href = `/volunteer-profile/${id}`;
+  const fullName   = v.full_name || "Unnamed Volunteer";
+  const courseName = v.course?.course_name || "";
+  const courseAbbr = v.course?.abbr || "";
+  const courseDisplay = courseAbbr
+    ? `${courseAbbr} — ${courseName}`
+    : (courseName || "No course");
 
-    a.innerHTML = `
-      <img class="avatar" src="${escapeHtml(avatar)}" alt="${escapeHtml(v.full_name)}" />
-      <div class="meta">
-        <div class="name">${escapeHtml(v.full_name)}</div>
+  const yearLevel = formatYearLevel(v.year_level); // your existing helper
+  const barangay  = v.barangay || "No barangay";
+  const districtLabel = v.district ? `District ${v.district}` : "District N/A";
 
-        <div class="badge-grid">
-          <div class="badge"><i class="fa-solid fa-graduation-cap"></i>${escapeHtml(v.course?.course_name || "—")}</div>
-          <div class="badge"><i class="fa-solid fa-layer-group"></i>${v.year_level ? escapeHtml(v.year_level) + " Year" : "—"}</div>
-          <div class="badge"><i class="fa-solid fa-location-dot"></i>${escapeHtml(v.barangay || "—")}</div>
-          <div class="badge"><i class="fa-solid fa-map"></i>District ${escapeHtml(v.district || "—")}</div>
+  const contact   = v.contact_number || "";
+  const contactLabel = contact ? `Contact # ${contact}` : "";
+
+  const isActive     = (v.status || "active") === "active";
+  const statusTitle  = isActive ? "Active volunteer" : "Alumni / Inactive";
+  const statusClass  = isActive ? "status-dot--active" : "status-dot--inactive";
+
+  const a = document.createElement("a");
+  a.className = "student-card";
+  a.href = `/volunteer-profile/${id}`;
+
+  a.innerHTML = `
+    <div class="avatar-wrap" title="${escapeHtml(statusTitle)}">
+      <img class="avatar"
+           src="${escapeHtml(avatar)}"
+           alt="${escapeHtml(fullName)}" />
+      <span class="status-dot ${statusClass}"></span>
+    </div>
+
+    <div class="meta">
+      <div class="vl-row vl-rowName">
+        <div class="vl-name" title="${escapeHtml(fullName)}">
+          ${escapeHtml(fullName)}
         </div>
-
-        ${scheduleSummary ? `
-          <div class="vl-scheduleChip">
-            <i class="fa-solid fa-calendar-week"></i>
-            <span>${escapeHtml(scheduleSummary)}</span>
-          </div>
-        ` : ""}
       </div>
-    `;
 
-    const img = a.querySelector("img.avatar");
-    img?.addEventListener("error", () => { img.src = DEFAULT_AVATAR; }, { once: true });
+      <div class="vl-row vl-rowCourse">
+        <div class="vl-course" title="${escapeHtml(courseDisplay)}">
+          ${escapeHtml(courseDisplay)}
+        </div>
+        <span class="vl-pillSmall" title="${escapeHtml(yearLevel)}">
+          ${escapeHtml(yearLevel)}
+        </span>
+      </div>
 
-    return a;
-  }
+      <div class="vl-row vl-rowLocation">
+        <div class="vl-location" title="${escapeHtml(barangay)}">
+          ${escapeHtml(barangay)}
+        </div>
+        <span class="vl-pillSmall" title="${escapeHtml(districtLabel)}">
+          ${escapeHtml(districtLabel)}
+        </span>
+      </div>
 
+      ${contactLabel ? `
+        <div class="vl-row vl-rowContact">
+            <div class="vl-course vl-contact" title="${escapeHtml(contactLabel)}">
+            ${escapeHtml(contactLabel)}
+            </div>
+        </div>` : ""}
+
+    </div>
+  `;
+
+  const img = a.querySelector("img.avatar");
+  img?.addEventListener("error", () => { img.src = DEFAULT_AVATAR; }, { once: true });
+
+  return a;
+}
+
+
+
+  /* =========================================================
+     FETCH PAGE (for list view)
+  ========================================================= */
   async function fetchPage(paramsOverride = {}) {
     const params = {
       page: paramsOverride.page ?? applied.page ?? 1,
-      per_page: perPage,
+      per_page: paramsOverride.per_page ?? perPage,
 
       search: applied.search ?? "",
       sort:   applied.sort   ?? "",
@@ -241,7 +254,8 @@
       district:     applied.district     ?? "",
       year_level:   applied.year_level   ?? "",
       day:          applied.day          ?? "",
-      schedule_day: applied.schedule_day ?? ""
+      schedule_day: applied.schedule_day ?? "",
+      status:       applied.status       ?? ""
     };
 
     const url = buildUrl(params);
@@ -298,15 +312,76 @@
   }
 
   /* =========================================================
+     SEARCH → BEST-MATCH PROFILE
+     - Enter in search box
+     - Or click on suggestion
+     Calls the same /volunteers/data endpoint with per_page=1
+     and redirects to that volunteer-profile.
+  ========================================================= */
+  async function goToBestMatch(query) {
+    const term = (query || "").trim();
+    if (!term) {
+      applied.search = "";
+      applied.page   = 1;
+      return fetchPage({ page: 1 });
+    }
+
+    const url = buildUrl({
+      search: term,
+      page: 1,
+      per_page: 1,
+      sort: applied.sort || "name_asc"
+    });
+
+    try {
+      const res  = await fetch(url, { headers: { Accept: "application/json" } });
+      const text = await res.text();
+
+      if (!res.ok) {
+        // Fallback: just filter the list
+        applied.search = term;
+        applied.page   = 1;
+        return fetchPage({ page: 1 });
+      }
+
+      let json;
+      try { json = JSON.parse(text); }
+      catch {
+        applied.search = term;
+        applied.page   = 1;
+        return fetchPage({ page: 1 });
+      }
+
+      const first = Array.isArray(json.data) && json.data.length ? json.data[0] : null;
+      if (first && first.volunteer_id != null) {
+        const id = encodeURIComponent(first.volunteer_id);
+        window.location.href = `/volunteer-profile/${id}`;
+        return;
+      }
+
+      // If no direct match, just show filtered list
+      applied.search = term;
+      applied.page   = 1;
+      return fetchPage({ page: 1 });
+
+    } catch (err) {
+      console.error("Best-match search failed:", err);
+      applied.search = term;
+      applied.page   = 1;
+      return fetchPage({ page: 1 });
+    }
+  }
+
+  /* =========================================================
      PORTAL DROPDOWN
   ========================================================= */
-  let portalEl      = null;
-  let portalOwner   = null;
+  let portalEl       = null;
+  let portalOwner    = null;
   let portalAllItems = [];
-  let portalOnPick  = null;
-  let portalHasSearch  = false;
+  let portalOnPick   = null;
+  let portalHasSearch   = false;
   let portalIsTimeBlock = false;
-  let portalTimeMode = "all";
+  let portalTimeMode    = "all";
 
   function ensurePortal(){
     if (portalEl) return portalEl;
@@ -380,12 +455,18 @@
 
   function openPortalMenu(dd, items, onPick, options = {}){
     const portal = ensurePortal();
-    portalOwner   = dd;
-    portalAllItems = Array.isArray(items) ? items : [];
-    portalOnPick  = onPick;
-    portalHasSearch = !!options.search;
+    portalOwner      = dd;
+    portalAllItems   = Array.isArray(items) ? items : [];
+    portalOnPick     = onPick;
+    portalHasSearch  = !!options.search;
     portalIsTimeBlock = !!options.timeBlock;
-    portalTimeMode = "all";
+    portalTimeMode   = "all";
+
+    // NEW: mark this portal as the time-block one
+    portal.classList.toggle("vl-ddPortal--time", portalIsTimeBlock);
+
+    // you already added this – keep it
+    //document.body.classList.add("vl-portalOpen");
 
     const btn = dd.querySelector(".vl-ddBtn");
     if (!btn) return;
@@ -393,32 +474,32 @@
     let headerHtml = "";
 
     if (portalIsTimeBlock) {
-      headerHtml = `
+        headerHtml = `
         <div class="vl-timeFilter">
-          <div class="vl-timeHeading">Filter by Time</div>
-          <div class="vl-timeTabs">
+            <div class="vl-timeHeading">Filter by Time</div>
+            <div class="vl-timeTabs">
             <button type="button" class="vl-timeTab is-active" data-time-mode="all">All</button>
             <button type="button" class="vl-timeTab" data-time-mode="am">AM</button>
             <button type="button" class="vl-timeTab" data-time-mode="pm">PM</button>
-          </div>
-          <div class="vl-ddPortalHeader vl-ddPortalHeader--time">
+            </div>
+            <div class="vl-ddPortalHeader vl-ddPortalHeader--time">
             <i class="fa-solid fa-magnifying-glass"></i>
             <input class="vl-ddPortalSearch" type="text" placeholder="Search time slot..." autocomplete="off" />
-          </div>
+            </div>
         </div>
-      `;
+        `;
     } else if (portalHasSearch) {
-      headerHtml = `
+        headerHtml = `
         <div class="vl-ddPortalHeader">
-          <i class="fa-solid fa-magnifying-glass"></i>
-          <input class="vl-ddPortalSearch" type="text" placeholder="Search..." autocomplete="off" />
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input class="vl-ddPortalSearch" type="text" placeholder="Search..." autocomplete="off" />
         </div>
-      `;
+        `;
     }
 
     portal.innerHTML = `
-      ${headerHtml}
-      <div class="vl-ddPortalBody"></div>
+        ${headerHtml}
+        <div class="vl-ddPortalBody"></div>
     `;
 
     const r = btn.getBoundingClientRect();
@@ -469,6 +550,22 @@
       closePortalMenu();
     };
   }
+
+    function closePortalMenu(){
+    if (!portalEl) return;
+    portalEl.style.display = "none";
+    portalEl.innerHTML = "";
+    portalOwner = null;
+    portalAllItems = [];
+    portalOnPick = null;
+    portalHasSearch = false;
+    portalIsTimeBlock = false;
+    portalTimeMode = "all";
+
+    // NEW: clean up time-block + body-scroll class
+    portalEl.classList.remove("vl-ddPortal--time");
+    //document.body.classList.remove("vl-portalOpen");
+    }
 
   function wireDropdown(dd, items, onPick, options = {}){
     if (!dd) return;
@@ -534,6 +631,12 @@
     }))
   ];
 
+    const statusItems = [
+    { value: "",         label: "All Status" },
+    { value: "active",   label: "Active Only" },
+    { value: "inactive", label: "Inactive / Alumni" }
+  ];
+
   wireDropdown(ddSort, sortItems, (value, label) => {
     pending.sort = value || "name_asc";
     setDropdownValue(ddSort, pending.sort, label || "Sort by Name (A–Z)");
@@ -569,6 +672,11 @@
     setDropdownValue(ddBlock, pending.schedule_day, label || "Any Time");
   }, { search: true, timeBlock: true });
 
+  wireDropdown(ddStatus, statusItems, (value, label) => {
+    pending.status = value || "";
+    setDropdownValue(ddStatus, pending.status, label || "All Status");
+  });
+
   /* ---------------- toolbar / panel ---------------- */
   filterToggle?.addEventListener("click", (e) => {
     e.preventDefault();
@@ -600,7 +708,7 @@
   window.addEventListener("scroll", () => closePortalMenu(), { passive:true });
   window.addEventListener("resize", () => closePortalMenu());
 
-  /* ---------------- autosuggest ---------------- */
+  /* ---------------- autosuggest (uses current page data) ---------------- */
   function buildSuggest(query) {
     if (!suggestEl) return;
     const q = (query || "").trim().toLowerCase();
@@ -612,16 +720,23 @@
 
     const hits = [];
     for (const v of lastItems) {
-      const name   = (v.full_name || "").toLowerCase();
-      const course = (v.course?.course_name || "").toLowerCase();
-      const brgy   = (v.barangay || "").toLowerCase();
-      const dist   = String(v.district || "").toLowerCase();
+        const name   = (v.full_name || "").toLowerCase();
+        const course = (v.course?.course_name || "").toLowerCase();
+        const brgy   = (v.barangay || "").toLowerCase();
+        const dist   = String(v.district || "").toLowerCase();
+        const email  = (v.email || "").toLowerCase();
+        const contact   = (v.contact_number || "").toLowerCase();
+        const emergency = (v.emergency_contact || "").toLowerCase();
 
-      let score = 0;
-      if (name.includes(q))   score += 3;
-      if (course.includes(q)) score += 2;
-      if (brgy.includes(q))   score += 2;
-      if (dist.includes(q))   score += 1;
+        let score = 0;
+        if (name.includes(q))      score += 3;
+        if (course.includes(q))    score += 2;
+        if (brgy.includes(q))      score += 2;
+        if (dist.includes(q))      score += 1;
+        if (email.includes(q))     score += 2;
+        if (contact.includes(q))   score += 2;
+        if (emergency.includes(q)) score += 2;
+        if (status.includes(q))    score += 2;
 
       if (score > 0) hits.push({ v, score });
     }
@@ -636,11 +751,20 @@
     }
 
     suggestEl.innerHTML = top.map(({ v }) => {
-      const meta = [
+      const statusLabel =
+        v.status === "inactive"
+            ? "Status: Inactive / Alumni"
+            : "Status: Active";
+
+        const meta = [
         v.course?.course_name ? v.course.course_name : null,
         v.barangay ? v.barangay : null,
-        v.district ? `District ${v.district}` : null
-      ].filter(Boolean).join(" • ");
+        v.district ? `District ${v.district}` : null,
+        v.email ? v.email : null,
+        v.contact_number ? `Contact # ${v.contact_number}` : null,
+        v.emergency_contact ? `Emergency # ${v.emergency_contact}` : null,
+        statusLabel
+        ].filter(Boolean).join(" • ");
 
       return `
         <div class="vl-suggestItem" data-pick="${escapeHtml(v.full_name)}">
@@ -658,11 +782,12 @@
     buildSuggest(pending.search);
   });
 
-  searchInput?.addEventListener("keydown", (e) => {
+  searchInput?.addEventListener("keydown", async (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      pending.search = searchInput.value || "";
+      const q = searchInput.value || "";
       if (suggestEl) { suggestEl.hidden = true; suggestEl.innerHTML = ""; }
+      await goToBestMatch(q);
     }
     if (e.key === "Escape" && suggestEl) {
       suggestEl.hidden = true;
@@ -671,7 +796,7 @@
   });
 
   suggestEl?.addEventListener("mousedown", (e) => e.preventDefault());
-  suggestEl?.addEventListener("click", (e) => {
+  suggestEl?.addEventListener("click", async (e) => {
     const item = e.target.closest(".vl-suggestItem");
     if (!item) return;
     const pick = item.getAttribute("data-pick") || "";
@@ -679,12 +804,16 @@
     pending.search = pick;
     suggestEl.hidden = true;
     suggestEl.innerHTML = "";
+    await goToBestMatch(pick);
   });
 
   searchClear?.addEventListener("click", () => {
     if (searchInput) searchInput.value = "";
     pending.search = "";
     if (suggestEl) { suggestEl.hidden = true; suggestEl.innerHTML = ""; }
+    applied.search = "";
+    applied.page   = 1;
+    fetchPage({ page: 1 });
   });
 
   /* ---------------- apply / reset ---------------- */
@@ -704,7 +833,8 @@
     pending.year_level   = "";
     pending.day          = "";
     pending.schedule_day = "";
-
+    pending.status      = "";
+    
     Object.assign(applied, pending);
 
     if (searchInput) searchInput.value = "";
@@ -717,7 +847,8 @@
     setDropdownValue(ddYear,     "",         "All Year Levels");
     setDropdownValue(ddDay,      "",         "Any Day");
     setDropdownValue(ddBlock,    "",         "Any Time");
-
+    setDropdownValue(ddStatus, "", "All Status");
+    
     fetchPage({ page: 1 });
   });
 
@@ -819,7 +950,8 @@
   setDropdownValue(ddYear,     "",         "All Year Levels");
   setDropdownValue(ddDay,      "",         "Any Day");
   setDropdownValue(ddBlock,    "",         "Any Time");
-
+  setDropdownValue(ddStatus,   "",         "All Status");
+  
   setPanel(false);
   fetchPage({ page: 1 });
 })();

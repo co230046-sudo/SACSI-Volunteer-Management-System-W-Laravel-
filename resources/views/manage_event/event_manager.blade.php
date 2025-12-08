@@ -33,6 +33,8 @@
       ->sort()
       ->values()
       ->all();
+
+     use Illuminate\Support\Str;
   @endphp
 
   <div class="em-wrap">
@@ -75,6 +77,17 @@
 
             <button class="em-pill em-pill--soft" type="button" id="emPrintBtn">
               <i class="fa-solid fa-print"></i> Print
+            </button>
+
+            {{-- Event Log button --}}
+            <button
+              id="emLogBtn"
+              type="button"
+              class="em-pill em-pill--soft"
+              data-bs-toggle="modal"
+              data-bs-target="#emActivityModal">
+              <i class="fa-regular fa-clock"></i>
+              Event Log
             </button>
 
             <button class="em-pill em-pill--danger" type="button" id="emBulkDeleteBtn">
@@ -241,35 +254,43 @@
 
       {{-- Tabs --}}
       <nav class="em-tabs" role="tablist" aria-label="Event status tabs">
-        <button class="em-tab" type="button" data-tab="planned" aria-selected="false">
-          <i class="fa-regular fa-calendar-check"></i>
-          Upcoming
-          <span class="em-count" id="emCountPlanned">{{ $upcomingEvents->count() }}</span>
-        </button>
+      <button class="em-tab" type="button" data-tab="planned" aria-selected="false">
+        <i class="fa-regular fa-calendar-check"></i>
+        Upcoming
+        <span class="em-count" id="emCountPlanned">{{ $upcomingEvents->count() }}</span>
+      </button>
 
-        <button class="em-tab" type="button" data-tab="ongoing" aria-selected="false">
-          <i class="fa-solid fa-hourglass-half"></i>
-          Ongoing
-          <span class="em-count" id="emCountOngoing">{{ $ongoingEvents->count() }}</span>
-        </button>
+      <button class="em-tab" type="button" data-tab="ongoing" aria-selected="false">
+        <i class="fa-solid fa-hourglass-half"></i>
+        Ongoing
+        <span class="em-count" id="emCountOngoing">{{ $ongoingEvents->count() }}</span>
+      </button>
 
-        <button class="em-tab" type="button" data-tab="completed" aria-selected="false">
-          <i class="fa-regular fa-circle-check"></i>
-          Completed
-          <span class="em-count" id="emCountCompleted">{{ $completedEvents->count() }}</span>
-        </button>
+      <button class="em-tab" type="button" data-tab="completed" aria-selected="false">
+        <i class="fa-regular fa-circle-check"></i>
+        Completed
+        <span class="em-count" id="emCountCompleted">{{ $completedEvents->count() }}</span>
+      </button>
 
-        <button class="em-tab" type="button" data-tab="cancelled" aria-selected="false">
-          <i class="fa-solid fa-ban"></i>
-          Cancelled
-          <span class="em-count" id="emCountCancelled">{{ $cancelledEvents->count() }}</span>
-        </button>
+      <button class="em-tab" type="button" data-tab="cancelled" aria-selected="false">
+        <i class="fa-solid fa-ban"></i>
+        Cancelled
+        <span class="em-count" id="emCountCancelled">{{ $cancelledEvents->count() }}</span>
+      </button>
 
-        <button class="em-tab em-tab--selectall ms-auto" type="button" id="emSelectAllBtn" aria-label="Select all visible events">
-          <i class="fa-regular fa-square-check"></i>
-          Select All (Tab)
-        </button>
-      </nav>
+      {{-- NEW EVENT pill --}}
+      <a href="{{ route('events.create') }}"
+        class="em-tab em-tab--new"
+        data-tooltip="Create and post a new volunteer event.">
+        <i class="fa-regular fa-calendar-plus"></i>
+        <span>New Event</span>
+      </a>
+
+      <button class="em-tab em-tab--selectall ms-auto" type="button" id="emSelectAllBtn" aria-label="Select all visible events">
+        <i class="fa-regular fa-square-check"></i>
+        Select All (Tab)
+      </button>
+    </nav>
 
       <main class="em-content">
 
@@ -278,12 +299,23 @@
             $start = $event->start_datetime ? \Carbon\Carbon::parse($event->start_datetime) : null;
             $end   = $event->end_datetime ? \Carbon\Carbon::parse($event->end_datetime) : null;
 
-            $dateText = $start ? $start->format('M d, Y') : 'Date TBA';
+            $dateText = 'Date TBA';
+            $timeText = 'Time TBA';
             $dayName  = $start ? $start->format('l') : '';
 
-            $timeText = 'Time TBA';
-            if($start && $end) $timeText = $start->format('h:i A') . ' - ' . $end->format('h:i A');
-            elseif($start)     $timeText = $start->format('h:i A');
+            if ($start && $end) {
+              if ($start->isSameDay($end)) {
+                $dateText = $start->format('M d, Y');
+                $timeText = $start->format('h:i A') . ' - ' . $end->format('h:i A');
+              } else {
+                // Multi-day: show both start/end clearly
+                $dateText = $start->format('M d, Y') . ' – ' . $end->format('M d, Y');
+                $timeText = $start->format('M d, Y h:i A') . ' – ' . $end->format('M d, Y h:i A');
+              }
+            } elseif ($start) {
+              $dateText = $start->format('M d, Y');
+              $timeText = $start->format('h:i A');
+            }
 
             $venue = $event->venue ?: '—';
             $code  = $event->event_code ?: '—';
@@ -316,6 +348,7 @@
 
         <article class="em-event em-event-card"
                 data-id="{{ $eventId }}"
+                data-detail-url="{{ route('event.details.show', $event->event_id) }}"
                 data-search="{{ $searchHaystack }}"
                 data-title="{{ $event->title ?? 'Untitled Event' }}"
                 data-date="{{ $dateText }}"
@@ -475,9 +508,7 @@
             </ul>
           </nav>
         </section>
-
       </main>
-
     </div>
   </div>
 
@@ -547,12 +578,215 @@
     </div>
   </div>
 
+  {{-- Event Activity Log Modal (EventLogs only) --}}
+  <div class="modal fade" id="emActivityModal" tabindex="-1" aria-labelledby="emActivityLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable em-activity-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="emActivityLabel">
+            <i class="fa-regular fa-clock me-2"></i>Activity Log
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Filters -->
+          <form id="emLogFilterForm" class="row g-3 mb-3">
+            <div class="col-12 col-md-4">
+              <label class="form-label mb-1 small fw-semibold">Start date</label>
+              <input
+                type="date"
+                name="log_start"
+                class="form-control form-control-sm"
+                value="{{ request('log_start') }}">
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label mb-1 small fw-semibold">End date</label>
+              <input
+                type="date"
+                name="log_end"
+                class="form-control form-control-sm"
+                value="{{ request('log_end') }}">
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label mb-1 small fw-semibold">Action</label>
+              <select name="log_action" class="form-select form-select-sm">
+                <option value="">All actions</option>
+                @foreach($eventLogActions as $action)
+                  <option
+                    value="{{ $action }}"
+                    @selected(request('log_action') === $action)
+                  >
+                    {{ $action }}
+                  </option>
+                @endforeach
+              </select>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label mb-1 small fw-semibold">Search</label>
+              <input
+                type="text"
+                name="log_search"
+                class="form-control form-control-sm"
+                placeholder="Search by user, event, barangay, etc…">
+            </div>
+          </form>
+
+          <!-- Table -->
+          <div class="table-responsive">
+            <table class="table table-sm align-middle em-log-table">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 170px;">Date &amp; Time</th>
+                  <th style="width: 120px;">Action</th>
+                  <th style="width: 150px;">User</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                @foreach(($eventLogs ?? []) as $log)
+                  @php
+                    $ts = $log->timestamp ?? $log->created_at ?? null;
+                    $when = $ts ? $ts->format('Y-m-d H:i') : '';
+                    $dateOnly = $ts ? $ts->format('Y-m-d') : '';
+                    $adminName = optional($log->admin)->name ?? optional($log->admin)->username ?? '—';
+                  @endphp
+
+                  <tr
+                    class="em-log-row"
+                    data-action="{{ $log->action }}"     {{-- e.g. "Create", "Edit", "Delete" --}}
+                    data-date="{{ $dateOnly }}"          {{-- yyyy-mm-dd --}}
+                    data-search="{{ Str::lower(
+                      trim(
+                        $when . ' ' .
+                        $log->action . ' ' .
+                        $adminName . ' ' .
+                        ($log->details ?? '')
+                      )
+                    ) }}"
+                  >
+                    <td>{{ $when }}</td>
+                    <td>{{ $log->action }}</td>
+                    <td>{{ $adminName }}</td>
+                    <td>
+                      <div class="small text-muted">
+                        {{ $log->details ?? '—' }}
+                      </div>
+                    </td>
+                  </tr>
+                @endforeach
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button
+            id="emLogResetBtn"
+            type="button"
+            class="btn btn-outline-secondary btn-sm">
+            Reset
+          </button>
+
+          <button
+            type="submit"
+            form="emLogFilterForm"
+            class="btn btn-primary btn-sm">
+            Apply
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+
   <div id="emServerFlags"
       data-has-success="{{ session()->has('success') ? '1' : '0' }}"
       data-success-msg="{{ session('success') ? e(session('success')) : '' }}"
       data-has-error="{{ session()->has('error') ? '1' : '0' }}"
       data-error-msg="{{ session('error') ? e(session('error')) : '' }}"
-      hidden></div>
+      hidden>
+  </div>
+
+  {{-- Nothing to copy --}}
+  <div class="modal fade" id="emModalNoCopy" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content em-modal">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i>
+            Nothing to copy
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          There are no visible or selected events to copy. Try selecting events or adjusting your filters.
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {{-- Nothing to print --}}
+  <div class="modal fade" id="emModalNoPrint" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content em-modal">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i>
+            Nothing to print
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          There are no visible or selected events to print. Try selecting events or adjusting your filters.
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {{-- Nothing to delete --}}
+  <div class="modal fade" id="emModalNoDelete" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content em-modal">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i>
+            Nothing to delete
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          No events are selected. Please tick at least one checkbox before using bulk delete or select-all actions.
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  @if(request('show_log_modal') === '1')
+  <script>
+  document.addEventListener('DOMContentLoaded', function () {
+      var el = document.getElementById('emActivityModal');
+      if (el && window.bootstrap) {
+          var modal = new bootstrap.Modal(el);
+          modal.show();
+      }
+  });
+  </script>
+  @endif
 
   {{-- Data payloads for JS --}}
   <script>

@@ -18,7 +18,7 @@ use Carbon\Carbon;
 
 class CreateEventController extends Controller
 {
-    // ✅ If file is: resources/views/event_details/event_details.blade.php
+    // If file is: resources/views/event_details/event_details.blade.php
     private const EVENT_DETAILS_VIEW = 'event_details.event_details';
 
     /**
@@ -40,122 +40,14 @@ class CreateEventController extends Controller
         ]);
     }
 
+    /**
+     * We now treat EventDetailsController@show as the single source of truth
+     * for the event details page. This method simply redirects there so we
+     * avoid duplicate logic in two controllers.
+     */
     public function show(Event $event)
     {
-        $event->load([
-            'location',
-            'eventType',
-            'creator',
-            'organizers',
-            'expectedVolunteers.volunteer.course',
-        ]);
-
-        // Expected list (roster)
-        $attendeesExpectedJs = $event->expectedVolunteers
-            ->filter(fn($ev) => $ev->volunteer)
-            ->map(function ($ev) {
-                $v = $ev->volunteer;
-
-                $avatar = $v->profile_picture_path
-                    ? asset('storage/' . ltrim($v->profile_picture_path, '/'))
-                    : asset('storage/defaults/default_user.png');
-
-                return [
-                    'id'          => $v->volunteer_id,
-                    'name'        => $v->full_name,
-                    'course'      => optional($v->course)->course_name,
-                    'profile_pic' => $avatar,
-                    'profile_url' => route('volunteers.show', $v->volunteer_id),
-                ];
-            })
-            ->values();
-
-        $expectedCount = $event->expectedVolunteers->count();
-
-        $now   = Carbon::now();
-        $start = $event->start_datetime ? Carbon::parse($event->start_datetime) : null;
-        $end   = $event->end_datetime   ? Carbon::parse($event->end_datetime)   : null;
-
-        $derivedStatus = $this->deriveStatus($event->status, $start, $end, $now);
-
-        $attendeesActualJs = collect();
-        $actualCount = 0;
-        $presentCount = 0;
-        $lateCount = 0;
-        $walkInCount = 0;
-
-        $attendanceEnabled = in_array($derivedStatus, [self::STATUS_ONGOING, self::STATUS_COMPLETED], true);
-
-        if (Schema::hasTable('event_attendances')) {
-            try {
-                $rows = DB::table('event_attendances')
-                    ->where('event_id', $event->event_id)
-                    ->get();
-
-                if ($rows->count() > 0) $attendanceEnabled = true;
-
-                $actualCount   = $rows->count();
-                $presentCount  = $rows->where('status', 'present')->count();
-                $lateCount     = $rows->where('status', 'late')->count();
-                $walkInCount   = $rows->where('walk_in', 1)->count();
-
-                $volunteerIds = $rows->pluck('volunteer_id')->filter()->unique()->values();
-                $volunteersById = collect();
-
-                if ($volunteerIds->count() > 0 && Schema::hasTable('volunteer_profiles')) {
-                    $volunteersById = DB::table('volunteer_profiles')
-                        ->whereIn('volunteer_id', $volunteerIds)
-                        ->get()
-                        ->keyBy('volunteer_id');
-                }
-
-                $attendeesActualJs = $rows->map(function ($r) use ($volunteersById) {
-                    $v = $r->volunteer_id ? ($volunteersById[$r->volunteer_id] ?? null) : null;
-
-                    $name = $v->full_name ?? $r->full_name ?? '—';
-                    $email = $r->school_email ?? null;
-
-                    $avatar = asset('storage/defaults/default_user.png');
-                    $profileUrl = $v ? route('volunteers.show', $r->volunteer_id) : null;
-
-                    return [
-                        'id'          => $r->volunteer_id ?: ('walkin_' . ($r->attendance_id ?? uniqid())),
-                        'name'        => $name,
-                        'course'      => null,
-                        'email'       => $email,
-                        'school_id'   => $r->school_id ?? null,
-                        'status'      => $r->status ?? 'present',
-                        'source'      => $r->source ?? null,
-                        'walk_in'     => (bool)($r->walk_in ?? false),
-                        'profile_pic' => $avatar,
-                        'profile_url' => $profileUrl,
-                    ];
-                })->values();
-            } catch (\Throwable $e) {
-                $attendeesActualJs = collect();
-            }
-        }
-
-        $event->status = $derivedStatus;
-
-        $attendanceUi = [
-            'enabled' => $attendanceEnabled,
-            'message' => $attendanceEnabled
-                ? null
-                : 'Attendance is disabled for upcoming events. It becomes available when the event starts (or after an attendance import).',
-        ];
-
-        return view(self::EVENT_DETAILS_VIEW, compact(
-            'event',
-            'attendeesExpectedJs',
-            'attendeesActualJs',
-            'expectedCount',
-            'actualCount',
-            'presentCount',
-            'lateCount',
-            'walkInCount',
-            'attendanceUi'
-        ));
+        return redirect()->route('event.details.show', $event->event_id);
     }
 
     /* =========================================================
@@ -381,7 +273,7 @@ class CreateEventController extends Controller
 
             $this->logEvent($event->event_id, $admin->admin_id, 'Edit', "Edited event “{$event->title}” (ID: {$event->event_id}).");
             $this->logFact($admin->admin_id, $event, 'Edit', [
-                'event_id' => $event->event_id,
+                'event_id'       => $event->event_id,
                 'updated_fields' => array_keys($request->all()),
             ]);
 
@@ -416,7 +308,7 @@ class CreateEventController extends Controller
             DB::beginTransaction();
 
             if (Schema::hasColumn('events', 'max_volunteers') && $event->max_volunteers !== null) {
-                $current = EventExpectedVolunteer::where('event_id', $event->event_id)->count();
+                $current   = EventExpectedVolunteer::where('event_id', $event->event_id)->count();
                 $remaining = max(0, (int)$event->max_volunteers - $current);
 
                 if (count($ids) > $remaining) {
@@ -536,7 +428,7 @@ class CreateEventController extends Controller
 
     private function logFact(?int $adminId, $entity, ?string $action = null, $details = null): FactLog
     {
-        $admin = Auth::guard('admin')->user();
+        $admin   = Auth::guard('admin')->user();
         $adminId = is_numeric($adminId) ? (int)$adminId : ($admin->admin_id ?? null);
 
         $encodedDetails = is_array($details) || is_object($details)
@@ -564,8 +456,7 @@ class CreateEventController extends Controller
     }
 
     /**
-     * ✅ NEW: log summary view safely (once per admin/event/day) so it doesn't spam FactLog.
-     * Optional: also logs EventLog (commented toggle).
+     * Log summary view safely (once per admin/event/day) so it doesn't spam FactLog.
      */
     private function logSummaryViewOncePerDay(Event $event, string $chartMode, string $chartHint): void
     {
@@ -595,274 +486,273 @@ class CreateEventController extends Controller
         }
     }
 
-   public function summary(Event $event)
-{
-    $event->load([
-        'location',
-        'eventType',
-        'feedbacks.volunteer',
-    ]);
+    /* =========================================================
+       SUMMARY (late is treated as present)
+    ========================================================= */
+    public function summary(Event $event)
+    {
+        $event->load([
+            'location',
+            'eventType',
+            'feedbacks.volunteer',
+        ]);
 
-    $now   = Carbon::now();
-    $start = $event->start_datetime ? Carbon::parse($event->start_datetime) : null;
-    $end   = $event->end_datetime   ? Carbon::parse($event->end_datetime)   : null;
+        $now   = Carbon::now();
+        $start = $event->start_datetime ? Carbon::parse($event->start_datetime) : null;
+        $end   = $event->end_datetime   ? Carbon::parse($event->end_datetime)   : null;
 
-    $derivedStatus = $this->deriveStatus($event->status, $start, $end, $now);
-    $event->status = $derivedStatus;
+        $derivedStatus = $this->deriveStatus($event->status, $start, $end, $now);
+        $event->status = $derivedStatus;
 
-    // 1) Only completed events can view summary
-    if ($derivedStatus !== self::STATUS_COMPLETED) {
-        return redirect()
-            ->route('event.details.show', $event->event_id)
-            ->with('summary_notice', 'Event Summary is only available once the event is completed.');
-    }
-
-    // 2) Attendance table must exist
-    if (!Schema::hasTable('event_attendances')) {
-        return redirect()
-            ->route('event.details.show', $event->event_id)
-            ->with('summary_notice', 'Event Summary is unavailable because the attendance table is missing.');
-    }
-
-    // 3) Attendance must be imported for THIS event (and code must match if present)
-    $eventCode = strtoupper(trim((string)($event->event_code ?? '')));
-
-    $rowsAll = DB::table('event_attendances')
-        ->where('event_id', $event->event_id)
-        ->get();
-
-    if ($rowsAll->isEmpty()) {
-        return redirect()
-            ->route('event.details.show', $event->event_id)
-            ->with('summary_notice', 'Event Summary is locked until attendance is imported for this event.');
-    }
-
-    $rows = $rowsAll;
-
-    if ($eventCode !== '') {
-        $rows = $rowsAll->filter(function ($r) use ($eventCode) {
-            return strtoupper(trim((string)($r->event_code ?? ''))) === $eventCode;
-        })->values();
-
-        if ($rows->isEmpty()) {
+        // 1) Only completed events can view summary
+        if ($derivedStatus !== self::STATUS_COMPLETED) {
             return redirect()
                 ->route('event.details.show', $event->event_id)
-                ->with('summary_notice', 'Attendance was imported, but it belongs to a different Event Code. Please import the correct attendance for this event.');
+                ->with('summary_notice', 'Event Summary is only available once the event is completed.');
         }
-    }
 
-    // ============================================================
-    // Expected count (Roster)
-    // ============================================================
-    $expectedCount = 0;
-    if (method_exists($event, 'expectedVolunteers')) {
-        $expectedCount = (int) $event->expectedVolunteers()->count();
-    }
+        // 2) Attendance table must exist
+        if (!Schema::hasTable('event_attendances')) {
+            return redirect()
+                ->route('event.details.show', $event->event_id)
+                ->with('summary_notice', 'Event Summary is unavailable because the attendance table is missing.');
+        }
 
-    // ============================================================
-    // Attendance counts
-    // ============================================================
-    $hasAttendanceImport     = true;
-    $attendanceImportedTotal = $rows->count();
+        // 3) Attendance must be imported for THIS event (and code must match if present)
+        $eventCode = strtoupper(trim((string)($event->event_code ?? '')));
 
-    $presentRows = $rows->filter(fn($r) => strtolower((string)($r->status ?? '')) === 'present');
-    $lateRows    = $rows->filter(fn($r) => strtolower((string)($r->status ?? '')) === 'late');
+        $rowsAll = DB::table('event_attendances')
+            ->where('event_id', $event->event_id)
+            ->get();
 
-    $presentCount = $presentRows->count();
-    $lateCount    = $lateRows->count();
-    $walkInCount  = $rows->where('walk_in', 1)->count();
+        if ($rowsAll->isEmpty()) {
+            return redirect()
+                ->route('event.details.show', $event->event_id)
+                ->with('summary_notice', 'Event Summary is locked until attendance is imported for this event.');
+        }
 
-    // attended = present only (keep your rule; change if you want late included)
-    $attendedCount = $presentCount;
+        $rows = $rowsAll;
 
-    // Attendance Rate: attended / expected
-    $attendanceRate = ($expectedCount > 0)
-        ? (int) round(($attendedCount / $expectedCount) * 100)
-        : 0;
+        if ($eventCode !== '') {
+            $rows = $rowsAll->filter(function ($r) use ($eventCode) {
+                return strtoupper(trim((string)($r->event_code ?? ''))) === $eventCode;
+            })->values();
 
-    $maxVolunteers = (!empty($event->max_volunteers) && (int)$event->max_volunteers > 0)
-        ? (int)$event->max_volunteers
-        : null;
+            if ($rows->isEmpty()) {
+                return redirect()
+                    ->route('event.details.show', $event->event_id)
+                    ->with('summary_notice', 'Attendance was imported, but it belongs to a different Event Code. Please import the correct attendance for this event.');
+            }
+        }
 
-    /**
-     * Capacity Used SHOULD be based on attended seats used, not expected.
-     * Example: 1/32 => 3.125% => shows 3% when rounded (correct).
-     */
-    $capacityUsed = (!is_null($maxVolunteers) && $maxVolunteers > 0)
-        ? (int) round(($attendedCount / $maxVolunteers) * 100)
-        : null;
+        // ============================================================
+        // Expected count (Roster)
+        // ============================================================
+        $expectedCount = 0;
+        if (method_exists($event, 'expectedVolunteers')) {
+            $expectedCount = (int) $event->expectedVolunteers()->count();
+        }
 
-    // ============================================================
-    // Chart mode + hint
-    // ============================================================
-    $chartMode = 'actual';
-    $chartHint = 'Based on imported attendance (present)';
+        // ============================================================
+        // Attendance counts (late -> present)
+        // ============================================================
+        $hasAttendanceImport     = true;
+        $attendanceImportedTotal = $rows->count();
 
-    // ============================================================
-    // Volunteer profiles for year-level distribution
-    // ============================================================
-    $volunteerIds = $rows->pluck('volunteer_id')->filter()->unique()->values();
-    $profilesById = collect();
+        $attendedRows = $rows->filter(function ($r) {
+            $s = strtolower((string)($r->status ?? ''));
+            return in_array($s, ['present', 'late', ''], true);
+        });
 
-    if ($volunteerIds->count() > 0 && Schema::hasTable('volunteer_profiles')) {
-        $profilesById = DB::table('volunteer_profiles')
-            ->whereIn('volunteer_id', $volunteerIds)
-            ->get()
-            ->keyBy('volunteer_id');
-    }
+        $presentCount = $attendedRows->count();
+        $lateCount    = 0; // we no longer expose late separately
+        $walkInCount  = $rows->where('walk_in', 1)->count();
 
-    $yearCounts = [];
-    foreach ($presentRows as $r) {
-        $v = $r->volunteer_id ? ($profilesById[$r->volunteer_id] ?? null) : null;
-        $yl = $v ? trim((string)($v->year_level ?? '')) : '';
-        $key = $yl !== '' ? $yl : 'Unknown';
-        $yearCounts[$key] = ($yearCounts[$key] ?? 0) + 1;
-    }
+        $attendedCount = $presentCount;
 
-    $labelFor = function (string $key) {
-        $k = strtolower(trim($key));
-        return match (true) {
-            in_array($k, ['1','1st','1st year'], true) => '1st Year',
-            in_array($k, ['2','2nd','2nd year'], true) => '2nd Year',
-            in_array($k, ['3','3rd','3rd year'], true) => '3rd Year',
-            in_array($k, ['4','4th','4th year'], true) => '4th Year',
-            in_array($k, ['grade 11','g11','11'], true) => 'Grade 11',
-            in_array($k, ['grade 12','g12','12'], true) => 'Grade 12',
-            $k === 'unknown' => 'Unknown',
-            default => $key,
+        // Attendance Rate: attended / expected
+        $attendanceRate = ($expectedCount > 0)
+            ? (int) round(($attendedCount / $expectedCount) * 100)
+            : 0;
+
+        $maxVolunteers = (!empty($event->max_volunteers) && (int)$event->max_volunteers > 0)
+            ? (int)$event->max_volunteers
+            : null;
+
+        // Capacity Used: based on attended seats used.
+        $capacityUsed = (!is_null($maxVolunteers) && $maxVolunteers > 0)
+            ? (int) round(($attendedCount / $maxVolunteers) * 100)
+            : null;
+
+        // ============================================================
+        // Chart mode + hint
+        // ============================================================
+        $chartMode = 'actual';
+        $chartHint = 'Based on imported attendance (present)';
+
+        // ============================================================
+        // Volunteer profiles for year-level distribution
+        // ============================================================
+        $volunteerIds = $rows->pluck('volunteer_id')->filter()->unique()->values();
+        $profilesById = collect();
+
+        if ($volunteerIds->count() > 0 && Schema::hasTable('volunteer_profiles')) {
+            $profilesById = DB::table('volunteer_profiles')
+                ->whereIn('volunteer_id', $volunteerIds)
+                ->get()
+                ->keyBy('volunteer_id');
+        }
+
+        $yearCounts = [];
+        foreach ($attendedRows as $r) {
+            $v = $r->volunteer_id ? ($profilesById[$r->volunteer_id] ?? null) : null;
+            $yl = $v ? trim((string)($v->year_level ?? '')) : '';
+            $key = $yl !== '' ? $yl : 'Unknown';
+            $yearCounts[$key] = ($yearCounts[$key] ?? 0) + 1;
+        }
+
+        $labelFor = function (string $key) {
+            $k = strtolower(trim($key));
+            return match (true) {
+                in_array($k, ['1','1st','1st year'], true) => '1st Year',
+                in_array($k, ['2','2nd','2nd year'], true) => '2nd Year',
+                in_array($k, ['3','3rd','3rd year'], true) => '3rd Year',
+                in_array($k, ['4','4th','4th year'], true) => '4th Year',
+                in_array($k, ['grade 11','g11','11'], true) => 'Grade 11',
+                in_array($k, ['grade 12','g12','12'], true) => 'Grade 12',
+                $k === 'unknown' => 'Unknown',
+                default => $key,
+            };
         };
-    };
 
-    // brand palette (less “hot pink”)
-    $palette = ['#b23a45', '#2563eb', '#16a34a', '#f59e0b', '#7c3aed', '#0ea5e9', '#64748b'];
+        // brand palette
+        $palette = ['#b23a45', '#2563eb', '#16a34a', '#f59e0b', '#7c3aed', '#0ea5e9', '#64748b'];
 
-    arsort($yearCounts);
-    $totalForChart = array_sum($yearCounts);
+        arsort($yearCounts);
+        $totalForChart = array_sum($yearCounts);
 
-    $chartData = [];
-    $i = 0;
-    foreach ($yearCounts as $key => $count) {
-        $pct = $totalForChart > 0 ? round(($count / $totalForChart) * 100, 1) : 0;
-        $chartData[] = [
-            'label'      => $labelFor((string)$key),
-            'count'      => (int)$count,
-            'percentage' => (float)$pct,
-            'color'      => $palette[$i % count($palette)],
-        ];
-        $i++;
-    }
+        $chartData = [];
+        $i = 0;
+        foreach ($yearCounts as $key => $count) {
+            $pct = $totalForChart > 0 ? round(($count / $totalForChart) * 100, 1) : 0;
+            $chartData[] = [
+                'label'      => $labelFor((string)$key),
+                'count'      => (int)$count,
+                'percentage' => (float)$pct,
+                'color'      => $palette[$i % count($palette)],
+            ];
+            $i++;
+        }
 
-    // ============================================================
-    // Feedback parsing + avatar + profile URL + ORDERED Q/A
-    // ============================================================
-    $defaultAvatar = asset('storage/defaults/default_user.png');
+        // ============================================================
+        // Feedback parsing + avatar + profile URL + ORDERED Q/A
+        // ============================================================
+        $defaultAvatar = asset('storage/defaults/default_user.png');
 
-    $questionOrder = [
-        'like'     => 'What did you like about this event?',
-        'improve'  => 'What should we improve on next time?',
-        'issues'   => 'Any issues you encountered during the event?',
-        'comments' => 'Any other comments?',
-    ];
-
-    $extractAnswers = function (string $raw) {
-        $raw = trim($raw);
-
-        // Normalize common label variants into one-per-line
-        $normalized = preg_replace('/\s*(What did you like about this event\?|Like:)\s*/i', "\nLIKE: ", $raw);
-        $normalized = preg_replace('/\s*(What should we improve on next time\?|Improve next time:|Improve:)\s*/i', "\nIMPROVE: ", $normalized);
-        $normalized = preg_replace('/\s*(Any issues you encountered during the event\?|Issues:)\s*/i', "\nISSUES: ", $normalized);
-        $normalized = preg_replace('/\s*(Any other comments\?|Comments:)\s*/i', "\nCOMMENTS: ", $normalized);
-
-        $parts = array_values(array_filter(array_map('trim', preg_split("/\r\n|\n|\r/", $normalized))));
-
-        $out = [
-            'like' => null, 'improve' => null, 'issues' => null, 'comments' => null
+        $questionOrder = [
+            'like'     => 'What did you like about this event?',
+            'improve'  => 'What should we improve on next time?',
+            'issues'   => 'Any issues you encountered during the event?',
+            'comments' => 'Any other comments?',
         ];
 
-        foreach ($parts as $p) {
-            if (preg_match('/^LIKE:\s*(.*)$/i', $p, $m))       $out['like'] = trim($m[1] ?? '');
-            elseif (preg_match('/^IMPROVE:\s*(.*)$/i', $p, $m)) $out['improve'] = trim($m[1] ?? '');
-            elseif (preg_match('/^ISSUES:\s*(.*)$/i', $p, $m))  $out['issues'] = trim($m[1] ?? '');
-            elseif (preg_match('/^COMMENTS:\s*(.*)$/i', $p, $m))$out['comments'] = trim($m[1] ?? '');
-        }
+        $extractAnswers = function (string $raw) {
+            $raw = trim($raw);
 
-        // If nothing matched, treat as general comment
-        $hasAny = collect($out)->contains(fn($v) => is_string($v) && trim($v) !== '');
-        if (!$hasAny && $raw !== '') {
-            $out['comments'] = $raw;
-        }
+            // Normalize common label variants into one-per-line
+            $normalized = preg_replace('/\s*(What did you like about this event\?|Like:)\s*/i', "\nLIKE: ", $raw);
+            $normalized = preg_replace('/\s*(What should we improve on next time\?|Improve next time:|Improve:)\s*/i', "\nIMPROVE: ", $normalized);
+            $normalized = preg_replace('/\s*(Any issues you encountered during the event\?|Issues:)\s*/i', "\nISSUES: ", $normalized);
+            $normalized = preg_replace('/\s*(Any other comments\?|Comments:)\s*/i', "\nCOMMENTS: ", $normalized);
 
-        // Clean empty -> null
-        foreach ($out as $k => $v) {
-            $v = is_string($v) ? trim($v) : $v;
-            $out[$k] = ($v === '' ? null : $v);
-        }
+            $parts = array_values(array_filter(array_map('trim', preg_split("/\r\n|\n|\r/", $normalized))));
 
-        return $out;
-    };
+            $out = [
+                'like' => null, 'improve' => null, 'issues' => null, 'comments' => null
+            ];
 
-    $feedbacks = $event->feedbacks
-        ->filter(fn($fb) => is_string($fb->feedback_text) && trim($fb->feedback_text) !== '')
-        ->map(function ($fb) use ($defaultAvatar, $questionOrder, $extractAnswers) {
-            $v = $fb->volunteer;
-
-            // avatar resolve
-            $avatar = $defaultAvatar;
-            if ($v) {
-                if (!empty($v->profile_picture_path)) {
-                    $avatar = asset('storage/' . ltrim(str_replace('\\', '/', (string)$v->profile_picture_path), '/'));
-                } elseif (!empty($v->profile_picture_url)) {
-                    $avatar = (string)$v->profile_picture_url;
-                }
+            foreach ($parts as $p) {
+                if (preg_match('/^LIKE:\s*(.*)$/i', $p, $m))       $out['like'] = trim($m[1] ?? '');
+                elseif (preg_match('/^IMPROVE:\s*(.*)$/i', $p, $m)) $out['improve'] = trim($m[1] ?? '');
+                elseif (preg_match('/^ISSUES:\s*(.*)$/i', $p, $m))  $out['issues'] = trim($m[1] ?? '');
+                elseif (preg_match('/^COMMENTS:\s*(.*)$/i', $p, $m))$out['comments'] = trim($m[1] ?? '');
             }
 
-            // profile link
-            $profileUrl = $v ? route('volunteers.show', $v->volunteer_id) : null;
+            // If nothing matched, treat as general comment
+            $hasAny = collect($out)->contains(fn($v) => is_string($v) && trim($v) !== '');
+            if (!$hasAny && $raw !== '') {
+                $out['comments'] = $raw;
+            }
 
-            // extract ordered answers
-            $answers = $extractAnswers((string)$fb->feedback_text);
+            // Clean empty -> null
+            foreach ($out as $k => $v) {
+                $v = is_string($v) ? trim($v) : $v;
+                $out[$k] = ($v === '' ? null : $v);
+            }
 
-            $qa = collect($questionOrder)->map(function ($qText, $key) use ($answers) {
-                $a = $answers[$key] ?? null;
-                return [
-                    'q' => $qText,
-                    'a' => ($a !== null && trim((string)$a) !== '') ? $a : 'None.',
+            return $out;
+        };
+
+        $feedbacks = $event->feedbacks
+            ->filter(fn($fb) => is_string($fb->feedback_text) && trim($fb->feedback_text) !== '')
+            ->map(function ($fb) use ($defaultAvatar, $questionOrder, $extractAnswers) {
+                $v = $fb->volunteer;
+
+                // avatar resolve
+                $avatar = $defaultAvatar;
+                if ($v) {
+                    if (!empty($v->profile_picture_path)) {
+                        $avatar = asset('storage/' . ltrim(str_replace('\\', '/', (string)$v->profile_picture_path), '/'));
+                    } elseif (!empty($v->profile_picture_url)) {
+                        $avatar = (string)$v->profile_picture_url;
+                    }
+                }
+
+                // profile link
+                $profileUrl = $v ? route('volunteers.show', $v->volunteer_id) : null;
+
+                // extract ordered answers
+                $answers = $extractAnswers((string)$fb->feedback_text);
+
+                $qa = collect($questionOrder)->map(function ($qText, $key) use ($answers) {
+                    $a = $answers[$key] ?? null;
+                    return [
+                        'q' => $qText,
+                        'a' => ($a !== null && trim((string)$a) !== '') ? $a : 'None.',
+                    ];
+                })->values()->all();
+
+                return (object)[
+                    'id'            => $fb->id ?? null,
+                    'rating'        => $fb->rating ?? null,
+                    'submitted_at'  => $fb->submitted_at ?? null,
+                    'created_at'    => $fb->created_at ?? null,
+                    'volunteer_name'=> $v?->full_name ?? 'Unknown Volunteer',
+                    'avatar'        => $avatar,
+                    'profile_url'   => $profileUrl,
+                    'qa'            => $qa,
                 ];
-            })->values()->all();
+            })
+            ->values();
 
-            return (object)[
-                'id'            => $fb->id ?? null,
-                'rating'        => $fb->rating ?? null,
-                'submitted_at'  => $fb->submitted_at ?? null,
-                'created_at'    => $fb->created_at ?? null,
-                'volunteer_name'=> $v?->full_name ?? 'Unknown Volunteer',
-                'avatar'        => $avatar,
-                'profile_url'   => $profileUrl,
-                'qa'            => $qa,
-            ];
-        })
-        ->values();
+        $this->logSummaryViewOncePerDay($event, $chartMode, $chartHint);
 
-    $this->logSummaryViewOncePerDay($event, $chartMode, $chartHint);
-
-    return view('event_summary.event_summary', compact(
-        'event',
-        'expectedCount',
-        'attendedCount',
-        'attendanceRate',
-        'maxVolunteers',
-        'capacityUsed',
-        'chartData',
-        'feedbacks',
-        'chartMode',
-        'chartHint',
-        'hasAttendanceImport',
-        'attendanceImportedTotal',
-        'presentCount',
-        'lateCount',
-        'walkInCount'
-    ));
-}
-
-
+        return view('event_summary.event_summary', compact(
+            'event',
+            'expectedCount',
+            'attendedCount',
+            'attendanceRate',
+            'maxVolunteers',
+            'capacityUsed',
+            'chartData',
+            'feedbacks',
+            'chartMode',
+            'chartHint',
+            'hasAttendanceImport',
+            'attendanceImportedTotal',
+            'presentCount',
+            'lateCount',
+            'walkInCount'
+        ));
+    }
 }

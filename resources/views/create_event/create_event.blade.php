@@ -162,6 +162,7 @@
 <body>
 @include('layouts.page_loader')
 @include('layouts.navbar')
+@include('layouts.back_button')
 
 <div class="Wrapper">
   <section class="edit-section" role="region" aria-label="Create/Edit Event">

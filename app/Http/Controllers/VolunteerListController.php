@@ -259,6 +259,7 @@ class VolunteerListController extends Controller
         $yearLevel     = $request->query('year_level');
         $selectedDay   = $request->query('day');
         $selectedBlock = $request->query('schedule_day');
+        $status       = $request->query('status');
 
         $parsedRange = null;
         if ($selectedBlock) {
@@ -275,29 +276,48 @@ class VolunteerListController extends Controller
             'barangay',
             'district',
             'profile_picture_url',
-            'profile_picture_path'
+            'profile_picture_path',
+            'email',
+            'contact_number',
+            'emergency_contact',
+            'status',              
         );
 
-        $scheduleMode = ($selectedDay || $selectedBlock) ? true : false;
+        $scheduleMode = ($selectedDay || $selectedBlock) ? true : false; // (can remove if you want)
 
-        // Search (disabled when schedule-based search)
-        if (!$scheduleMode && $search !== '') {
-            $query->where(function($q) use ($search) {
-                $like = "%{$search}%";
-                $q->whereRaw("LOWER(full_name) LIKE ?", [$like])
-                  ->orWhereRaw("LOWER(barangay) LIKE ?", [$like]);
+        // Search (ALWAYS allowed, even when day/time filters are used)
+        if ($search !== '') {
+            $query->where(function($q) use ($search, $searchRaw) {
+            $like = "%{$search}%";
 
-                if (in_array($search, ['1','district 1','d1'], true)) {
-                    $q->orWhere('district', 1);
-                }
-                if (in_array($search, ['2','district 2','d2'], true)) {
-                    $q->orWhere('district', 2);
-                }
+            // name / barangay
+            $q->whereRaw("LOWER(full_name) LIKE ?", [$like])
+            ->orWhereRaw("LOWER(barangay) LIKE ?", [$like])
 
-                $q->orWhereHas('course', function($qc) use ($like) {
-                    $qc->whereRaw("LOWER(course_name) LIKE ?", [$like]);
-                });
+            // email
+            ->orWhereRaw("LOWER(email) LIKE ?", [$like])
+
+            // phone numbers (use raw input, not lowercased)
+            ->orWhere('contact_number', 'LIKE', "%{$searchRaw}%")
+            ->orWhere('emergency_contact', 'LIKE', "%{$searchRaw}%");
+
+            if (in_array($search, ['1','district 1','d1'], true)) {
+                $q->orWhere('district', 1);
+            }
+            if (in_array($search, ['2','district 2','d2'], true)) {
+                $q->orWhere('district', 2);
+            }
+
+            $q->orWhereHas('course', function($qc) use ($like) {
+                $qc->whereRaw("LOWER(course_name) LIKE ?", [$like]);
             });
+
+            $statusSearch = strtolower($search);
+            if (in_array($statusSearch, ['active','inactive'], true)) {
+                $q->orWhere('status', $statusSearch);
+            }
+        });
+
         }
 
         // Filters
@@ -312,6 +332,9 @@ class VolunteerListController extends Controller
         }
         if ($yearLevel && $yearLevel !== 'remove') {
             $query->where('year_level', $yearLevel);
+        }
+        if ($status && $status !== 'remove') {
+            $query->where('status', $status);
         }
 
         // Sort
@@ -340,17 +363,50 @@ class VolunteerListController extends Controller
         $items = $query->get();
 
         // Schedule availability filtering (in-memory)
-        if ($selectedDay && $parsedRange) {
+        // - day only   => volunteers with NO class blocks that day (free all day)
+        // - time only  => volunteers that NEVER have a class overlapping that time
+        // - day+time   => volunteers free at that time on that specific day
+        if ($selectedDay || $parsedRange) {
             $items = $items->filter(function ($v) use ($selectedDay, $parsedRange) {
-                $blocks = $this->extractScheduleByDay($v->class_schedule);
-                foreach ($blocks[$selectedDay] ?? [] as $block) {
-                    if ($this->overlaps($parsedRange, $block)) {
-                        return false;
-                    }
+                $blocksByDay = $this->extractScheduleByDay($v->class_schedule);
+
+                // 1) DAY ONLY: free all day = no class ranges for that day
+                if ($selectedDay && !$parsedRange) {
+                    $ranges = $blocksByDay[$selectedDay] ?? [];
+                    return count($ranges) === 0;
                 }
+
+                // 2) TIME ONLY: volunteer never has class overlapping that time on any day
+                if (!$selectedDay && $parsedRange) {
+                    foreach ($blocksByDay as $ranges) {
+                        foreach ($ranges as $block) {
+                            if ($this->overlaps($parsedRange, $block)) {
+                                // has at least one overlapping class somewhere in the week → NOT available
+                                return false;
+                            }
+                        }
+                    }
+                    // no overlap on any day → always free at that time
+                    return true;
+                }
+
+                // 3) DAY + TIME: free at that time ON that specific day
+                if ($selectedDay && $parsedRange) {
+                    $ranges = $blocksByDay[$selectedDay] ?? [];
+                    foreach ($ranges as $block) {
+                        if ($this->overlaps($parsedRange, $block)) {
+                            // has class overlapping → NOT available
+                            return false;
+                        }
+                    }
+                    // no overlapping block → available at that day+time
+                    return true;
+                }
+
                 return true;
             })->values();
         }
+
 
         $total       = $items->count();
         $currentPage = max(1, (int)$request->query('page', 1));
@@ -375,17 +431,22 @@ class VolunteerListController extends Controller
                 }
 
                 return [
-                    'volunteer_id'   => $item->volunteer_id,
-                    'full_name'      => $item->full_name,
-                    'year_level'     => $item->year_level,
-                    'class_schedule' => $item->class_schedule,
-                    'avatar_url'     => $avatar,
-                    'course'         => $item->course ? [
+                    'volunteer_id'       => $item->volunteer_id,
+                    'full_name'          => $item->full_name,
+                    'year_level'         => $item->year_level,
+                    'class_schedule'     => $item->class_schedule,
+                    'avatar_url'         => $avatar,
+                    'course'             => $item->course ? [
                         'course_id'   => $item->course->course_id,
                         'course_name' => $item->course->course_name,
+                        'abbr'        => $item->course->abbr ?? null,
                     ] : null,
-                    'barangay' => $item->barangay,
-                    'district' => $item->district,
+                    'barangay'           => $item->barangay,
+                    'district'           => $item->district,
+                    'email'              => $item->email,
+                    'contact_number'     => $item->contact_number,
+                    'emergency_contact'  => $item->emergency_contact,
+                    'status'             => $item->status,
                 ];
             }),
             'total'         => $total,

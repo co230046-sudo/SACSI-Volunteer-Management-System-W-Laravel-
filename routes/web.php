@@ -168,6 +168,13 @@ Route::middleware(['auth:admin'])->group(function () {
         Route::delete('/{eventId}', [EventDetailsController::class, 'destroy'])
             ->name('events.destroy');
 
+        Route::put('/{event:event_id}/organizers', [EventDetailsController::class, 'updateOrganizer'])
+            ->name('events.organizers.update');
+
+            Route::delete('/{event:event_id}/organizers', [EventDetailsController::class, 'destroyOrganizer'])
+            ->name('events.organizers.destroy');
+
+
         /* ------------------ IMPORT ATTENDANCE ------------------ */
         Route::get('/{event:event_id}/attendance/import', [AttendanceImportController::class, 'index'])
             ->name('attendance.import.index');

@@ -46,10 +46,9 @@ main.container{
 
 .row.g-4{ --bs-gutter-x: 1.4rem !important; }
 
-.col-lg-7{ flex: 0 0 58% !important; }
-.col-lg-5{ flex: 0 0 42% !important; }
-@media (max-width: 992px){
-  .col-lg-7, .col-lg-5{ flex: 0 0 100% !important; }
+@media (min-width: 992px){
+  .event-details-main .col-lg-7 { width: 58% !important; }
+  .event-details-main .col-lg-5 { width: 42% !important; }
 }
 
 /* =========================================================
@@ -322,7 +321,7 @@ main.container{
 ========================================================= */
 .ra-card{
   padding: 16px 16px 14px;
-  height: 930px;
+  height: 730px;
   display:flex;
   flex-direction:column;
   border-radius: 18px;
@@ -1510,7 +1509,7 @@ main.container{
 /* Make card container not clip the popover */
 .ra-card{
   padding: 16px 16px 14px;
-  height: 930px;
+  height: 740px;
   display:flex;
   flex-direction:column;
   border-radius: 18px;
@@ -1728,11 +1727,6 @@ main.container{
 
 /* --- Attendance Details popover FIX --- */
 
-/* Card container should not clip the overlay */
-.ra-card {
-  overflow: visible !important;
-}
-
 /* Each card is a stacking context */
 .student-card {
   position: relative;
@@ -1753,11 +1747,6 @@ main.container{
 
 .student-card--actual.show-details .btn-details i {
   transform: rotate(180deg);
-}
-
-/* Card container must not clip the popover */
-.ra-card {
-  overflow: visible !important;
 }
 
 /* Each card is its own stacking context */
@@ -1964,3 +1953,319 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 
+/* ------------- Filter & Sort button ------------- */
+.btn-filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid #b23a45;
+    background: #b23a45;
+    color: #fff;
+    box-shadow: 0 4px 10px rgba(178, 58, 69, 0.2);
+}
+
+.btn-filter-pill i {
+    font-size: 0.85rem;
+}
+
+.btn-filter-pill.is-open {
+    background: #fff;
+    color: #b23a45;
+}
+
+/* ------------- Panel like photo 1 ------------- */
+.ra-filters-panel {
+  display: none;                 /* hidden by default */
+  margin-top: 10px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid #f2d7d8;
+  background: #ffffff;           /* same white as card */
+  margin-top: 10px; 
+  display:none;
+}
+
+
+.ra-filters-panel.is-open {
+    display: block;
+}
+
+.ra-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.ra-filter-card {
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: #ffffff;
+    border: 1px solid #f1e4e4;
+}
+
+.ra-filter-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #b23a45;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.dd.dd-block {
+    width: 100%;
+}
+
+.dd.dd-block .dd-trigger {
+    width: 100%;
+    justify-content: space-between;
+}
+
+#dd-sort .dd-menu.dd-menu--wide {
+    min-width: 220px;
+}
+
+/* Responsive: stack cards on narrow screens (mobile) */
+@media (max-width: 992px) {
+    .ra-filter-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ===== Filter & Sort overlay (matches screenshot) ===== */
+.ra-filter-anchor{
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.ra-filters-overlay{
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(640px, calc(100vw - 40px));
+  background: #fff;
+  border-radius: 20px;
+  border: 1px solid rgba(178,58,69,.22);
+  box-shadow: var(--shadow-strong);
+  padding: 14px 14px 12px;
+  z-index: 2000;
+
+  display: none;          /* hidden until open */
+}
+
+/* OPEN state */
+.ra-filters-overlay.is-open{ display:block; }
+
+/* Remove the "parent outline" look: no extra frame around the whole panel */
+.ra-filters-overlay::before{ display:none !important; }
+
+/* Grid like screenshot */
+.ra-filters-overlay .ra-filter-grid{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* cards inside overlay */
+.ra-filters-overlay .ra-filter-card{
+  background: #fff;
+  border: 1px solid rgba(17,24,39,.08);
+  border-radius: 16px;
+  padding: 12px 12px;
+}
+
+/* Footer buttons aligned */
+.ra-filter-actions{
+  display:flex;
+  justify-content:center;
+  gap: 12px;
+  padding-top: 12px;
+}
+
+/* Make button match screenshot (dark when closed, light when open) */
+.btn-filter-pill{
+  border: 1px solid rgba(178,58,69,.40);
+  background: linear-gradient(135deg, rgba(178,58,69,.95), rgba(143,42,51,.95));
+  color:#fff;
+}
+
+.btn-filter-pill.is-open{
+  background: #fff;
+  color: var(--brand-ink);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.08);
+}
+
+/* Arrow flip */
+.btn-filter-pill.is-open .filter-arrow{ transform: rotate(180deg); }
+.filter-arrow{ transition: transform .16s ease; }
+
+/* Responsive: stack filter cards */
+@media (max-width: 700px){
+  .ra-filters-overlay .ra-filter-grid{ grid-template-columns: 1fr; }
+}
+
+.organizers-grid{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.organizer-card--grid{
+  padding: 12px 14px !important;
+  border-radius: 16px;
+}
+
+.organizer-actions{
+  display:flex;
+  gap: 6px;
+  align-items:center;
+}
+
+@media (max-width: 768px){
+  .organizers-grid{ grid-template-columns: 1fr; }
+}
+
+@media (min-width: 992px) {
+  .event-details-main > .row {
+    align-items: flex-start;
+  }
+  .event-details-main > .row > [class*="col-"] {
+    min-width: 0; /* prevents flex overflow from forcing wrap */
+  }
+}
+
+/* =========================================================
+   BULLETPROOF LAYOUT FIX (use CSS Grid, not Bootstrap flex)
+   Only affects the Event Details main row
+========================================================= */
+@media (min-width: 992px){
+  main.container.event-details-main > .row.g-4{
+    display: grid !important;
+    grid-template-columns: minmax(0, 58%) minmax(0, 42%) !important;
+    gap: 1.4rem !important; /* keep your gutter feel */
+    align-items: start !important;
+  }
+
+  /* Make sure the Bootstrap columns don't fight the grid */
+  main.container.event-details-main > .row.g-4 > .col-lg-7,
+  main.container.event-details-main > .row.g-4 > .col-lg-5{
+    width: auto !important;
+    max-width: none !important;
+    flex: none !important;
+  }
+}
+
+/* Normal stacking on small screens */
+@media (max-width: 991.98px){
+  main.container.event-details-main > .row.g-4{
+    display: block !important;
+  }
+}
+
+/* ================================
+   PHOTO 1: ACTION BUTTON POSITION
+================================ */
+.event-top-header{
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px; /* left content + right buttons */
+  column-gap: 22px;
+  align-items: start;
+}
+
+.event-actions{
+  justify-self: end;
+  align-self: start;
+  margin-top: 6px;        /* tiny push down like Photo 1 */
+  min-width: 260px;
+}
+
+.btn-action{
+  min-width: 260px;       /* match the column width */
+}
+
+/* On tablets/phones: stack like you already want */
+@media (max-width: 991.98px){
+  .event-top-header{
+    grid-template-columns: 1fr;
+    row-gap: 12px;
+  }
+  .event-actions{
+    justify-self: start;
+    min-width: 0;
+    width: 100%;
+  }
+  .btn-action{
+    min-width: 0;
+    width: auto;
+  }
+}
+/* ================================
+   SHORTEN LEFT EVENT CARD ~30–40px
+================================ */
+.event-top{
+  padding: 18px 22px 16px !important;   /* was 24px 26px 20px */
+}
+
+.badges{
+  margin-top: 6px !important;           /* was 10px */
+}
+
+.details-section{
+  margin-top: 6px !important;           /* was 10px */
+}
+
+.details-divider{
+  margin: 0.7rem 0 1.0rem !important;   /* was larger later */
+}
+
+/* =========================================================
+   FINAL TWEAKS: tighter column gap + action buttons inset
+   (paste at VERY BOTTOM so it overrides everything)
+========================================================= */
+
+/* 1) Reduce space between LEFT and RIGHT main cards */
+@media (min-width: 992px){
+  main.container.event-details-main{
+    padding-left: 16px !important;
+    padding-right: 16px !important; /* slightly tighter container padding */
+  }
+
+  /* this is the REAL gap you see (your grid 'gap: 1.4rem') */
+  main.container.event-details-main > .row.g-4{
+    gap: 0.75rem !important; /* try 0.6rem if you want even closer */
+  }
+
+  /* kill Bootstrap gutter spacing effects just in case */
+  main.container.event-details-main > .row.g-4{
+    --bs-gutter-x: 0 !important;
+    --bs-gutter-y: 0.75rem !important;
+  }
+}
+
+/* 2) Action buttons: add breathing room from the right edge */
+.event-top-header{
+  /* keep your grid, just give it inside padding on the right */
+  padding-right: 14px;  /* increase to 18px if you want more */
+}
+
+/* ensure the button column doesn't sit flush */
+.event-actions{
+  padding-right: 6px;   /* tiny extra inset */
+}
+
+/* optional: if the buttons feel too wide, tighten a bit */
+.btn-action{
+  min-width: 250px; /* was 260; adjust if you want */
+}
+
+/* 3) Make sure no accidental overflow creates weird spacing */
+.event-details-main .col-lg-7,
+.event-details-main .col-lg-5{
+  min-width: 0;
+}

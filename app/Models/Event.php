@@ -95,8 +95,9 @@ class Event extends Model
 
     public function organizers()
     {
-        return $this->hasMany(EventOrganizer::class, 'event_id', 'event_id');
+        return $this->hasMany(\App\Models\EventOrganizer::class, 'event_id', 'event_id');
     }
+
 
     public function expectedVolunteers()
     {

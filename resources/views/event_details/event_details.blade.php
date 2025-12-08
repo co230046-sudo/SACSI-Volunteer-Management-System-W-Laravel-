@@ -35,13 +35,8 @@
         $dateLabel = 'Date TBA';
     }
 
-    $startDetailLabel = $startDT
-        ? $startDT->format('M d, Y · h:i A')
-        : 'Start date/time TBA';
-
-    $endDetailLabel = $endDT
-        ? $endDT->format('M d, Y · h:i A')
-        : null;
+    $startDetailLabel = $startDT ? $startDT->format('M d, Y · h:i A') : 'Start date/time TBA';
+    $endDetailLabel   = $endDT   ? $endDT->format('M d, Y · h:i A')   : null;
 
     $barangay      = $event->location?->barangay ?? 'No barangay set';
     $district      = $event->location?->district_id ?? $event->district_id;
@@ -77,9 +72,12 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>{{ $pageTitle }} – {{ $event->title }}</title>
 
-    <link rel="stylesheet" href="{{ asset('assets/event_details/css/styles.css') }}">
+    {{-- vendor first --}}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    {{-- yours last --}}
+    <link rel="stylesheet" href="{{ asset('assets/event_details/css/styles.css') }}">
 </head>
 
 <body>
@@ -88,15 +86,15 @@
 @include('layouts.back_button')
 
 <main class="container mt-5 mb-4 event-details-main">
-    <div class="row g-4">
+    <div class="row g-4 event-details-row">
 
         {{-- LEFT COLUMN --}}
         <div class="col-lg-7 col-md-12">
 
             {{-- TOP EVENT CARD --}}
             <div class="event-top card mb-4">
-                <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
-                    <div class="event-title-container flex-grow-1">
+                <div class="event-top-header">
+                    <div class="event-title-container">
 
                         <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
                             <h1 class="event-title mb-0">{{ $event->title }}</h1>
@@ -145,7 +143,7 @@
                     </div>
 
                     {{-- ACTIONS --}}
-                    <div class="event-actions ms-auto">
+                    <div class="event-actions">
                         <a href="{{ route('events.edit', $event->event_id) }}" class="btn btn-action">
                             <i class="fas fa-pen-to-square"></i> Edit
                         </a>
@@ -197,116 +195,7 @@
                             </button>
                         @endif
                     </div>
-
-                    {{-- CANCEL MODAL --}}
-                    <div class="modal fade" id="cancelEventModal" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                            <form method="POST" action="{{ route('events.cancel', $event->event_id) }}"
-                                  class="modal-content modal-soft">
-                                @csrf
-                                <div class="modal-header modal-soft-header">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div class="modal-icon"><i class="fa-solid fa-ban"></i></div>
-                                        <div>
-                                            <h5 class="modal-title mb-0">Cancel Event</h5>
-                                            <div class="small text-muted">Reason is required.</div>
-                                        </div>
-                                    </div>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-
-                                <div class="modal-body modal-soft-body">
-                                    <label class="form-label fw-semibold">Reason</label>
-                                    <textarea name="reason" class="form-control" rows="3"
-                                              minlength="3" maxlength="500" required
-                                              placeholder="e.g. Venue unavailable, sudden weather, etc."></textarea>
-                                </div>
-
-                                <div class="modal-footer border-0 pt-0 px-3 pb-3 d-flex justify-content-end gap-2">
-                                    <button type="button" class="btn btn-light btn-pill" data-bs-dismiss="modal">Close</button>
-                                    <button type="submit" class="btn btn-brand btn-pill">
-                                        <i class="fa-solid fa-ban me-1"></i> Confirm Cancel
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-
-                    {{-- RESTORE MODAL --}}
-                    <div class="modal fade" id="restoreEventModal" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                            <form method="POST" action="{{ route('events.restore', $event->event_id) }}"
-                                  class="modal-content modal-soft">
-                                @csrf
-                                <div class="modal-header modal-soft-header">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div class="modal-icon"><i class="fa-solid fa-rotate-left"></i></div>
-                                        <div>
-                                            <h5 class="modal-title mb-0">Restore Event</h5>
-                                            <div class="small text-muted">Restores the event back to Planned.</div>
-                                        </div>
-                                    </div>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-
-                                <div class="modal-body modal-soft-body">
-                                    <label class="form-label fw-semibold">Reason (optional)</label>
-                                    <textarea name="reason" class="form-control" rows="3"
-                                              maxlength="500" placeholder="Optional note…"></textarea>
-                                </div>
-
-                                <div class="modal-footer border-0 pt-0 px-3 pb-3 d-flex justify-content-end gap-2">
-                                    <button type="button" class="btn btn-light btn-pill" data-bs-dismiss="modal">Close</button>
-                                    <button type="submit" class="btn btn-brand btn-pill">
-                                        <i class="fa-solid fa-rotate-left me-1"></i> Confirm Restore
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-
-                    {{-- DELETE MODAL --}}
-                    @if(Route::has('events.destroy'))
-                        <div class="modal fade" id="deleteEventModal" tabindex="-1" aria-hidden="true">
-                            <div class="modal-dialog modal-dialog-centered">
-                                <form method="POST" action="{{ route('events.destroy', $event->event_id) }}"
-                                      class="modal-content modal-soft">
-                                    @csrf
-                                    @method('DELETE')
-                                    <div class="modal-header modal-soft-header">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <div class="modal-icon"><i class="fa-solid fa-trash-can"></i></div>
-                                            <div>
-                                                <h5 class="modal-title mb-0">Delete Event</h5>
-                                                <div class="small text-muted">
-                                                    This permanently deletes the event and its roster. This action cannot be undone.
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                    </div>
-
-                                    <div class="modal-body modal-soft-body">
-                                        <p class="mb-2 fw-semibold">
-                                            Are you sure you want to delete <span class="text-danger">"{{ $event->title }}"</span>?
-                                        </p>
-                                        <p class="small text-muted mb-0">
-                                            Consider cancelling instead if you still want to keep the record for reporting.
-                                        </p>
-                                    </div>
-
-                                    <div class="modal-footer border-0 pt-0 px-3 pb-3 d-flex justify-content-end gap-2">
-                                        <button type="button" class="btn btn-light btn-pill" data-bs-dismiss="modal">Close</button>
-                                        <button type="submit" class="btn btn-danger btn-pill">
-                                            <i class="fa-solid fa-trash-can me-1"></i> Delete Event
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    @endif
-
-                </div>
+                </div> {{-- /event-top-header --}}
 
                 {{-- INFO + ORGANIZERS --}}
                 <div class="details-section mt-4 pt-2">
@@ -339,30 +228,54 @@
                         <span class="details-section-title">Organizers</span>
                     </div>
 
-                    @forelse($event->organizers as $org)
-                        <div class="organizer-row">
-                            <div class="organizer-card d-flex">
-                                <div class="avatar-circle me-2">
-                                    <i class="fa-solid fa-user text-white"></i>
-                                </div>
-                                <div>
-                                    <div class="fw-semibold organizer-name">{{ $org->name }}</div>
-                                    <div class="small text-muted">
-                                        <i class="fa-regular fa-envelope me-1 organizer-ico"></i>{{ $org->email ?? '—' }}
+                    <div class="organizers-grid">
+                        @forelse($event->organizers as $org)
+                            <div class="organizer-card organizer-card--grid">
+                                <div class="d-flex align-items-start gap-2">
+                                    <div class="avatar-circle">
+                                        <i class="fa-solid fa-user text-white"></i>
                                     </div>
-                                    <div class="small text-muted">
-                                        <i class="fa-solid fa-phone me-1 organizer-ico"></i>{{ $org->contact ?? '—' }}
+
+                                    <div class="flex-grow-1">
+                                        <div class="fw-semibold organizer-name">{{ $org->name }}</div>
+                                        <div class="small text-muted">
+                                            <i class="fa-regular fa-envelope me-1 organizer-ico"></i>{{ $org->email ?? '—' }}
+                                        </div>
+                                        <div class="small text-muted">
+                                            <i class="fa-solid fa-phone me-1 organizer-ico"></i>{{ $org->contact ?? '—' }}
+                                        </div>
+                                    </div>
+
+                                    <div class="organizer-actions">
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-brand btn-pill"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editOrganizerModal"
+                                                data-org-id="{{ $org->organizer_id ?? $org->id }}"
+                                                data-org-name="{{ e($org->name) }}"
+                                                data-org-email="{{ e($org->email ?? '') }}"
+                                                data-org-contact="{{ e($org->contact ?? '') }}">
+                                            <i class="fa-solid fa-pen"></i>
+                                        </button>
+
+                                        <button type="button"
+                                                class="btn btn-sm btn-light btn-pill"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#deleteOrganizerModal"
+                                                data-org-id="{{ $org->organizer_id ?? $org->id }}"
+                                                data-org-name="{{ e($org->name) }}">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    @empty
-                        <span class="text-muted small">No organizers listed.</span>
-                    @endforelse
-                </div>
-
-            </div>
-        </div>
+                        @empty
+                            <span class="text-muted small">No organizers listed.</span>
+                        @endforelse
+                    </div>
+                </div> {{-- /details-section --}}
+            </div> {{-- /event-top --}}
+        </div> {{-- /LEFT col --}}
 
         {{-- RIGHT COLUMN --}}
         <div class="col-lg-5 col-md-12">
@@ -390,55 +303,64 @@
                             <div class="search-suggest" id="search-suggest"></div>
                         </div>
 
-                        <div class="dd dd-short" id="dd-course">
-                            <button class="dd-trigger" type="button">
-                                <i class="fa-solid fa-graduation-cap"></i>
-                                <span class="dd-label" id="course-label">All Courses</span>
-                                <i class="fa-solid fa-chevron-down dd-caret"></i>
+                        <div class="ra-filter-anchor" id="raFilterAnchor">
+                            <button type="button" class="btn btn-filter-pill" id="raFilterToggle" aria-expanded="false">
+                                <i class="fa-solid fa-sliders"></i>
+                                <span>Filter &amp; Sort</span>
+                                <i class="fa-solid fa-chevron-down filter-arrow" data-arrow></i>
                             </button>
-                            <div class="dd-menu" id="course-menu">
-                                <button class="dd-item is-active" type="button" data-value="">
-                                    <i class="fa-solid fa-layer-group"></i> All Courses
-                                </button>
-                            </div>
-                            <input type="hidden" id="course" value="">
-                        </div>
 
-                        <div class="dd dd-short" id="dd-sort">
-                            <button class="dd-trigger" type="button">
-                                <i class="fa-solid fa-arrow-down-a-z"></i>
-                                <span class="dd-label" id="sort-label">Name A – Z</span>
-                                <i class="fa-solid fa-chevron-down dd-caret"></i>
-                            </button>
-                            <div class="dd-menu" id="sort-menu">
-                                <button class="dd-item is-active" type="button" data-value="name_asc">
-                                    <i class="fa-solid fa-arrow-down-a-z"></i> Name A – Z
-                                </button>
-                                <button class="dd-item" type="button" data-value="name_desc">
-                                    <i class="fa-solid fa-arrow-up-z-a"></i> Name Z – A
-                                </button>
-                            </div>
-                            <input type="hidden" id="sort" value="name_asc">
-                        </div>
-                    </div>
+                            <div class="ra-filters-overlay" id="raFilterPanel" role="dialog" aria-hidden="true">
+                                <div class="ra-filter-grid">
+                                    <div class="ra-filter-card">
+                                        <div class="ra-filter-title">
+                                            <i class="fa-solid fa-arrow-down-a-z"></i>
+                                            <span>Sort by</span>
+                                        </div>
 
-                    <div class="ra-filters ra-filters--row2">
-                        <div class="status-filter-group" id="status-filter-group">
-                            <button type="button" class="status-pill is-active" data-status="">
-                                <span class="dot"></span><span>All</span>
-                            </button>
-                            <button type="button" class="status-pill" data-status="present">
-                                <span class="dot"></span><span>Present</span>
-                            </button>
-                            <button type="button" class="status-pill" data-status="late">
-                                <span class="dot"></span><span>Late</span>
-                            </button>
-                            <button type="button" class="status-pill" data-status="absent">
-                                <span class="dot"></span><span>Absent</span>
-                            </button>
-                            <button type="button" class="status-pill" data-status="walk_in">
-                                <span class="dot"></span><span>Walk-in</span>
-                            </button>
+                                        <div class="dd dd-block" id="dd-sort">
+                                            <button class="dd-trigger" type="button">
+                                                <span class="dd-label" id="sort-label">Name A – Z</span>
+                                                <i class="fa-solid fa-chevron-down dd-caret"></i>
+                                            </button>
+                                            <div class="dd-menu dd-menu--wide" id="sort-menu">
+                                                <button class="dd-item is-active" type="button" data-value="name_asc">
+                                                    <i class="fa-solid fa-arrow-down-a-z"></i> Name A – Z
+                                                </button>
+                                                <button class="dd-item" type="button" data-value="name_desc">
+                                                    <i class="fa-solid fa-arrow-up-z-a"></i> Name Z – A
+                                                </button>
+                                            </div>
+                                            <input type="hidden" id="sort" value="name_asc">
+                                        </div>
+                                    </div>
+
+                                    <div class="ra-filter-card">
+                                        <div class="ra-filter-title">
+                                            <i class="fa-solid fa-graduation-cap"></i>
+                                            <span>Filter by Course</span>
+                                        </div>
+
+                                        <div class="dd dd-block" id="dd-course">
+                                            <button class="dd-trigger" type="button">
+                                                <span class="dd-label" id="course-label">All Courses</span>
+                                                <i class="fa-solid fa-chevron-down dd-caret"></i>
+                                            </button>
+                                            <div class="dd-menu" id="course-menu">
+                                                <button class="dd-item is-active" type="button" data-value="">
+                                                    <i class="fa-solid fa-layer-group"></i> All Courses
+                                                </button>
+                                            </div>
+                                            <input type="hidden" id="course" value="">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="ra-filter-actions">
+                                    <button type="button" class="btn btn-light btn-pill" id="raFilterReset">Reset</button>
+                                    <button type="button" class="btn btn-brand btn-pill" id="raFilterApply">Apply</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -452,11 +374,30 @@
                             <i class="fa-solid fa-xmark"></i>
                         </button>
                     </div>
+
+                      {{-- Row 3: status pills (Attendance only – JS already uses this) --}}
+                    <div class="ra-filters ra-filters--row2">
+                        <div class="status-filter-group" id="status-filter-group">
+                            <button type="button" class="status-pill is-active" data-status="">
+                                All
+                            </button>
+                            <button type="button" class="status-pill" data-status="present">
+                                Present
+                            </button>
+                            <button type="button" class="status-pill" data-status="late">
+                                Late
+                            </button>
+                            <button type="button" class="status-pill" data-status="absent">
+                                Absent
+                            </button>
+                            <button type="button" class="status-pill" data-status="walk_in">
+                                Walk-in
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="ra-body">
-
-                    {{-- ROSTER --}}
                     <div class="tab-panel" data-panel="expected">
                         <div class="cards-grid expected-grid" id="grid-expected"></div>
 
@@ -476,7 +417,6 @@
                         </div>
                     </div>
 
-                    {{-- ATTENDANCE --}}
                     <div class="tab-panel" data-panel="actual">
                         <div class="cards-grid expected-grid" id="grid-actual"></div>
 
@@ -489,13 +429,195 @@
                             </button>
                         </div>
                     </div>
-
                 </div>
+
             </div>
-        </div>
+        </div> {{-- /RIGHT col --}}
 
     </div>
 </main>
+
+{{-- =========================
+   EVENT MODALS (moved OUTSIDE the grid so they can’t break the DOM)
+========================= --}}
+
+{{-- CANCEL MODAL --}}
+<div class="modal fade" id="cancelEventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="POST" action="{{ route('events.cancel', $event->event_id) }}" class="modal-content modal-soft">
+            @csrf
+            <div class="modal-header modal-soft-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="modal-icon"><i class="fa-solid fa-ban"></i></div>
+                    <div>
+                        <h5 class="modal-title mb-0">Cancel Event</h5>
+                        <div class="small text-muted">Reason is required.</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body modal-soft-body">
+                <label class="form-label fw-semibold">Reason</label>
+                <textarea name="reason" class="form-control" rows="3"
+                          minlength="3" maxlength="500" required
+                          placeholder="e.g. Venue unavailable, sudden weather, etc."></textarea>
+            </div>
+
+            <div class="modal-footer border-0 pt-0 px-3 pb-3 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-light btn-pill" data-bs-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-brand btn-pill">
+                    <i class="fa-solid fa-ban me-1"></i> Confirm Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- RESTORE MODAL --}}
+<div class="modal fade" id="restoreEventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="POST" action="{{ route('events.restore', $event->event_id) }}" class="modal-content modal-soft">
+            @csrf
+            <div class="modal-header modal-soft-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="modal-icon"><i class="fa-solid fa-rotate-left"></i></div>
+                    <div>
+                        <h5 class="modal-title mb-0">Restore Event</h5>
+                        <div class="small text-muted">Restores the event back to Planned.</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body modal-soft-body">
+                <label class="form-label fw-semibold">Reason (optional)</label>
+                <textarea name="reason" class="form-control" rows="3" maxlength="500" placeholder="Optional note…"></textarea>
+            </div>
+
+            <div class="modal-footer border-0 pt-0 px-3 pb-3 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-light btn-pill" data-bs-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-brand btn-pill">
+                    <i class="fa-solid fa-rotate-left me-1"></i> Confirm Restore
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- DELETE MODAL --}}
+@if(Route::has('events.destroy'))
+<div class="modal fade" id="deleteEventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="POST" action="{{ route('events.destroy', $event->event_id) }}" class="modal-content modal-soft">
+            @csrf
+            @method('DELETE')
+
+            <div class="modal-header modal-soft-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="modal-icon"><i class="fa-solid fa-trash-can"></i></div>
+                    <div>
+                        <h5 class="modal-title mb-0">Delete Event</h5>
+                        <div class="small text-muted">This permanently deletes the event and its roster. This action cannot be undone.</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body modal-soft-body">
+                <p class="mb-2 fw-semibold">
+                    Are you sure you want to delete <span class="text-danger">"{{ $event->title }}"</span>?
+                </p>
+                <p class="small text-muted mb-0">Consider cancelling instead if you still want to keep the record for reporting.</p>
+            </div>
+
+            <div class="modal-footer border-0 pt-0 px-3 pb-3 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-light btn-pill" data-bs-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-danger btn-pill">
+                    <i class="fa-solid fa-trash-can me-1"></i> Delete Event
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+@endif
+
+{{-- EDIT ORGANIZER MODAL --}}
+<div class="modal fade" id="editOrganizerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="POST" action="{{ route('events.organizers.update', $event->event_id) }}" class="modal-content modal-soft">
+            @csrf
+            @method('PUT')
+            <input type="hidden" name="organizer_id" id="edit_org_id">
+
+            <div class="modal-header modal-soft-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="modal-icon"><i class="fa-solid fa-user-pen"></i></div>
+                    <div>
+                        <h5 class="modal-title mb-0">Edit Organizer</h5>
+                        <div class="small text-muted">Update organizer details.</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body modal-soft-body">
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Name</label>
+                    <input class="form-control" name="name" id="edit_org_name" required maxlength="120">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Email</label>
+                    <input class="form-control" name="email" id="edit_org_email" maxlength="190">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Contact</label>
+                    <input class="form-control" name="contact" id="edit_org_contact" maxlength="60">
+                </div>
+            </div>
+
+            <div class="modal-footer border-0 pt-0 px-3 pb-3 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-light btn-pill" data-bs-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-brand btn-pill">
+                    <i class="fa-solid fa-floppy-disk me-1"></i> Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- DELETE ORGANIZER MODAL --}}
+<div class="modal fade" id="deleteOrganizerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="POST" action="{{ route('events.organizers.destroy', $event->event_id) }}" class="modal-content modal-soft">
+            @csrf
+            @method('DELETE')
+            <input type="hidden" name="organizer_id" id="del_org_id">
+
+            <div class="modal-header modal-soft-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="modal-icon"><i class="fa-solid fa-trash-can"></i></div>
+                    <div>
+                        <h5 class="modal-title mb-0">Delete Organizer</h5>
+                        <div class="small text-muted" id="del_org_label">This cannot be undone.</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body modal-soft-body">
+                <p class="mb-0">Remove this organizer from the event?</p>
+            </div>
+
+            <div class="modal-footer border-0 pt-0 px-3 pb-3 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-light btn-pill" data-bs-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-danger btn-pill">
+                    <i class="fa-solid fa-trash-can me-1"></i> Delete
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
 {{-- ADD VOLUNTEERS MODAL --}}
 <div class="modal fade" id="addStudentModal" tabindex="-1" aria-hidden="true">
@@ -602,6 +724,11 @@ window.__EVENT_DETAILS_BOOT = {
     walkInCount: @json($walkInCount),
     maxVolunteers: @json($maxVolunteers),
 
+    organizerSuccess: @json(session('organizer_success')),
+    organizerDeleted: @json(session('organizer_deleted')),
+    organizerWarning: @json(session('organizer_warning')),
+    organizerError:   @json(session('organizer_error')),
+
     addVolUrl: @json(route('events.expectedVolunteers.add', $event->event_id)),
     volDataUrl: @json(route('volunteers.data')),
     removeExpectedUrlTemplate: @json(route('events.expectedVolunteers.remove', ['event' => $event->event_id, 'volunteer_id' => '__VID__'])),
@@ -617,6 +744,5 @@ window.__EVENT_DETAILS_BOOT = {
 </script>
 
 <script src="{{ asset('assets/event_details/js/script.js') }}"></script>
-
 </body>
 </html>

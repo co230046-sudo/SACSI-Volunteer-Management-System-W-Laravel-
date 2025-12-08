@@ -876,3 +876,273 @@ body{
   font-weight: 800;
   color: rgba(17,24,39,.55) !important;
 }
+
+.chips{ margin-top: 10px; gap: 8px; }
+.chip{ padding: 8px 10px; }
+.subchips{ gap: 8px; }
+.subchip{ padding: 7px 9px; }
+
+/* =========================================
+   ORGANIZE EVENT META PILLS (2 clean rows)
+   Row 1: 3 red chips
+   Row 2: 4 white subchips
+========================================= */
+
+/* Make both rows feel centered-ish (not forced left) */
+.chips,
+.subchips{
+  justify-content: center;              /* was default left */
+}
+
+/* --- Row 1 (red chips): force 3 per row --- */
+.chips{
+  display: grid !important;
+  grid-template-columns: repeat(3, max-content);
+  gap: 10px;
+  margin-top: 14px;
+  justify-content: start;               /* keep aligned with content */
+}
+
+/* If you want it less left-anchored, switch to center: */
+/* .chips{ justify-content: center; } */
+
+/* --- Row 2 (white subchips): force 4 per row --- */
+.subchips{
+  display: grid !important;
+  grid-template-columns: repeat(4, max-content);
+  gap: 10px;
+  margin-top: 10px;
+  justify-content: start;               /* keep aligned with content */
+  opacity: .95;
+}
+
+/* Keep pills from stretching weirdly */
+.chip,
+.subchip{
+  width: max-content;
+  white-space: nowrap;
+}
+
+/* Prevent super long venue from blowing up the layout */
+.chips .chip:nth-child(3){
+  max-width: 420px;                     /* venue chip usually */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Event code chip button should not expand */
+.chips .chip-btn{
+  justify-self: start;
+}
+
+/* Responsive: drop to 2 columns so it stays tidy */
+@media (max-width: 880px){
+  .chips{ grid-template-columns: repeat(2, max-content); }
+  .subchips{ grid-template-columns: repeat(2, max-content); }
+}
+
+/* Mobile: 1 per row */
+@media (max-width: 520px){
+  .chips{ grid-template-columns: 1fr; justify-content: stretch; }
+  .subchips{ grid-template-columns: 1fr; justify-content: stretch; }
+  .chip, .subchip{ width: 100%; justify-content: center; }
+}
+
+/* =========================================
+   PHOTO-1 HEADER LAYOUT (NO BLADE CHANGES)
+   - Kicker + status badges on the top line
+   - Code pill on the far right of that same line
+   - Title on its own line
+   - Red chips (date/time/venue) below
+   - White pills below that
+========================================= */
+
+/* Make title-row capable of "badge row" + "title row" */
+.title-row{
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* Push the H1 to its own line UNDER the badges (photo 1) */
+.title-row .event-h1{
+  order: 2;
+  flex: 0 0 100%;
+  margin-top: 2px;
+}
+
+/* Bring badges ABOVE the title */
+.title-row .status-badge,
+.title-row .mini-badge{
+  order: 1;
+}
+
+/* --- Chips row: keep FLEX (not grid) --- */
+.chips{
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Make the Code chip behave like "top-right" in photo 1 */
+.chips .chip-btn{
+  order: -10;              /* appears first in chips row */
+  margin-left: auto;       /* pushes it to the far right */
+  white-space: nowrap;
+}
+
+/* Ensure the “normal” red chips stay left under the title */
+.chips .chip:not(.chip-btn){
+  order: 1;
+}
+
+/* Truncate venue gracefully so it doesn’t blow spacing */
+.chips .chip:nth-child(3){
+  max-width: min(520px, 60vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Subchips stay as a second compact line (photo 1) */
+.subchips{
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Tighten pills slightly so header stays compact */
+.chip{ padding: 8px 10px; }
+.subchip{ padding: 7px 9px; }
+.chips{ gap: 8px; }
+.subchips{ gap: 8px; }
+
+/* Responsive: on small screens, don't force code to the far right */
+@media (max-width: 768px){
+  .chips .chip-btn{
+    margin-left: 0;
+    order: 0;              /* let it flow naturally */
+  }
+  .title-row .event-h1{
+    font-size: clamp(1.9rem, 6vw, 2.6rem);
+  }
+}
+
+
+/* === GLOBAL PAGE SCROLLBAR – HIDE BUT KEEP SCROLLING === */
+html, body {
+    /* Firefox */
+    scrollbar-width: none;
+}
+
+/* WebKit (Chrome/Edge/Safari) */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+}
+
+/* 1) Make the top actions row a 2-row layout:
+      Row 1: title (full width)
+      Row 2: left meta (badges + chips) on the left, actions on the right */
+.top-actions-row{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px 16px;
+}
+
+/* Let the left block take full width when it needs */
+.title-and-details{
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+/* 2) Force ONLY the H1 to take a whole line */
+.title-row{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.title-row .event-h1{
+  flex: 0 0 100%;     /* full width line */
+  width: 100%;
+  margin: 0;
+}
+
+/* 3) Keep badges on the next line, but make them compact */
+.title-row .status-badge,
+.title-row .mini-badge{
+  margin-top: 6px;
+}
+
+/* 4) Put the right actions on the same row as chips/subchips (row 2) */
+.top-right{
+  flex: 0 0 auto;
+  margin-left: auto;
+  align-self: flex-start;
+  margin-top: 6px; /* aligns visually with the badge row */
+}
+
+/* Optional: tighten vertical spacing so header doesn't get tall */
+.chips{ margin-top: 10px; }
+.subchips{ margin-top: 8px; }
+
+/* Keep actions pinned upper-right, and give the title real full width */
+.summary-top{
+  position: relative;                 /* anchor for absolute top-right */
+}
+
+/* Pin Export + View Event to the upper right */
+.summary-top .top-right{
+  position: absolute;
+  top: 18px;                          /* match your header padding */
+  right: 20px;                        /* match your header padding */
+  margin: 0 !important;
+  align-items: center;
+  z-index: 5;
+}
+
+/* Reserve space on the right so text/chips don't run under the buttons */
+.summary-top .top-left{
+  padding-right: 260px;               /* adjust if buttons wrap */
+  min-width: 0;
+}
+
+/* Make the H1 a full-width row (under the kicker) */
+.title-row{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.title-row .event-h1{
+  flex: 0 0 100%;
+  width: 100%;
+  margin: 6px 0 0;
+}
+
+/* Keep the badges on the line below the title */
+.title-row .status-badge,
+.title-row .mini-badge{
+  margin-top: 6px;
+}
+
+/* Responsive: when screen is narrow, don't absolute-position (avoid overlap) */
+@media (max-width: 768px){
+  .summary-top .top-right{
+    position: static;
+    width: 100%;
+    justify-content: flex-end;
+    margin-top: 10px !important;
+  }
+  .summary-top .top-left{
+    padding-right: 0;
+  }
+}

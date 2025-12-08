@@ -15,39 +15,28 @@
     $startDT = $event->start_datetime ? Carbon::parse($event->start_datetime) : null;
     $endDT   = $event->end_datetime   ? Carbon::parse($event->end_datetime)   : null;
 
-    // =========================
-    // Date / Time (multi-day aware)
-    // =========================
-    $dateLabel = 'Date TBA';
-    $timeLabel = 'Time TBA';
-
     if ($startDT && $endDT) {
-        if ($startDT->toDateString() === $endDT->toDateString()) {
-            // Same day
+        if ($startDT->isSameDay($endDT)) {
             $dateLabel = $startDT->format('F d, Y');
-            $timeLabel = $startDT->format('h:i A') . ' - ' . $endDT->format('h:i A');
         } else {
-            // Multi-day
-            if ($startDT->year === $endDT->year) {
-                // Same year, different days
-                $dateLabel = $startDT->format('M d') . ' - ' . $endDT->format('M d, Y');
+            if ($startDT->format('Y') === $endDT->format('Y')) {
+                if ($startDT->format('m') === $endDT->format('m')) {
+                    $dateLabel = $startDT->format('M d') . ' – ' . $endDT->format('d, Y');
+                } else {
+                    $dateLabel = $startDT->format('M d') . ' – ' . $endDT->format('M d, Y');
+                }
             } else {
-                // Different years
-                $dateLabel = $startDT->format('M d, Y') . ' - ' . $endDT->format('M d, Y');
+                $dateLabel = $startDT->format('M d, Y') . ' – ' . $endDT->format('M d, Y');
             }
-
-            // Time label also includes day for clarity
-            $timeLabel = $startDT->format('M d · h:i A') .
-                         ' - ' .
-                         $endDT->format('M d · h:i A');
         }
     } elseif ($startDT) {
         $dateLabel = $startDT->format('F d, Y');
-        $timeLabel = $startDT->format('h:i A');
-    } elseif ($endDT) {
-        $dateLabel = $endDT->format('F d, Y');
-        $timeLabel = $endDT->format('h:i A');
+    } else {
+        $dateLabel = 'Date TBA';
     }
+
+    $startDetailLabel = $startDT ? $startDT->format('M d, Y · h:i A') : 'Start date/time TBA';
+    $endDetailLabel   = $endDT   ? $endDT->format('M d, Y · h:i A')   : null;
 
     $barangay      = $event->location?->barangay ?? 'No barangay set';
     $district      = $event->location?->district_id ?? $event->district_id;
@@ -58,24 +47,21 @@
 
     $eventCode = $event->event_code ?? '—';
 
-    // max volunteers logic (0/NULL => unlimited)
     $maxVolunteers = isset($event->max_volunteers) && (int)$event->max_volunteers > 0
         ? (int)$event->max_volunteers
         : null;
 
-    // Data prepared by controller:
     $expectedCount     = $expectedCount ?? $event->expectedVolunteers?->count() ?? 0;
     $actualCount       = $actualCount ?? 0;
     $presentCount      = $presentCount ?? 0;
+    $lateCount         = $lateCount ?? 0;
     $walkInCount       = $walkInCount ?? 0;
 
     $attendeesExpectedJs = $attendeesExpectedJs ?? collect();
     $attendeesActualJs   = $attendeesActualJs ?? collect();
 
-    // default tab: if there is any actual attendance, show Attendance tab first
     $defaultTab = ($actualCount > 0) ? 'actual' : 'expected';
 
-    // default avatar used across JS templates
     $DEFAULT_AVATAR = asset('storage/defaults/default_user.png');
 @endphp
 
@@ -86,9 +72,12 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>{{ $pageTitle }} – {{ $event->title }}</title>
 
-    <link rel="stylesheet" href="{{ asset('assets/event_details/css/styles.css') }}">
+    {{-- vendor first --}}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    {{-- yours last --}}
+    <link rel="stylesheet" href="{{ asset('assets/event_details/css/styles.css') }}">
 </head>
 
 <body>
@@ -96,16 +85,16 @@
 @include('layouts.navbar')
 @include('layouts.back_button')
 
-<main class="container my-4">
-    <div class="row g-4">
+<main class="container mt-5 mb-4 event-details-main">
+    <div class="row g-4 event-details-row">
 
         {{-- LEFT COLUMN --}}
         <div class="col-lg-7 col-md-12">
 
             {{-- TOP EVENT CARD --}}
             <div class="event-top card mb-4">
-                <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
-                    <div class="event-title-container flex-grow-1">
+                <div class="event-top-header">
+                    <div class="event-title-container">
 
                         <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
                             <h1 class="event-title mb-0">{{ $event->title }}</h1>
@@ -126,11 +115,21 @@
 
                         <div class="badges">
                             <span class="badge">
-                                <i class="fa-regular fa-calendar"></i>{{ strtoupper($dateLabel) }}
+                                <i class="fa-solid fa-hourglass-start"></i>
+                                <span class="badge-label">
+                                    Starts: <strong>{{ $startDetailLabel }}</strong>
+                                </span>
                             </span>
-                            <span class="badge">
-                                <i class="fa-regular fa-clock"></i>{{ $timeLabel }}
-                            </span>
+
+                            @if($endDetailLabel)
+                                <span class="badge">
+                                    <i class="fa-solid fa-hourglass-end"></i>
+                                    <span class="badge-label">
+                                        Ends: <strong>{{ $endDetailLabel }}</strong>
+                                    </span>
+                                </span>
+                            @endif
+
                             <span class="badge">
                                 <i class="fa-solid fa-location-dot"></i>{{ $barangay }}
                             </span>
@@ -144,7 +143,7 @@
                     </div>
 
                     {{-- ACTIONS --}}
-                    <div class="event-actions ms-auto">
+                    <div class="event-actions">
                         <a href="{{ route('events.edit', $event->event_id) }}" class="btn btn-action">
                             <i class="fas fa-pen-to-square"></i> Edit
                         </a>
@@ -185,138 +184,103 @@
                                 <i class="fa-solid fa-ban"></i> Cancel
                             </button>
                         @endif
+
+                        {{-- DELETE (hard delete) --}}
+                        @if(Route::has('events.destroy'))
+                            <button type="button"
+                                    class="btn btn-action soft btn-delete-event"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#deleteEventModal">
+                                <i class="fa-solid fa-trash-can"></i> Delete
+                            </button>
+                        @endif
+                    </div>
+                </div> {{-- /event-top-header --}}
+
+                {{-- INFO + ORGANIZERS --}}
+                <div class="details-section mt-4 pt-2">
+                    <hr class="details-divider details-divider-top">
+
+                    <div class="details-boxes">
+                        <div class="info-block">
+                            <div class="info-block-title">
+                                <i class="fa-regular fa-rectangle-list"></i> Description
+                            </div>
+                            <div class="info-block-body">
+                                {{ $event->description ?: '—' }}
+                            </div>
+                        </div>
+
+                        <div class="info-block">
+                            <div class="info-block-title">
+                                <i class="fa-solid fa-building"></i> Venue
+                            </div>
+                            <div class="info-block-body">
+                                {{ $event->venue ?: '—' }}
+                            </div>
+                        </div>
                     </div>
 
-                    {{-- CANCEL MODAL --}}
-                    <div class="modal fade" id="cancelEventModal" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                            <form method="POST" action="{{ route('events.cancel', $event->event_id) }}"
-                                  class="modal-content modal-soft">
-                                @csrf
-                                <div class="modal-header modal-soft-header">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div class="modal-icon"><i class="fa-solid fa-ban"></i></div>
-                                        <div>
-                                            <h5 class="modal-title mb-0">Cancel Event</h5>
-                                            <div class="small text-muted">Reason is required.</div>
+                    <hr class="details-divider">
+
+                    <div class="details-section-heading mb-2">
+                        <i class="fa-solid fa-users-gear details-section-icon"></i>
+                        <span class="details-section-title">Organizers</span>
+                    </div>
+
+                    <div class="organizers-grid">
+                        @forelse($event->organizers as $org)
+                            <div class="organizer-card organizer-card--grid">
+                                <div class="d-flex align-items-start gap-2">
+                                    <div class="avatar-circle">
+                                        <i class="fa-solid fa-user text-white"></i>
+                                    </div>
+
+                                    <div class="flex-grow-1">
+                                        <div class="fw-semibold organizer-name">{{ $org->name }}</div>
+                                        <div class="small text-muted">
+                                            <i class="fa-regular fa-envelope me-1 organizer-ico"></i>{{ $org->email ?? '—' }}
+                                        </div>
+                                        <div class="small text-muted">
+                                            <i class="fa-solid fa-phone me-1 organizer-ico"></i>{{ $org->contact ?? '—' }}
                                         </div>
                                     </div>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
 
-                                <div class="modal-body modal-soft-body">
-                                    <label class="form-label fw-semibold">Reason</label>
-                                    <textarea name="reason" class="form-control" rows="3"
-                                              minlength="3" maxlength="500" required
-                                              placeholder="e.g. Venue unavailable, sudden weather, etc."></textarea>
-                                </div>
+                                    <div class="organizer-actions">
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-brand btn-pill"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editOrganizerModal"
+                                                data-org-id="{{ $org->organizer_id ?? $org->id }}"
+                                                data-org-name="{{ e($org->name) }}"
+                                                data-org-email="{{ e($org->email ?? '') }}"
+                                                data-org-contact="{{ e($org->contact ?? '') }}">
+                                            <i class="fa-solid fa-pen"></i>
+                                        </button>
 
-                                <div class="modal-footer border-0 pt-0 px-3 pb-3 d-flex justify-content-end gap-2">
-                                    <button type="button" class="btn btn-light btn-pill" data-bs-dismiss="modal">Close</button>
-                                    <button type="submit" class="btn btn-brand btn-pill">
-                                        <i class="fa-solid fa-ban me-1"></i> Confirm Cancel
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-
-                    {{-- RESTORE MODAL --}}
-                    <div class="modal fade" id="restoreEventModal" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                            <form method="POST" action="{{ route('events.restore', $event->event_id) }}"
-                                  class="modal-content modal-soft">
-                                @csrf
-                                <div class="modal-header modal-soft-header">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div class="modal-icon"><i class="fa-solid fa-rotate-left"></i></div>
-                                        <div>
-                                            <h5 class="modal-title mb-0">Restore Event</h5>
-                                            <div class="small text-muted">Restores the event back to Planned.</div>
-                                        </div>
-                                    </div>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-
-                                <div class="modal-body modal-soft-body">
-                                    <label class="form-label fw-semibold">Reason (optional)</label>
-                                    <textarea name="reason" class="form-control" rows="3"
-                                              maxlength="500" placeholder="Optional note…"></textarea>
-                                </div>
-
-                                <div class="modal-footer border-0 pt-0 px-3 pb-3 d-flex justify-content-end gap-2">
-                                    <button type="button" class="btn btn-light btn-pill" data-bs-dismiss="modal">Close</button>
-                                    <button type="submit" class="btn btn-brand btn-pill">
-                                        <i class="fa-solid fa-rotate-left me-1"></i> Confirm Restore
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="details-boxes mt-3">
-                    <div class="info-block">
-                        <div class="info-block-title">
-                            <i class="fa-regular fa-rectangle-list"></i> Description
-                        </div>
-                        <div class="info-block-body">
-                            {{ $event->description ?: '—' }}
-                        </div>
-                    </div>
-
-                    <div class="info-block">
-                        <div class="info-block-title">
-                            <i class="fa-solid fa-building"></i> Venue
-                        </div>
-                        <div class="info-block-body">
-                            {{ $event->venue ?: '—' }}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {{-- ORGANIZERS --}}
-            @if($event->organizers->count() > 0)
-                <section class="mb-4">
-                    <div class="card organizers-wrap p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h3 class="h5 mb-0 organizers-title">
-                                <i class="fa-solid fa-users-gear me-2"></i>Organizers
-                            </h3>
-                            <span class="badge bg-light text-dark">{{ $event->organizers->count() }}</span>
-                        </div>
-
-                        <div class="row gy-2">
-                            @foreach($event->organizers as $org)
-                                <div class="col-md-6">
-                                    <div class="organizer-card d-flex rounded">
-                                        <div class="avatar-circle me-2">
-                                            <i class="fa-solid fa-user text-white"></i>
-                                        </div>
-                                        <div>
-                                            <div class="fw-semibold organizer-name">{{ $org->name }}</div>
-                                            <div class="small text-muted">
-                                                <i class="fa-regular fa-envelope me-1 organizer-ico"></i>{{ $org->email ?? '—' }}
-                                            </div>
-                                            <div class="small text-muted">
-                                                <i class="fa-solid fa-phone me-1 organizer-ico"></i>{{ $org->contact ?? '—' }}
-                                            </div>
-                                        </div>
+                                        <button type="button"
+                                                class="btn btn-sm btn-light btn-pill"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#deleteOrganizerModal"
+                                                data-org-id="{{ $org->organizer_id ?? $org->id }}"
+                                                data-org-name="{{ e($org->name) }}">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
                                     </div>
                                 </div>
-                            @endforeach
-                        </div>
+                            </div>
+                        @empty
+                            <span class="text-muted small">No organizers listed.</span>
+                        @endforelse
                     </div>
-                </section>
-            @endif
-        </div>
+                </div> {{-- /details-section --}}
+            </div> {{-- /event-top --}}
+        </div> {{-- /LEFT col --}}
 
         {{-- RIGHT COLUMN --}}
         <div class="col-lg-5 col-md-12">
             <div class="card ra-card">
 
-                {{-- Top row: Tabs LEFT, Stat RIGHT --}}
                 <div class="ra-topbar">
                     <div class="ra-tabs ra-tabs--top">
                         <button type="button" class="ra-tab" data-tab="expected">Roster</button>
@@ -328,66 +292,112 @@
 
                 <div class="ra-sep"></div>
 
-                {{-- controls --}}
                 <div class="ra-controls">
                     <div class="ra-filters ra-filters--row1">
-                        <div class="search-pill ra-search">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                            <input type="text" id="list-search" class="search-input"
-                                   placeholder="Search name / course / email" autocomplete="off">
+                        <div class="search-wrap">
+                            <div class="search-pill ra-search">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="list-search" class="search-input"
+                                       placeholder="Search name / course / email" autocomplete="off">
+                            </div>
+                            <div class="search-suggest" id="search-suggest"></div>
                         </div>
 
-                        {{-- Course filter (from roster) --}}
-                        <div class="dd dd-short" id="dd-course">
-                            <button class="dd-trigger" type="button">
-                                <i class="fa-solid fa-graduation-cap"></i>
-                                <span class="dd-label" id="course-label">All Courses</span>
-                                <i class="fa-solid fa-chevron-down dd-caret"></i>
+                        <div class="ra-filter-anchor" id="raFilterAnchor">
+                            <button type="button" class="btn btn-filter-pill" id="raFilterToggle" aria-expanded="false">
+                                <i class="fa-solid fa-sliders"></i>
+                                <span>Filter &amp; Sort</span>
+                                <i class="fa-solid fa-chevron-down filter-arrow" data-arrow></i>
                             </button>
-                            <div class="dd-menu" id="course-menu">
-                                <button class="dd-item is-active" type="button" data-value="">
-                                    <i class="fa-solid fa-layer-group"></i> All Courses
-                                </button>
-                            </div>
-                            <input type="hidden" id="course" value="">
-                        </div>
 
-                        {{-- Sort --}}
-                        <div class="dd dd-short" id="dd-sort">
-                            <button class="dd-trigger" type="button">
-                                <i class="fa-solid fa-arrow-down-a-z"></i>
-                                <span class="dd-label" id="sort-label">Name A – Z</span>
-                                <i class="fa-solid fa-chevron-down dd-caret"></i>
-                            </button>
-                            <div class="dd-menu" id="sort-menu">
-                                <button class="dd-item is-active" type="button" data-value="name_asc">
-                                    <i class="fa-solid fa-arrow-down-a-z"></i> Name A – Z
-                                </button>
-                                <button class="dd-item" type="button" data-value="name_desc">
-                                    <i class="fa-solid fa-arrow-up-z-a"></i> Name Z – A
-                                </button>
+                            <div class="ra-filters-overlay" id="raFilterPanel" role="dialog" aria-hidden="true">
+                                <div class="ra-filter-grid">
+                                    <div class="ra-filter-card">
+                                        <div class="ra-filter-title">
+                                            <i class="fa-solid fa-arrow-down-a-z"></i>
+                                            <span>Sort by</span>
+                                        </div>
+
+                                        <div class="dd dd-block" id="dd-sort">
+                                            <button class="dd-trigger" type="button">
+                                                <span class="dd-label" id="sort-label">Name A – Z</span>
+                                                <i class="fa-solid fa-chevron-down dd-caret"></i>
+                                            </button>
+                                            <div class="dd-menu dd-menu--wide" id="sort-menu">
+                                                <button class="dd-item is-active" type="button" data-value="name_asc">
+                                                    <i class="fa-solid fa-arrow-down-a-z"></i> Name A – Z
+                                                </button>
+                                                <button class="dd-item" type="button" data-value="name_desc">
+                                                    <i class="fa-solid fa-arrow-up-z-a"></i> Name Z – A
+                                                </button>
+                                            </div>
+                                            <input type="hidden" id="sort" value="name_asc">
+                                        </div>
+                                    </div>
+
+                                    <div class="ra-filter-card">
+                                        <div class="ra-filter-title">
+                                            <i class="fa-solid fa-graduation-cap"></i>
+                                            <span>Filter by Course</span>
+                                        </div>
+
+                                        <div class="dd dd-block" id="dd-course">
+                                            <button class="dd-trigger" type="button">
+                                                <span class="dd-label" id="course-label">All Courses</span>
+                                                <i class="fa-solid fa-chevron-down dd-caret"></i>
+                                            </button>
+                                            <div class="dd-menu" id="course-menu">
+                                                <button class="dd-item is-active" type="button" data-value="">
+                                                    <i class="fa-solid fa-layer-group"></i> All Courses
+                                                </button>
+                                            </div>
+                                            <input type="hidden" id="course" value="">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="ra-filter-actions">
+                                    <button type="button" class="btn btn-light btn-pill" id="raFilterReset">Reset</button>
+                                    <button type="button" class="btn btn-brand btn-pill" id="raFilterApply">Apply</button>
+                                </div>
                             </div>
-                            <input type="hidden" id="sort" value="name_asc">
                         </div>
                     </div>
 
                     <div class="ra-hint" id="raHint">
-                        <i class="fa-solid fa-circle-info"></i>
-                        <span>
-                            <b>Roster</b> = planned volunteers •
-                            <b>Attendance</b> = actual check-ins
-                            (late arrivals count as present; walk-ins only appear in Attendance)
-                        </span>
+                        <i class="fa-solid fa-circle-info ra-hint-icon"></i>
+                        <div class="ra-hint-text">
+                            <div><b>Roster</b> – planned volunteers.</div>
+                            <div><b>Attendance</b> – actual check-ins (late check-ins still count as present; walk-ins only appear in Attendance).</div>
+                        </div>
                         <button type="button" class="ra-hint-x" id="raHintClose" aria-label="Close hint">
                             <i class="fa-solid fa-xmark"></i>
                         </button>
                     </div>
+
+                      {{-- Row 3: status pills (Attendance only – JS already uses this) --}}
+                    <div class="ra-filters ra-filters--row2">
+                        <div class="status-filter-group" id="status-filter-group">
+                            <button type="button" class="status-pill is-active" data-status="">
+                                All
+                            </button>
+                            <button type="button" class="status-pill" data-status="present">
+                                Present
+                            </button>
+                            <button type="button" class="status-pill" data-status="late">
+                                Late
+                            </button>
+                            <button type="button" class="status-pill" data-status="absent">
+                                Absent
+                            </button>
+                            <button type="button" class="status-pill" data-status="walk_in">
+                                Walk-in
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
-                {{-- body --}}
                 <div class="ra-body">
-
-                    {{-- ROSTER --}}
                     <div class="tab-panel" data-panel="expected">
                         <div class="cards-grid expected-grid" id="grid-expected"></div>
 
@@ -407,7 +417,6 @@
                         </div>
                     </div>
 
-                    {{-- ATTENDANCE --}}
                     <div class="tab-panel" data-panel="actual">
                         <div class="cards-grid expected-grid" id="grid-actual"></div>
 
@@ -420,13 +429,195 @@
                             </button>
                         </div>
                     </div>
-
                 </div>
+
             </div>
-        </div>
+        </div> {{-- /RIGHT col --}}
 
     </div>
 </main>
+
+{{-- =========================
+   EVENT MODALS (moved OUTSIDE the grid so they can’t break the DOM)
+========================= --}}
+
+{{-- CANCEL MODAL --}}
+<div class="modal fade" id="cancelEventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="POST" action="{{ route('events.cancel', $event->event_id) }}" class="modal-content modal-soft">
+            @csrf
+            <div class="modal-header modal-soft-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="modal-icon"><i class="fa-solid fa-ban"></i></div>
+                    <div>
+                        <h5 class="modal-title mb-0">Cancel Event</h5>
+                        <div class="small text-muted">Reason is required.</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body modal-soft-body">
+                <label class="form-label fw-semibold">Reason</label>
+                <textarea name="reason" class="form-control" rows="3"
+                          minlength="3" maxlength="500" required
+                          placeholder="e.g. Venue unavailable, sudden weather, etc."></textarea>
+            </div>
+
+            <div class="modal-footer border-0 pt-0 px-3 pb-3 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-light btn-pill" data-bs-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-brand btn-pill">
+                    <i class="fa-solid fa-ban me-1"></i> Confirm Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- RESTORE MODAL --}}
+<div class="modal fade" id="restoreEventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="POST" action="{{ route('events.restore', $event->event_id) }}" class="modal-content modal-soft">
+            @csrf
+            <div class="modal-header modal-soft-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="modal-icon"><i class="fa-solid fa-rotate-left"></i></div>
+                    <div>
+                        <h5 class="modal-title mb-0">Restore Event</h5>
+                        <div class="small text-muted">Restores the event back to Planned.</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body modal-soft-body">
+                <label class="form-label fw-semibold">Reason (optional)</label>
+                <textarea name="reason" class="form-control" rows="3" maxlength="500" placeholder="Optional note…"></textarea>
+            </div>
+
+            <div class="modal-footer border-0 pt-0 px-3 pb-3 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-light btn-pill" data-bs-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-brand btn-pill">
+                    <i class="fa-solid fa-rotate-left me-1"></i> Confirm Restore
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- DELETE MODAL --}}
+@if(Route::has('events.destroy'))
+<div class="modal fade" id="deleteEventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="POST" action="{{ route('events.destroy', $event->event_id) }}" class="modal-content modal-soft">
+            @csrf
+            @method('DELETE')
+
+            <div class="modal-header modal-soft-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="modal-icon"><i class="fa-solid fa-trash-can"></i></div>
+                    <div>
+                        <h5 class="modal-title mb-0">Delete Event</h5>
+                        <div class="small text-muted">This permanently deletes the event and its roster. This action cannot be undone.</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body modal-soft-body">
+                <p class="mb-2 fw-semibold">
+                    Are you sure you want to delete <span class="text-danger">"{{ $event->title }}"</span>?
+                </p>
+                <p class="small text-muted mb-0">Consider cancelling instead if you still want to keep the record for reporting.</p>
+            </div>
+
+            <div class="modal-footer border-0 pt-0 px-3 pb-3 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-light btn-pill" data-bs-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-danger btn-pill">
+                    <i class="fa-solid fa-trash-can me-1"></i> Delete Event
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+@endif
+
+{{-- EDIT ORGANIZER MODAL --}}
+<div class="modal fade" id="editOrganizerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="POST" action="{{ route('events.organizers.update', $event->event_id) }}" class="modal-content modal-soft">
+            @csrf
+            @method('PUT')
+            <input type="hidden" name="organizer_id" id="edit_org_id">
+
+            <div class="modal-header modal-soft-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="modal-icon"><i class="fa-solid fa-user-pen"></i></div>
+                    <div>
+                        <h5 class="modal-title mb-0">Edit Organizer</h5>
+                        <div class="small text-muted">Update organizer details.</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body modal-soft-body">
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Name</label>
+                    <input class="form-control" name="name" id="edit_org_name" required maxlength="120">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Email</label>
+                    <input class="form-control" name="email" id="edit_org_email" maxlength="190">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Contact</label>
+                    <input class="form-control" name="contact" id="edit_org_contact" maxlength="60">
+                </div>
+            </div>
+
+            <div class="modal-footer border-0 pt-0 px-3 pb-3 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-light btn-pill" data-bs-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-brand btn-pill">
+                    <i class="fa-solid fa-floppy-disk me-1"></i> Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- DELETE ORGANIZER MODAL --}}
+<div class="modal fade" id="deleteOrganizerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="POST" action="{{ route('events.organizers.destroy', $event->event_id) }}" class="modal-content modal-soft">
+            @csrf
+            @method('DELETE')
+            <input type="hidden" name="organizer_id" id="del_org_id">
+
+            <div class="modal-header modal-soft-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="modal-icon"><i class="fa-solid fa-trash-can"></i></div>
+                    <div>
+                        <h5 class="modal-title mb-0">Delete Organizer</h5>
+                        <div class="small text-muted" id="del_org_label">This cannot be undone.</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body modal-soft-body">
+                <p class="mb-0">Remove this organizer from the event?</p>
+            </div>
+
+            <div class="modal-footer border-0 pt-0 px-3 pb-3 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-light btn-pill" data-bs-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-danger btn-pill">
+                    <i class="fa-solid fa-trash-can me-1"></i> Delete
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
 {{-- ADD VOLUNTEERS MODAL --}}
 <div class="modal fade" id="addStudentModal" tabindex="-1" aria-hidden="true">
@@ -519,7 +710,6 @@
     </div>
 </div>
 
-{{-- JS --}}
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
@@ -530,8 +720,14 @@ window.__EVENT_DETAILS_BOOT = {
     defaultTab: @json($defaultTab),
     defaultAvatar: @json($DEFAULT_AVATAR),
     presentCount: @json($presentCount),
+    lateCount: @json($lateCount),
     walkInCount: @json($walkInCount),
     maxVolunteers: @json($maxVolunteers),
+
+    organizerSuccess: @json(session('organizer_success')),
+    organizerDeleted: @json(session('organizer_deleted')),
+    organizerWarning: @json(session('organizer_warning')),
+    organizerError:   @json(session('organizer_error')),
 
     addVolUrl: @json(route('events.expectedVolunteers.add', $event->event_id)),
     volDataUrl: @json(route('volunteers.data')),
@@ -539,7 +735,7 @@ window.__EVENT_DETAILS_BOOT = {
     volunteerShowUrlTemplate: @json(route('volunteers.show', '__VID__')),
 
     bootSuccess: @json(session('submit_success')),
-    summaryNotice: null, // optional; leave null so nothing auto-pops
+    summaryNotice: null,
 
     eventCode: @json($eventCode),
     eventStatus: @json(strtolower($event->status)),
@@ -548,6 +744,5 @@ window.__EVENT_DETAILS_BOOT = {
 </script>
 
 <script src="{{ asset('assets/event_details/js/script.js') }}"></script>
-
 </body>
 </html>

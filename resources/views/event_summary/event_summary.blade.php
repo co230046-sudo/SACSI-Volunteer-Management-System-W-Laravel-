@@ -85,16 +85,16 @@
                 <div class="top-actions-row">
                 <div class="title-and-details">
                     <div class="title-row">
-                    <h1 class="event-h1">{{ $event->title ?? 'Untitled Event' }}</h1>
+                      <h1 class="event-h1">{{ $event->title ?? 'Untitled Event' }}</h1>
 
-                    <span class="status-badge status-{{ $status }}">
-                        <span class="dot"></span>
-                        {{ $statusLabel }}
-                    </span>
+                      <span class="status-badge status-{{ $status }}">
+                          <span class="dot"></span>
+                          {{ $statusLabel }}
+                      </span>
 
-                    <span class="mini-badge mini-badge--ok">
-                        <i class="fa-solid fa-cloud-arrow-up"></i> Attendance imported
-                    </span>
+                      <span class="mini-badge mini-badge--ok">
+                          <i class="fa-solid fa-cloud-arrow-up"></i> Attendance imported
+                      </span>
                     </div>
 
                     <div class="chips">
@@ -119,32 +119,33 @@
                         {{ $event->venue ?: '—' }}
                     </div>
 
-                    <button type="button"
-                            class="chip chip-btn"
-                            id="eventCodeCopy"
-                            data-code="{{ $event->event_code ?? '' }}"
-                            title="Copy Event Code">
-                        <i class="fa-solid fa-hashtag"></i>
-                        Code: <strong>{{ $event->event_code ?? '—' }}</strong>
-                        <span class="chip-ico"><i class="fa-regular fa-copy"></i></span>
-                    </button>
                     </div>
 
                     <div class="subchips">
-                    <span class="subchip">
-                        <i class="fa-solid fa-map"></i>
-                        {{ $event->location?->barangay ?? 'No barangay set' }}
-                    </span>
-                    <span class="subchip">
-                        <i class="fa-solid fa-building"></i>
-                        {{ $event->district_id ? "District {$event->district_id}" : 'No district set' }}
-                    </span>
-                    @if(!is_null($capacity))
-                        <span class="subchip">
-                        <i class="fa-solid fa-user-group"></i>
-                        Max: {{ $capacity }}
-                        </span>
-                    @endif
+                      <span class="subchip">
+                          <i class="fa-solid fa-map"></i>
+                          {{ $event->location?->barangay ?? 'No barangay set' }}
+                      </span>
+                      <span class="subchip">
+                          <i class="fa-solid fa-building"></i>
+                          {{ $event->district_id ? "District {$event->district_id}" : 'No district set' }}
+                      </span>
+                      @if(!is_null($capacity))
+                          <span class="subchip">
+                          <i class="fa-solid fa-user-group"></i>
+                          Max: {{ $capacity }}
+                          </span>
+                      @endif
+
+                      <button type="button"
+                              class="chip chip-btn"
+                              id="eventCodeCopy"
+                              data-code="{{ $event->event_code ?? '' }}"
+                              title="Copy Event Code">
+                          <i class="fa-solid fa-hashtag"></i>
+                          Code: <strong>{{ $event->event_code ?? '—' }}</strong>
+                          <span class="chip-ico"><i class="fa-regular fa-copy"></i></span>
+                      </button>
                     </div>
                 </div>
 

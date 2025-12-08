@@ -207,7 +207,7 @@
                   <ul style="margin:0; padding-left: 1.25rem;">
                     <li>Only <strong>.csv</strong> files are accepted.</li>
                     <li>The selected file name will appear beside the Choose File button.</li>
-                    <li>If nothing changes, check if your file input is hidden and triggered by the button (that’s normal in your Blade).</li>
+                    <li>Incorrect <strong>.csv</strong> header will prevent you from importing the file.</li>
                   </ul>
                 </div>
               </details>

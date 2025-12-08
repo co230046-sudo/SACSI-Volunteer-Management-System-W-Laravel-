@@ -35,7 +35,7 @@
     right: 0;
     height: 80px;
     z-index: 1000;
-    background-color: #B2000C;
+    background-color:  #b3263a;
     color: white;
     padding: 1rem 2rem;
     box-sizing: border-box;
@@ -225,7 +225,8 @@
     box-shadow: -4px 0 15px rgba(0,0,0,0.15);
     display: flex;
     flex-direction: column;
-    border-left: 3px solid #b2000c;
+    border-left: 3px solid  #b3263a;
+;
     overflow: hidden;
   }
 
@@ -239,7 +240,8 @@
     justify-content: space-between;
     align-items: center;
     padding: 0.53rem 1.2rem;
-    background-color: #b2000c;
+    background-color:  #b3263a;
+;
     color: white;
     border-bottom: 1px solid rgba(255,255,255,0.15);
     box-shadow: 0 2px 6px rgba(0,0,0,0.15);
@@ -713,57 +715,82 @@ document.addEventListener("DOMContentLoaded", () => {
     </div>
 
     <!-- Sidebar Links -->
-    <div class="sidebar-links list-group">
-        @if(!empty($pageTitle) && $pageTitle !== "SACSI Volunteer Management")
-            <a href="{{ url('/') }}">
-                <i class="fas fa-home me-2"></i><span class="link-text">Home</span>
-            </a>
-        @endif
-
-        <a href="routegoeshere">
-            <i class="fas fa-user-graduate me-2"></i><span class="link-text">Volunteer List</span>
+   <div class="sidebar-links list-group">
+    @if(!empty($pageTitle) && $pageTitle !== "SACSI Volunteer Management")
+        <a href="{{ route('home') }}">
+            <i class="fas fa-home me-2"></i>
+            <span class="link-text">Home</span>
         </a>
+    @endif
+
+        <a href="{{ route('volunteer.import.index') }}#handling-Section">
+          <i class="fas fa-tasks"></i>
+          <span class="link-text">Import & Validation</span>
+      </a>
+
+
 
         <!-- Import Volunteers -->
-        <a href="routegoeshere" class="sidebar-parent">
-            <i class="fa-solid fa-upload fa-3x"></i><span class="link-text">Import Volunteer</span>
-            <i class="fas fa-chevron-down toggle-chevron"></i>
-        </a>
+        <a href="{{ route('volunteer.import.index') }}" class="sidebar-parent">
+          <i class="fa-solid fa-upload fa-3x"></i>
+          <span class="link-text">Import Volunteer</span>
+          <i class="fas fa-chevron-down toggle-chevron"></i>
+      </a>
+
         <div class="sidebar-child">
-            <a href="routegoeshere#handling-Section">
-                <i class="fas fa-tasks"></i><span class="link-text">Import & Validation</span>
-            </a>
-            <a href="routegoeshere#import-Section">
-                <i class="fas fa-user-check"></i><span class="link-text">Verified Entries</span>
-            </a>
+            <a href="{{ route('volunteer.import.index') }}#handling-Section">
+              <i class="fas fa-tasks"></i>
+              <span class="link-text">Import & Validation</span>
+          </a>
+
+         <a href="{{ route('volunteer.import.index') }}#import-Section-valid">
+            <i class="fas fa-user-check"></i>
+            <span class="link-text">Verified Entries</span>
+        </a>
+
+
+
+
             <a href="routegoeshere#importlog-Section">
                 <i class="fas fa-history"></i><span class="link-text">Import Logs</span>
             </a>
             <hr>
         </div>
 
-        <a href="routegoeshere">
-            <i class="fas fa-calendar-plus"></i><span class="link-text">Create Event</span>
-        </a>
+        <a href="{{ route('events.create') }}">
+          <i class="fas fa-calendar-plus"></i>
+          <span class="link-text">Create Event</span>
+      </a>
+
 
         <!-- Event Manager -->
-        <a href="routegoeshere" class="sidebar-parent">
-            <i class="fas fa-tasks"></i><span class="link-text">Event Manager</span>
-            <i class="fas fa-chevron-down toggle-chevron"></i>
-        </a>
+        <a href="{{ route('events.manage') }}" class="sidebar-parent">
+          <i class="fas fa-tasks"></i>
+          <span class="link-text">Event Manager</span>
+          <i class="fas fa-chevron-down toggle-chevron"></i>
+      </a>
+
         <div class="sidebar-child">
-            <a href="routegoeshere#UpcomingEvents-Section">
-                <i class="fas fa-calendar-check"></i><span class="link-text">Upcoming</span>
+            <a href="{{ route('events.manage') }}#UpcomingEvents-Section">
+              <i class="fas fa-calendar-check"></i>
+              <span class="link-text">Upcoming</span>
+          </a>
+
+            <a href="{{ route('events.manage', ['tab' => 'ongoing']) }}#OngoingEvents-Section">
+              <i class="fas fa-hourglass-half"></i>
+              <span class="link-text">Ongoing</span>
+          </a>
+
+            <a href="{{ route('events.manage', ['tab' => 'completed']) }}#CompletedEvents-Section">
+                <i class="fas fa-calendar-check"></i>
+                <span class="link-text">Completed</span>
             </a>
-            <a href="routegoeshere#OngoingEvents-Section">
-                <i class="fas fa-hourglass-half"></i><span class="link-text">Ongoing</span>
+
+            <a href="{{ route('events.manage', ['tab' => 'cancelled']) }}#CancelledEvents-Section">
+                <i class="fas fa-ban"></i>
+                <span class="link-text">Cancelled</span>
             </a>
-            <a href="routegoeshere#CompletedEvent-Section">
-                <i class="fas fa-clipboard-check"></i><span class="link-text">Completed</span>
-            </a>
-            <a href="routegoeshere#CancelledEvent-Section">
-                <i class="fas fa-ban"></i><span class="link-text">Canceled</span>
-            </a>
+
             <hr>
         </div>
 
@@ -850,4 +877,15 @@ document.addEventListener("DOMContentLoaded", () => {
     closeSidebar.addEventListener('click', closeSidebarFn);
     overlay.addEventListener('click', closeSidebarFn);
   });
+
+  document.addEventListener("DOMContentLoaded", function () {
+    if (window.location.hash) {
+        const target = document.querySelector(window.location.hash);
+        if (target) {
+            setTimeout(() => {
+                target.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 400);
+        }
+    }
+});
 </script>

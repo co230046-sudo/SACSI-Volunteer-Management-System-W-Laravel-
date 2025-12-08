@@ -130,7 +130,7 @@ section {
   padding: 8px 14px;
   font-size: 1rem;
   font-weight: 600;
-  color: #B2000C;
+  color: #b3263a;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -183,7 +183,7 @@ section {
 
 .detail-card:hover {
   background: #f2f5f8;
-  border-color: #B2000C;
+  border-color: #b3263a;
   transform: translateY(-2px);
 }
 
@@ -193,7 +193,7 @@ section {
 }
 
 .detail-card i {
-  color: #B2000C;
+  color: #b3263a;
 }
 
 /* Copy Button */
@@ -202,7 +202,7 @@ section {
   position: absolute;
   top: 10px;
   right: 10px;
-  background-color: #B2000C;
+  background-color: #b3263a;
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -252,7 +252,7 @@ section {
 }
 
 .events-title {
-  color: #B2000C;
+  color: #b3263a;
   text-align: center;
   font-weight: 700;
   margin-bottom: 1rem;
@@ -304,28 +304,7 @@ section {
 /* ================================
    MODAL SYSTEM (WHITE BAR FIXED)
 ================================ */
-.styled-modal {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0,0,0,0.55);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 99999;
-}
 
-.styled-modal-content {
-  background: #fff;
-  padding: 25px;
-  width: 100%;
-  max-width: 1100px;
-  max-height: 90vh;
-  overflow-y: auto;
-  border-radius: 15px;
-  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-}
 
 .modal-close {
   position: absolute;
@@ -333,14 +312,14 @@ section {
   right: 15px;
   font-size: 22px;
   cursor: pointer;
-  color: #B2000C;
+  color: #b3263a;
 }
 
 /* ================================
    TABLE INSIDE MODAL
 ================================ */
 .styled-table thead tr {
-  background: #B2000C;
+  background: #b3263a;
   color: white;
   text-align: center;
 }
@@ -396,7 +375,7 @@ section {
 
 .detail-card:hover {
   background: #f2f5f8;
-  border-color: #B2000C;
+  border-color: #b3263a;
   transform: translateY(-2px);
   box-shadow: 0 6px 14px rgba(0,0,0,0.16);
 }
@@ -431,7 +410,7 @@ section {
    ICON ANIMATION (SAFE)
 ============================== */
 .detail-card i {
-  color: #B2000C;
+  color: #b3263a;
   flex-shrink: 0;            /* ✅ prevents icon squish */
   transition: transform 0.3s ease, color 0.3s ease;
   display: inline-block;
@@ -480,7 +459,7 @@ section {
 .action-tools .info-card {
   font-weight: 600;
   font-size: 1rem;
-  color: #B2000C;
+  color: #b3263a;
 }
 
 .action-tools .info-card:hover {
@@ -532,7 +511,7 @@ section {
 
 /* Links inside info-card (Print/Edit) */
 .action-tools .info-card a {
-  color: #B2000C;
+  color: #b3263a;
   font-weight: 600;
   font-size: 1rem;      /* bigger text */
   text-decoration: none;
@@ -549,7 +528,7 @@ section {
   right: 110%;                 /* ✅ stays INSIDE */
   top: 50%;
   transform: translateY(-50%);
-  background: #B2000C;
+  background: #b3263a;
   color: #fff;
   padding: 6px 12px;
   border-radius: 12px;
@@ -632,6 +611,7 @@ section {
 .activity-table-wrapper {
     max-height: 65vh;
     overflow-y: auto;
+    max-width: 100%;
 }
 
 /* Table Styling */
@@ -682,7 +662,7 @@ section {
 ================================ */
 
 .system-log-btn {
-    background: linear-gradient(135deg, #b2000c, #8a0000);
+    background: linear-gradient(135deg,#b3263a, #8a0000);
     color: #fff;
     border: none;
     border-radius: 10px;
@@ -704,7 +684,7 @@ section {
 }
 
 .system-log-btn:hover {
-    background: linear-gradient(135deg, #8a0000, #b2000c);
+    background: linear-gradient(135deg, #8a0000, #b3263a);
     transform: translateY(-2px);
     box-shadow: 0 6px 14px rgba(0,0,0,0.25);
 }
@@ -715,4 +695,560 @@ section {
 
 .system-log-btn:focus {
     outline: none;
+}
+/* ================================
+   ✅ ADMIN PROFILE MODAL — SYSTEM THEME
+================================ */
+
+/* ================================
+   ADMIN PROFILE MODAL CONTAINER
+================================ */
+.admin-profile-modal {
+    max-width: 520px;
+    padding: 0;
+    overflow: hidden;
+    border-radius: 14px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+/* ================================
+   HEADER
+================================ */
+.admin-profile-header {
+    background: linear-gradient(135deg, #B2000C, #8A0000);
+    color: white;
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.admin-profile-header .modal-icon {
+    font-size: 26px;
+    color: white;
+}
+
+.admin-profile-header .modal-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+}
+
+/* ================================
+   CLOSE BUTTON
+================================ */
+#adminProfileViewModal .modal-close {
+    color: #b3263a;
+    top: 14px;
+    right: 16px;
+    transition: 0.2s ease;
+}
+
+#adminProfileViewModal .modal-close:hover {
+    transform: scale(1.2);
+}
+
+/* ================================
+   MODAL BODY
+================================ */
+#adminProfileContent {
+    background: #f9fafb;
+    padding: 20px;
+}
+
+/* ================================
+   PROFILE IMAGE
+================================ */
+#adminProfileContent img {
+    border: 4px solid #b3263a;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+    transition: 0.25s ease;
+}
+
+#adminProfileContent img:hover {
+    transform: scale(1.05);
+}
+
+/* ================================
+   NAME & ROLE
+================================ */
+#adminProfileContent h4 {
+    margin-top: 12px;
+    margin-bottom: 6px;
+    font-weight: 700;
+    color: #222;
+}
+
+#adminProfileContent .role-badge {
+    background: rgba(178,0,12,0.12);
+    color: #b3263a;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    display: inline-block;
+}
+
+/* ================================
+   PROFILE DETAIL SECTIONS
+================================ */
+#adminProfileViewModal .volunteer-details,
+#adminProfileViewModal .schedule-section {
+    background: #ffffff;
+    border: 1.8px solid #b3263a;
+    border-radius: 14px;
+    padding: 1.4rem;
+    margin-bottom: 1rem;
+    transition: 0.25s ease;
+    position: relative;
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.12);
+}
+
+#adminProfileViewModal .volunteer-details:hover,
+#adminProfileViewModal .schedule-section:hover {
+    box-shadow: 0 10px 25px rgba(178, 0, 12, 0.25);
+    transform: translateY(-2px);
+}
+
+/* ================================
+   DETAIL CARDS
+================================ */
+#adminProfileViewModal .detail-card {
+    background: linear-gradient(135deg, #fafafa, #f1f1f1);
+    border: 1.5px solid #dee2e6;
+    border-radius: 12px;
+    padding: 12px 14px;
+    transition: 0.25s ease;
+}
+
+#adminProfileViewModal .detail-card:hover {
+    background: #ffffff;
+    border-color: #b3263a;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(178, 0, 12, 0.15);
+}
+
+#adminProfileViewModal .detail-card h6 {
+    font-weight: 700;
+    margin-bottom: 4px;
+    font-size: 13px;
+    color: #222;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#adminProfileViewModal .detail-card p {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #444;
+}
+
+#adminProfileViewModal .detail-card i {
+    color: #b3263a;
+    font-size: 14px;
+}
+
+/* ================================
+   ADMIN PROFILE TABLE (FINAL CLEAN)
+================================ */
+#adminProfileContent table {
+    margin-top: 20px;
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.08);
+}
+
+#adminProfileContent table th {
+    background: #B2000C;
+    color: white;
+    width: 35%;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+#adminProfileContent table td {
+    background: #f8f9fa;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+#adminProfileContent table td,
+#adminProfileContent table th {
+    padding: 10px 14px;
+}
+
+/* ================================
+   BUTTON THEMES
+================================ */
+#adminProfileContent .btn-danger {
+    background: #b3263a;
+    border-color: #b3263a;
+}
+
+#adminProfileContent .btn-outline-danger {
+    border-color: #b3263a;
+    color: #b3263a;
+}
+
+#adminProfileContent .btn-outline-danger:hover {
+    background: #b3263a;
+    color: white;
+}
+
+/* ================================
+   LOADING SPINNER
+================================ */
+/* ================================
+   ADMIN PROFILE MODAL LAYOUT
+================================ */
+
+.admin-profile-modal {
+    border-radius: 22px !important;
+    overflow: hidden;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+    background: #fff;
+}
+
+/* ================================
+   HEADER
+================================ */
+
+.admin-profile-header {
+    background: linear-gradient(135deg, #b3263a, #8A0000);
+    color: white;
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-top-left-radius: 22px;
+    border-top-right-radius: 22px;
+}
+
+.admin-profile-header .modal-icon {
+    font-size: 26px;
+    color: #fff;
+}
+
+.admin-profile-header .modal-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+}
+
+/* ================================
+   PROFILE BODY LAYOUT
+================================ */
+
+.admin-profile-layout {
+    padding: 20px;
+}
+
+/* TOP ROW */
+.admin-top-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+/* CENTER PROFILE */
+.admin-center {
+    text-align: center;
+    width: 100%;
+}
+
+.admin-avatar {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 5px solid #B2000C;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+}
+
+.admin-name {
+    margin-top: 12px;
+    font-weight: 800;
+    font-size: 20px;
+}
+
+.admin-role {
+    color: gray;
+    font-weight: 600;
+}
+
+/* ================================
+   STATUS BADGE
+================================ */
+
+.admin-status {
+    margin-top: 8px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+    display: inline-block;
+}
+
+.status-active {
+    background: rgba(40, 167, 69, 0.15);
+    color: #28a745;
+}
+
+.status-inactive {
+    background: rgba(220, 53, 69, 0.15);
+    color: #dc3545;
+}
+
+/* ================================
+   ACTION BUTTON ROW
+================================ */
+
+.admin-action-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 18px 0;
+}
+
+.admin-action-left {
+    display: flex;
+    gap: 10px;
+}
+
+.admin-action-right {
+    display: flex;
+}
+
+/* BUTTON BASE */
+.admin-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: 0.2s ease;
+    background: white;
+    box-shadow: 0 5px 12px rgba(0,0,0,0.12);
+}
+
+.admin-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+}
+
+/* BUTTON TYPES */
+.admin-btn.print {
+    color: #b3263a;
+    border: 1px solid #b3263a;
+}
+
+.admin-btn.edit {
+    color: #0d6efd;
+    border: 1px solid #0d6efd;
+}
+
+.admin-btn.delete {
+    background: #b3263a;
+    color: #fff;
+    font-weight: 700;
+    border: none;
+}
+
+/* ================================
+   DETAILS BOX
+================================ */
+
+.admin-details-box {
+    border: 1px solid #dee2e6;
+    border-radius: 18px;
+    padding: 18px;
+}
+
+.admin-details-title {
+    font-weight: 800;
+    margin-bottom: 15px;
+}
+
+/* ================================
+   DETAILS GRID
+================================ */
+
+.admin-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+}
+
+.admin-card {
+    border: 1px solid #dee2e6;
+    border-radius: 16px;
+    padding: 12px;
+    transition: 0.2s;
+    background: #fff;
+}
+
+.admin-card:hover {
+    border-color: #b3263a;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgba(0,0,0,0.15);
+}
+
+.admin-card i {
+    color: #b3263a;
+    margin-right: 6px;
+}
+
+.admin-card b {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 3px;
+}
+
+.admin-card span {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* ================================
+   RESPONSIVE FIX
+================================ */
+
+@media (max-width: 992px) {
+    .admin-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 576px) {
+    .admin-grid {
+        grid-template-columns: repeat(1, 1fr);
+    }
+
+    .admin-action-row {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .admin-action-right {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ========================================
+   ✅ FINAL HARD OVERRIDE — ACTIONS ALIGNMENT
+======================================== */
+
+/* ✅ SINGLE SOURCE OF TRUTH FOR MODAL */
+.styled-modal-content {
+    max-width: 1200px !important;
+    padding: 18px 22px !important;
+}
+
+/* ✅ SINGLE SOURCE OF TRUTH FOR TABLE */
+.styled-table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+}
+
+/* ✅ LOCK ROW HEIGHT + CENTER ALL CELLS */
+.styled-table th,
+.styled-table td {
+    padding: 12px 10px !important;
+    font-size: 14px !important;
+    vertical-align: middle !important;
+    text-align: center !important;
+}
+
+/* ✅ FINAL COLUMN WIDTH LOCK */
+.styled-table th:nth-child(1),
+.styled-table td:nth-child(1) { width: 6% !important; }
+
+.styled-table th:nth-child(2),
+.styled-table td:nth-child(2) { width: 26% !important; }
+
+.styled-table th:nth-child(3),
+.styled-table td:nth-child(3) { width: 16% !important; }
+
+.styled-table th:nth-child(4),
+.styled-table td:nth-child(4) { width: 32% !important; }
+
+
+
+/* ✅ ACTION CELL — PERFECT CENTER */
+.actions-cell {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 6px 0 !important;
+    width: 100% !important;
+}
+
+/* ✅ FORCE BOTH BUTTONS TO SAME SIZE */
+.actions-cell .btn-log,
+.actions-cell .btn-view {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 72px !important;
+    height: 30px !important;
+    padding: 4px 10px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
+    border-radius: 6px !important;
+    white-space: nowrap !important;
+}
+
+/* ✅ ICON FIX */
+.actions-cell .btn-log i,
+.actions-cell .btn-view i {
+    font-size: 12px !important;
+    margin-right: 4px !important;
+}
+/* ================================
+   ✅ FINAL ACTION BUTTON ALIGNMENT FIX
+================================ */
+
+/* Force the TD itself to be a flex container */
+.styled-table td.actions-cell {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 8px 12px !important;
+    height: 100% !important;
+    vertical-align: middle !important;
+    text-align: center !important;
+}
+
+/* Force equal button size */
+.styled-table td.actions-cell .btn-log,
+.styled-table td.actions-cell .btn-view {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 30px !important;
+    min-width: 75px !important;
+    padding: 4px 12px !important;
+    font-size: 12px !important;
+    line-height: 1 !important;
+    border-radius: 6px !important;
+    white-space: nowrap !important;
+}
+
+/* Normalize icons */
+.styled-table td.actions-cell i {
+    font-size: 12px !important;
+    margin-right: 4px !important;
 }

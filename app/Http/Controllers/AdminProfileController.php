@@ -10,39 +10,39 @@ use Illuminate\Support\Facades\Hash;
 class AdminProfileController extends Controller
 {
     /* ================================
-       VIEW ADMIN PROFILE
-    ================================= */
+       VIEW ADMIN PROFILE (PAGE VIEW)
+    ================================ */
     public function index(Request $request, $id = null)
     {
-        auth()->setDefaultDriver('admin');
-        auth()->shouldUse('admin');
-
-        $currentAdmin = auth()->user();
-
-        // Load selected admin or self
-        if ($id !== null) {
-            $admin = AdminAccount::find($id);
-            if (!$admin) {
-                abort(404, "Admin not found");
-            }
-        } else {
-            $admin = AdminAccount::find($currentAdmin->admin_id);
+        // ✅ ALWAYS use guard directly
+        if (!auth('admin')->check()) {
+            return redirect()->route('admin.login');
         }
 
-        // Detect super admin
+        $currentAdmin = auth('admin')->user();
+
+        // ✅ Load selected admin or self
+        if ($id !== null) {
+            $admin = AdminAccount::findOrFail($id);
+        } else {
+            $admin = AdminAccount::findOrFail($currentAdmin->admin_id);
+        }
+
+        // ✅ Super admin check
         $isSuperAdmin = preg_match('/super/i', $currentAdmin->role);
 
-        // Load all admins only for super admins
+        // ✅ Load all admins only for super admins
         $allAdmins = $isSuperAdmin
             ? AdminAccount::orderBy('full_name')->get()
             : collect([]);
 
-        // Merge logs
-        $logs = $admin->authenticateLogs
-            ->merge($admin->importLogs)
-            ->merge($admin->eventLogs)
-            ->merge($admin->attendanceImportLogs)
-            ->merge($admin->factLogs)
+        // ✅ SAFE log merging (prevents crashes)
+        $logs = collect()
+            ->merge($admin->authenticateLogs ?? collect())
+            ->merge($admin->importLogs ?? collect())
+            ->merge($admin->eventLogs ?? collect())
+            ->merge($admin->attendanceImportLogs ?? collect())
+            ->merge($admin->factLogs ?? collect())
             ->sortByDesc('created_at')
             ->values();
 
@@ -56,7 +56,7 @@ class AdminProfileController extends Controller
 
     /* ================================
        UPDATE ADMIN PROFILE (AUTO LOGGING)
-    ================================= */
+    ================================ */
     public function update(Request $request)
     {
         auth()->setDefaultDriver('admin');
@@ -82,7 +82,7 @@ class AdminProfileController extends Controller
 
         /* ================================
            ✅ AUTO LOG CHANGES
-        ================================= */
+        ================================ */
 
         // ✅ NAME CHANGE
         if ($admin->full_name !== $request->full_name) {
@@ -168,7 +168,7 @@ class AdminProfileController extends Controller
 
         /* ================================
            ✅ FINAL DATA UPDATE
-        ================================= */
+        ================================ */
         $admin->full_name      = $request->full_name;
         $admin->email          = $request->email;
         $admin->contact_number = $request->contact_number;
@@ -188,7 +188,7 @@ class AdminProfileController extends Controller
 
     /* ================================
        AJAX → GET LOGS FOR MODAL
-    ================================= */
+    ================================ */
     public function getLogs($id)
     {
         auth()->shouldUse('admin');
@@ -213,6 +213,33 @@ class AdminProfileController extends Controller
         return response()->json([
             'name' => $admin->full_name,
             'logs' => $logs
+        ]);
+    }
+
+    /* ================================
+       ✅ AJAX → VIEW ADMIN PROFILE (MODAL)
+    ================================ */
+    public function viewProfile($id)
+    {
+        auth()->shouldUse('admin');
+
+        $admin = AdminAccount::find($id);
+
+        if (!$admin) {
+            return response()->json(['error' => 'Admin not found'], 404);
+        }
+
+        return response()->json([
+            'admin_id' => $admin->admin_id,
+            'username' => $admin->username,
+            'full_name' => $admin->full_name,
+            'email' => $admin->email,
+            'role' => $admin->role,
+            'contact_number' => $admin->contact_number,
+            'created_at' => $admin->created_at->format('M d, Y'),
+            'profile_picture' => $admin->profile_picture
+                ? asset('storage/'.$admin->profile_picture)
+                : asset('assets/adminpic.png'),
         ]);
     }
 }

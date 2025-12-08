@@ -13,6 +13,8 @@ use App\Http\Controllers\AttendanceImportController;
 use App\Http\Controllers\EventDetailsController;
 use App\Http\Controllers\AdminProfileController;
 use App\Http\Controllers\DashboardController;
+use App\Models\ActivityLog;
+use App\Models\Admin;
 
 Route::get('/', function () {
     return redirect()->route('auth.login');
@@ -32,20 +34,32 @@ Route::middleware(['auth:admin'])->group(function () {
 
     /* ------------------ ADMIN PROFILE + DASHBOARD ------------------ */
     // Dynamic profile first (must be above /admin/profile)
-    Route::get('/admin/profile/{id}', [AdminProfileController::class, 'index'])
-        ->name('admin.profile');
+    Route::middleware(['auth:admin'])->prefix('admin')->name('admin.')->group(function () {
 
-    Route::get('/admin/profile', [AdminProfileController::class, 'index'])
-        ->name('admin.profile.self');
+    // ✅ ADMIN PROFILE PAGE
+    Route::get('/profile', [AdminProfileController::class, 'index'])
+        ->name('profile.self');
 
-    Route::put('/admin/profile/update', [AdminProfileController::class, 'update'])
-        ->name('admin.profile.update');
+    Route::get('/profile/{id}', [AdminProfileController::class, 'index'])
+        ->name('profile');
 
-    Route::get('/admin/profile/logs/{id}', [AdminProfileController::class, 'getLogs'])
-        ->name('admin.profile.logs');
+    // ✅ UPDATE PROFILE
+    Route::put('/profile/update', [AdminProfileController::class, 'update'])
+        ->name('profile.update');
 
-    Route::get('/admin/dashboard', [DashboardController::class, 'index'])
-        ->name('admin.dashboard');
+    // ✅ FETCH LOGS (MODAL)
+    Route::get('/profile/logs/{id}', [AdminProfileController::class, 'getLogs'])
+        ->name('profile.logs');
+
+    // ✅ ✅ ✅ FETCH PROFILE FOR MODAL (THIS WAS BROKEN BEFORE)
+    Route::get('/profile/view/{id}', [AdminProfileController::class, 'viewProfile'])
+        ->name('profile.view');
+
+    // ✅ DASHBOARD
+    Route::get('/dashboard', [DashboardController::class, 'index'])
+        ->name('dashboard');
+
+    });
 
     /* ------------------ VOLUNTEER IMPORT ------------------ */
     Route::prefix('volunteer-import')->group(function () {

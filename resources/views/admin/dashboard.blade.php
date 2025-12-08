@@ -1,5 +1,6 @@
 @include('layouts.navbar')
 @include('layouts.page_loader')
+@include('layouts.back_button')
 
 <!-- BOOTSTRAP CSS -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -40,7 +41,7 @@
 .section-title {
     font-size: 1.3rem;
     font-weight: 700;
-    color: #B30000;
+    color: #b3263a;
     margin-bottom: 15px;
     display: flex;
     gap: 8px;
@@ -129,15 +130,15 @@ $totalVolunteers = $totalVolunteers ?? 0;
             </a>
         </div>
 
-       <div class="col-12 col-sm-6 col-lg-3">
-        <a href="{{ route('events.manage', ['tab' => 'completed']) }}" class="text-decoration-none">
-            <div class="dashboard-card bg-teal text-center">
-                <i class="fa fa-calendar-check fa-3x mb-2"></i>
-                <h5>Completed</h5>
-                <h2>{{ $completedEvents }}</h2>
-            </div>
-        </a>
-    </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <a href="{{ route('events.manage', ['tab' => 'completed']) }}" class="text-decoration-none">
+                <div class="dashboard-card bg-teal text-center">
+                    <i class="fa fa-calendar-check fa-3x mb-2"></i>
+                    <h5>Completed</h5>
+                    <h2>{{ $completedEvents }}</h2>
+                </div>
+            </a>
+        </div>
 
         <div class="col-12 col-sm-6 col-lg-3">
         <a href="{{ route('events.manage', ['tab' => 'cancelled']) }}" class="text-decoration-none">

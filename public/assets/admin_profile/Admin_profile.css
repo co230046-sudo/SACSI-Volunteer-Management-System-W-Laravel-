@@ -130,7 +130,7 @@ section {
   padding: 8px 14px;
   font-size: 1rem;
   font-weight: 600;
-  color: #B2000C;
+  color: #b3263a;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -183,7 +183,7 @@ section {
 
 .detail-card:hover {
   background: #f2f5f8;
-  border-color: #B2000C;
+  border-color: #b3263a;
   transform: translateY(-2px);
 }
 
@@ -193,7 +193,7 @@ section {
 }
 
 .detail-card i {
-  color: #B2000C;
+  color: #b3263a;
 }
 
 /* Copy Button */
@@ -202,7 +202,7 @@ section {
   position: absolute;
   top: 10px;
   right: 10px;
-  background-color: #B2000C;
+  background-color: #b3263a;
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -252,7 +252,7 @@ section {
 }
 
 .events-title {
-  color: #B2000C;
+  color: #b3263a;
   text-align: center;
   font-weight: 700;
   margin-bottom: 1rem;
@@ -312,14 +312,14 @@ section {
   right: 15px;
   font-size: 22px;
   cursor: pointer;
-  color: #B2000C;
+  color: #b3263a;
 }
 
 /* ================================
    TABLE INSIDE MODAL
 ================================ */
 .styled-table thead tr {
-  background: #B2000C;
+  background: #b3263a;
   color: white;
   text-align: center;
 }
@@ -375,7 +375,7 @@ section {
 
 .detail-card:hover {
   background: #f2f5f8;
-  border-color: #B2000C;
+  border-color: #b3263a;
   transform: translateY(-2px);
   box-shadow: 0 6px 14px rgba(0,0,0,0.16);
 }
@@ -410,7 +410,7 @@ section {
    ICON ANIMATION (SAFE)
 ============================== */
 .detail-card i {
-  color: #B2000C;
+  color: #b3263a;
   flex-shrink: 0;            /* ✅ prevents icon squish */
   transition: transform 0.3s ease, color 0.3s ease;
   display: inline-block;
@@ -459,7 +459,7 @@ section {
 .action-tools .info-card {
   font-weight: 600;
   font-size: 1rem;
-  color: #B2000C;
+  color: #b3263a;
 }
 
 .action-tools .info-card:hover {
@@ -511,7 +511,7 @@ section {
 
 /* Links inside info-card (Print/Edit) */
 .action-tools .info-card a {
-  color: #B2000C;
+  color: #b3263a;
   font-weight: 600;
   font-size: 1rem;      /* bigger text */
   text-decoration: none;
@@ -528,7 +528,7 @@ section {
   right: 110%;                 /* ✅ stays INSIDE */
   top: 50%;
   transform: translateY(-50%);
-  background: #B2000C;
+  background: #b3263a;
   color: #fff;
   padding: 6px 12px;
   border-radius: 12px;
@@ -662,7 +662,7 @@ section {
 ================================ */
 
 .system-log-btn {
-    background: linear-gradient(135deg, #b2000c, #8a0000);
+    background: linear-gradient(135deg,#b3263a, #8a0000);
     color: #fff;
     border: none;
     border-radius: 10px;
@@ -684,7 +684,7 @@ section {
 }
 
 .system-log-btn:hover {
-    background: linear-gradient(135deg, #8a0000, #b2000c);
+    background: linear-gradient(135deg, #8a0000, #b3263a);
     transform: translateY(-2px);
     box-shadow: 0 6px 14px rgba(0,0,0,0.25);
 }
@@ -738,7 +738,7 @@ section {
    CLOSE BUTTON
 ================================ */
 #adminProfileViewModal .modal-close {
-    color: #b2000c;
+    color: #b3263a;
     top: 14px;
     right: 16px;
     transition: 0.2s ease;
@@ -760,7 +760,7 @@ section {
    PROFILE IMAGE
 ================================ */
 #adminProfileContent img {
-    border: 4px solid #B2000C;
+    border: 4px solid #b3263a;
     box-shadow: 0 6px 15px rgba(0,0,0,0.2);
     transition: 0.25s ease;
 }
@@ -781,7 +781,7 @@ section {
 
 #adminProfileContent .role-badge {
     background: rgba(178,0,12,0.12);
-    color: #B2000C;
+    color: #b3263a;
     padding: 6px 14px;
     border-radius: 20px;
     font-size: 13px;
@@ -795,7 +795,7 @@ section {
 #adminProfileViewModal .volunteer-details,
 #adminProfileViewModal .schedule-section {
     background: #ffffff;
-    border: 1.8px solid #B2000C;
+    border: 1.8px solid #b3263a;
     border-radius: 14px;
     padding: 1.4rem;
     margin-bottom: 1rem;
@@ -823,7 +823,7 @@ section {
 
 #adminProfileViewModal .detail-card:hover {
     background: #ffffff;
-    border-color: #B2000C;
+    border-color: #b3263a;
     transform: translateY(-2px);
     box-shadow: 0 6px 12px rgba(178, 0, 12, 0.15);
 }
@@ -846,7 +846,7 @@ section {
 }
 
 #adminProfileViewModal .detail-card i {
-    color: #B2000C;
+    color: #b3263a;
     font-size: 14px;
 }
 
@@ -884,17 +884,17 @@ section {
    BUTTON THEMES
 ================================ */
 #adminProfileContent .btn-danger {
-    background: #B2000C;
-    border-color: #B2000C;
+    background: #b3263a;
+    border-color: #b3263a;
 }
 
 #adminProfileContent .btn-outline-danger {
-    border-color: #B2000C;
-    color: #B2000C;
+    border-color: #b3263a;
+    color: #b3263a;
 }
 
 #adminProfileContent .btn-outline-danger:hover {
-    background: #B2000C;
+    background: #b3263a;
     color: white;
 }
 
@@ -917,7 +917,7 @@ section {
 ================================ */
 
 .admin-profile-header {
-    background: linear-gradient(135deg, #B2000C, #8A0000);
+    background: linear-gradient(135deg, #b3263a, #8A0000);
     color: white;
     padding: 18px 24px;
     display: flex;
@@ -1046,8 +1046,8 @@ section {
 
 /* BUTTON TYPES */
 .admin-btn.print {
-    color: #B2000C;
-    border: 1px solid #B2000C;
+    color: #b3263a;
+    border: 1px solid #b3263a;
 }
 
 .admin-btn.edit {
@@ -1056,7 +1056,7 @@ section {
 }
 
 .admin-btn.delete {
-    background: #dc3545;
+    background: #b3263a;
     color: #fff;
     font-weight: 700;
     border: none;
@@ -1096,13 +1096,13 @@ section {
 }
 
 .admin-card:hover {
-    border-color: #B2000C;
+    border-color: #b3263a;
     transform: translateY(-2px);
     box-shadow: 0 6px 14px rgba(0,0,0,0.15);
 }
 
 .admin-card i {
-    color: #B2000C;
+    color: #b3263a;
     margin-right: 6px;
 }
 

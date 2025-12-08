@@ -87,7 +87,7 @@ body.modal-open {
     right: 18px;
     cursor: pointer;
     font-size: 22px;
-    color: #B2000C;
+    color: #b3263a;
     z-index: 100000; /* Always on top */
 }
 
@@ -107,7 +107,7 @@ body.modal-open {
 
 .modal-icon {
     font-size: 32px;
-    color: #B2000C;
+    color: #b3263a;
 }
 
 .modal-title {
@@ -120,7 +120,7 @@ body.modal-open {
    TABLE INSIDE MODAL
 ================================ */
 .styled-table thead tr {
-    background: #B2000C;
+    background: ##b3263a;
     color: white;
     text-align: center;
 }
@@ -189,7 +189,7 @@ body.modal-open {
    TOGGLE BUTTON (VIEW ADMIN LIST)
 ================================ */
 .view-admin-btn {
-    background: #B2000C;
+    background: #b3263a;
     color: #fff;
     padding: 12px 20px;
     border-radius: 10px;

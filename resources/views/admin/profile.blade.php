@@ -3,7 +3,7 @@
 
 <link rel="stylesheet" href="{{ asset('assets/admin_profile/Admin_profile.css') }}">
 <script src="{{ asset('assets/admin_profile/admin_profile.js') }}"></script>
-
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <section id="Student-Section" style="opacity:1;">
 
 <style>
@@ -69,6 +69,7 @@ body.modal-open {
     position: relative;
     box-shadow: 0 8px 25px rgba(0,0,0,0.15);
     animation: slideUp .35s ease;
+    table-layout: fixed;
 }
 
 @keyframes slideUp {
@@ -430,16 +431,15 @@ body.modal-open {
         <i class="fas fa-book-open"></i> Logs
     </button>
 
-    <!-- FIXED PROFILE BUTTON -->
-                    
-    
-         <a href="{{ route('admin.profile', ['id' => $acc->admin_id]) }}" 
-            class="btn-view" target="_blank">
-            <i class="fas fa-eye"></i> Profile
-            </a>
+    <!-- PROFILE BUTTON -->
+    <button class="btn-view"
+        data-url="{{ route('admin.profile.view', $acc->admin_id) }}"
+        onclick="openAdminProfileModal(this)">
+        <i class="fas fa-eye"></i> Profile
+    </button>
 
+</td>
 
-                </tr>
                 @endforeach
             </tbody>
         </table>
@@ -523,6 +523,35 @@ body.modal-open {
 
     </div>
 </div>
+<!-- ✅ ADMIN PROFILE VIEW MODAL -->
+<div id="adminProfileViewModal" class="styled-modal">
+    <div class="styled-modal-content admin-profile-modal">
+
+        <!-- CLOSE -->
+        <span class="modal-close" onclick="closeAdminProfileModal()">
+            <i class="fas fa-times"></i>
+        </span>
+
+        <!-- HEADER -->
+        <div class="modal-header admin-profile-header">
+            <i class="fas fa-user-shield modal-icon"></i>
+            <h3 class="modal-title">Admin Profile</h3>
+        </div>
+
+        <!-- BODY -->
+        <div id="adminProfileContent" class="p-4 text-center">
+
+            <div class="text-muted py-5">
+                <i class="fas fa-spinner fa-spin fa-2x mb-2"></i>
+                <div>Loading profile...</div>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+
 
 
 
@@ -530,7 +559,7 @@ body.modal-open {
 
 <script>
 /* ============================================================
-   ADMIN PROFILE MODALS & ACTIVITY LOG SYSTEM (FULL FIXED)
+   ADMIN PROFILE MODALS & ACTIVITY LOG SYSTEM (FINAL FIX)
 ============================================================ */
 
 /* ✅ OPEN ADMIN PROFILES MODAL */
@@ -554,23 +583,76 @@ function closeAdminProfilesModal() {
 }
 
 /* ✅ OPEN ADMIN LOGS MODAL (AJAX) */
-function openAdminLogsModal(id) {
+function openAdminProfileModal(button) {
 
-    fetch(`/admin/profile/logs/${id}`)
+    const url = button.dataset.url;
+
+    document.body.classList.add("modal-open");
+    document.getElementById("adminProfileViewModal").style.display = "flex";
+
+    fetch(url)
         .then(res => res.json())
         .then(data => {
 
-            document.getElementById('modalAdminName').innerText =
-                "Activity Logs — " + data.name;
+            document.getElementById("adminProfileContent").innerHTML = `
+                <div class="text-center mb-3">
+                    <img src="${data.profile_picture}"
+                         class="rounded-circle mb-2"
+                         width="120" height="120">
+                    <h4>${data.full_name}</h4>
+                    <p class="text-muted">${data.role}</p>
+                </div>
 
-            let body = document.getElementById('modalLogTable');
+                <table class="table table-bordered">
+                    <tr><th>Admin ID</th><td>${data.admin_id}</td></tr>
+                    <tr><th>Username</th><td>${data.username}</td></tr>
+                    <tr><th>Email</th><td>${data.email}</td></tr>
+                    <tr><th>Contact</th><td>${data.contact_number}</td></tr>
+                    <tr><th>Created</th><td>${data.created_at}</td></tr>
+                </table>
+            `;
+        })
+        .catch(err => {
+            console.error("PROFILE LOAD ERROR:", err);
+            document.getElementById("adminProfileContent").innerHTML = `
+                <div class="text-danger text-center">Failed to load profile.</div>
+            `;
+        });
+}
+function openAdminLogsModal(id) {
+
+    console.log("Opening logs for:", id); // ✅ debug proof
+
+    const modal = document.getElementById("adminLogsModal");
+    const body = document.getElementById("modalLogTable");
+    const title = document.getElementById("modalAdminName");
+
+    if (!modal || !body || !title) {
+        alert("Logs modal elements missing!");
+        return;
+    }
+
+    document.body.classList.add("modal-open");
+    modal.style.display = "flex";
+
+    fetch(`/admin/profile/logs/${id}`)
+        .then(res => {
+            if (!res.ok) throw new Error("Route not found");
+            return res.json();
+        })
+        .then(data => {
+
+            title.innerText = "Activity Logs — " + data.name;
             body.innerHTML = "";
 
             if (!data.logs || data.logs.length === 0) {
                 body.innerHTML = `
                     <tr>
-                        <td colspan="2" class="text-center text-muted">No logs found.</td>
-                    </tr>`;
+                        <td colspan="2" class="text-center text-muted">
+                            No logs found.
+                        </td>
+                    </tr>
+                `;
             } else {
                 data.logs.forEach(log => {
 
@@ -588,21 +670,24 @@ function openAdminLogsModal(id) {
                         <tr>
                             <td>${text}</td>
                             <td>${date}</td>
-                        </tr>`;
+                        </tr>
+                    `;
                 });
             }
-
-            document.body.classList.add("modal-open");
-            document.getElementById("adminLogsModal").style.display = "flex";
         })
-        .catch(err => console.error("Log fetch error:", err));
+        .catch(err => {
+            console.error("LOG FETCH ERROR:", err);
+            alert("Failed to load activity logs.");
+        });
 }
+
 
 /* ✅ CLOSE ADMIN LOGS MODAL */
 function closeAdminLogsModal() {
     document.body.classList.remove("modal-open");
     document.getElementById("adminLogsModal").style.display = "none";
 }
+
 /* ✅ OPEN ALL ACTIVITY LOGS POP-UP */
 function openAllLogsModal() {
     document.body.classList.add("modal-open");
@@ -614,6 +699,172 @@ function closeAllLogsModal() {
     document.body.classList.remove("modal-open");
     document.getElementById("allActivityLogsModal").style.display = "none";
 }
+
+/* ============================================================
+   ✅ ✅ ✅ ADMIN PROFILE MODAL (FINAL FIXED VERSION)
+============================================================ */
+function openAdminProfileModal(button) {
+
+    const url = button.dataset.url;
+
+    document.body.classList.add("modal-open");
+    document.getElementById("adminProfileViewModal").style.display = "flex";
+
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+
+            const isActive = data.is_active ?? 1; // ✅ fallback to active
+            const statusText = isActive ? "Active" : "Inactive";
+            const statusClass = isActive ? "status-active" : "status-inactive";
+            const statusIcon = isActive ? "fa-check-circle" : "fa-ban";
+
+            document.getElementById("adminProfileContent").innerHTML = `
+                <div class="admin-profile-layout">
+
+                    <!-- TOP PROFILE ROW -->
+                    <div class="admin-top-row">
+
+                        <div class="admin-center">
+                            <img src="${data.profile_picture || '/assets/adminpic.png'}" 
+                                 class="admin-avatar">
+
+                            <h3 class="admin-name">${data.full_name}</h3>
+                            <span class="admin-role">${data.role}</span>
+
+                            <!-- ✅ STATUS BADGE -->
+                            <div class="admin-status ${statusClass}">
+                                <i class="fas ${statusIcon}"></i> ${statusText}
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- ✅ ACTION BUTTONS -->
+                                        <!-- ✅ ACTION BUTTONS -->
+                    <div class="admin-action-row">
+
+                        <!-- LEFT BUTTONS -->
+                        <div class="admin-action-left">
+                            <button class="admin-btn print">
+                                <i class="fa fa-print me-2"></i> Print
+                            </button>
+
+                            <button class="admin-btn edit">
+                                <i class="fa fa-pen-to-square me-2"></i> Edit
+                            </button>
+                        </div>
+
+                        <!-- RIGHT DELETE BUTTON -->
+                        <div class="admin-action-right">
+                            <button class="admin-btn delete"
+                                onclick="deleteAdminProfile(${data.admin_id})">
+                                <i class="fa fa-trash me-2"></i> Delete
+                            </button>
+                        </div>
+
+                    </div>
+
+
+                    <!-- ADMIN DETAILS -->
+                    <div class="admin-details-box">
+                        <h5 class="admin-details-title">Admin Details</h5>
+
+                        <div class="admin-grid">
+                            <div class="admin-card">
+                                <i class="fa fa-id-card"></i>
+                                <b>Admin ID</b>
+                                <span>${data.admin_id}</span>
+                            </div>
+
+                            <div class="admin-card">
+                                <i class="fa fa-user"></i>
+                                <b>Username</b>
+                                <span>${data.username}</span>
+                            </div>
+
+                            <div class="admin-card">
+                                <i class="fa fa-envelope"></i>
+                                <b>Email</b>
+                                <span>${data.email}</span>
+                            </div>
+
+                            <div class="admin-card">
+                                <i class="fa fa-key"></i>
+                                <b>Password</b>
+                                <span>********</span>
+                            </div>
+
+                            <div class="admin-card">
+                                <i class="fa fa-address-card"></i>
+                                <b>Full Name</b>
+                                <span>${data.full_name}</span>
+                            </div>
+
+                            <div class="admin-card">
+                                <i class="fa fa-user-shield"></i>
+                                <b>Role</b>
+                                <span>${data.role}</span>
+                            </div>
+
+                            <div class="admin-card">
+                                <i class="fa fa-phone"></i>
+                                <b>Contact #</b>
+                                <span>${data.contact_number || 'N/A'}</span>
+                            </div>
+
+                            <div class="admin-card">
+                                <i class="fa fa-calendar-alt"></i>
+                                <b>Created</b>
+                                <span>${data.created_at}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        })
+        .catch(err => {
+            console.error("PROFILE LOAD ERROR:", err);
+            document.getElementById("adminProfileContent").innerHTML = `
+                <div class="text-danger text-center py-5">
+                    <i class="fas fa-exclamation-triangle fa-2x mb-2"></i><br>
+                    Failed to load profile.
+                </div>
+            `;
+        });
+}
+
+
+
+/* ✅ CLOSE ADMIN PROFILE MODAL */
+function closeAdminProfileModal() {
+    document.body.classList.remove("modal-open");
+    document.getElementById("adminProfileViewModal").style.display = "none";
+}
+function deleteAdminProfile(adminId) {
+    if (!confirm("Are you sure you want to permanently delete this admin account?")) {
+        return;
+    }
+
+    fetch(`/admin/delete/${adminId}`, {
+        method: "DELETE",
+        headers: {
+            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        alert(data.message || "Admin deleted successfully!");
+        location.reload();
+    })
+    .catch(err => {
+        console.error(err);
+        alert("Failed to delete admin.");
+    });
+}
+
+
+
 
 </script>
 

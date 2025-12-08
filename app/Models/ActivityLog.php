@@ -2,15 +2,16 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-ActivityLog::create([
-    'title' => 'Database Backup & Maintenance',
-    'description' => 'System backup completed successfully'
-]);
+class ActivityLog extends Model
+{
+    use HasFactory;
 
-ActivityLog::create([
-    'title' => 'User Account Creation: John Doe',
-    'description' => 'Admin created a new user account'
-]);
-
+    protected $fillable = [
+        'title',
+        'description',
+        'admin_id'
+    ];
+}

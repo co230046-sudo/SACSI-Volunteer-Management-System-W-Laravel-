@@ -82,6 +82,9 @@
     font-size: 0.95rem;
 }
 .list-item:last-child { border-bottom: none; }
+.dashboard-card {
+    cursor: pointer;
+}
 
 </style>
 
@@ -105,8 +108,8 @@ $totalVolunteers = $totalVolunteers ?? 0;
     <!-- TOP CARDS -->
     <div class="row g-4">
 
-        <div class="col-12 col-sm-6 col-lg-3">
-            <a href="/volunteer_list" class="text-decoration-none">
+            <div class="col-12 col-sm-6 col-lg-3">
+            <a href="{{ route('volunteers.list') }}" class="text-decoration-none">
                 <div class="dashboard-card bg-red text-center">
                     <i class="fa fa-users fa-3x mb-2"></i>
                     <h5>Total Volunteers</h5>
@@ -115,8 +118,9 @@ $totalVolunteers = $totalVolunteers ?? 0;
             </a>
         </div>
 
-        <div class="col-12 col-sm-6 col-lg-3">
-            <a href="/manage_event" class="text-decoration-none">
+
+       <div class="col-12 col-sm-6 col-lg-3">
+            <a href="{{ route('events.manage') }}" class="text-decoration-none">
                 <div class="dashboard-card bg-blue text-center">
                     <i class="fa fa-calendar-plus fa-3x mb-2"></i>
                     <h5>Upcoming Events</h5>
@@ -125,25 +129,26 @@ $totalVolunteers = $totalVolunteers ?? 0;
             </a>
         </div>
 
-        <div class="col-12 col-sm-6 col-lg-3">
-            <a href="/manage_event" class="text-decoration-none">
-                <div class="dashboard-card bg-teal text-center">
-                    <i class="fa fa-calendar-check fa-3x mb-2"></i>
-                    <h5>Completed</h5>
-                    <h2>{{ $completedEvents }}</h2>
-                </div>
-            </a>
-        </div>
+       <div class="col-12 col-sm-6 col-lg-3">
+        <a href="{{ route('events.manage', ['tab' => 'completed']) }}" class="text-decoration-none">
+            <div class="dashboard-card bg-teal text-center">
+                <i class="fa fa-calendar-check fa-3x mb-2"></i>
+                <h5>Completed</h5>
+                <h2>{{ $completedEvents }}</h2>
+            </div>
+        </a>
+    </div>
 
         <div class="col-12 col-sm-6 col-lg-3">
-            <a href="/manage_event" class="text-decoration-none">
-                <div class="dashboard-card bg-orange text-center">
-                    <i class="fa fa-calendar-times fa-3x mb-2"></i>
-                    <h5>Cancelled</h5>
-                    <h2>{{ $cancelledEvents }}</h2>
-                </div>
-            </a>
-        </div>
+        <a href="{{ route('events.manage', ['tab' => 'cancelled']) }}" class="text-decoration-none">
+            <div class="dashboard-card bg-orange text-center">
+                <i class="fa fa-calendar-times fa-3x mb-2"></i>
+                <h5>Cancelled</h5>
+                <h2>{{ $cancelledEvents }}</h2>
+            </div>
+        </a>
+    </div>
+
 
     </div>
 
@@ -210,20 +215,23 @@ $totalVolunteers = $totalVolunteers ?? 0;
 
         <div class="col-md-6">
             <div class="list-card">
-                <h4 class="section-title"><i class="fa fa-user-clock"></i> Recently Registered Volunteers</h4>
+                <h4 class="section-title">
+                    <i class="fa fa-user-clock"></i> Recently Registered Volunteers
+                </h4>
 
                 @forelse ($recentVolunteers as $s)
                     <div class="list-item">
-                        <strong>{{ $s->name }}</strong>
+                        <strong>{{ $s->full_name ?? $s->name ?? 'Unnamed Volunteer' }}</strong>
                         <span>{{ $s->created_at->diffForHumans() }}</span>
                     </div>
                 @empty
-                    <p class="text-center text-muted p-3">No recent volunteer registrations.</p>
+                    <p class="text-center text-muted p-3">
+                        No recent volunteer registrations.
+                    </p>
                 @endforelse
             </div>
         </div>
 
-    </div>
 
 
     <!-- EVENTS THIS MONTH -->
@@ -244,62 +252,139 @@ $totalVolunteers = $totalVolunteers ?? 0;
     </div>
 
 </div>
+
 </section>
 
+<script>
+console.log("Chart exists:", typeof Chart);
+</script>
 
-<!-- CHART.JS -->
+
+<!-- ✅ LOAD CHART.JS FIRST -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+<!-- ✅ PASS LARAVEL DATA SAFELY TO JS -->
 <script>
-const volunteersPerLevelData = @json($volunteersPerLevel);
-const eventsThisMonthData = @json($eventsThisMonth);
+const volunteersPerLevelData = @json($volunteersPerLevel ?? []);
+const eventsThisMonthData   = @json($eventsThisMonth ?? []);
+const upcomingEvents  = {{ $upcomingEvents ?? 0 }};
+const completedEvents = {{ $completedEvents ?? 0 }};
+const cancelledEvents = {{ $cancelledEvents ?? 0 }};
+</script>
 
-new Chart(document.getElementById('studentsLevelChart'), {
-    type: 'bar',
-    data: {
-        labels: Object.keys(volunteersPerLevelData),
-        datasets: [{
-            label: 'Volunteers',
-            data: Object.values(volunteersPerLevelData),
-            backgroundColor: ['#C0392B','#16A085','#2C6EAD','#D35400'],
-            borderRadius: 10
-        }]
-    },
-    options: { responsive: true, plugins: { legend: { display: false } } }
-});
+<!-- ✅ MAIN CHART LOGIC -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
 
-new Chart(document.getElementById('eventsStatusBar'), {
-    type: 'bar',
-    data: {
-        labels: ['Upcoming', 'Completed', 'Cancelled'],
-        datasets: [{
-            label: 'Events',
-            data: [{{ $upcomingEvents }}, {{ $completedEvents }}, {{ $cancelledEvents }}],
-            backgroundColor: ['#2C6EAD','#16A085','#D35400'],
-            borderRadius: 8
-        }]
-    },
-    options: {
-        indexAxis: 'y',
-        responsive: true,
-        plugins: { legend: { display: false } }
+    console.log("✅ Chart.js Loaded:", typeof Chart);
+    console.log("✅ Volunteers:", volunteersPerLevelData);
+    console.log("✅ Events Month:", eventsThisMonthData);
+
+    /* ============================================================
+       ✅ VOLUNTEERS PER YEAR LEVEL (BAR CHART)
+    ============================================================ */
+
+    let labels = Object.keys(volunteersPerLevelData);
+    let values = Object.values(volunteersPerLevelData);
+
+    if (labels.length === 0 || values.every(v => v === 0)) {
+        labels = ["No Data"];
+        values = [1];
     }
-});
 
-new Chart(document.getElementById('eventsMonthChart'), {
-    type: 'line',
-    data: {
-        labels: Object.keys(eventsThisMonthData),
-        datasets: [{
-            label: 'Events',
-            data: Object.values(eventsThisMonthData),
-            borderColor: '#C0392B',
-            backgroundColor: 'rgba(192,57,43,0.18)',
-            borderWidth: 3,
-            pointRadius: 4,
-            tension: 0.35,
-            fill: true
-        }]
+    new Chart(document.getElementById("studentsLevelChart"), {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Volunteers",
+                data: values,
+                backgroundColor: "#C0392B",
+                borderRadius: 12,
+                barThickness: 60
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 }
+                }
+            }
+        }
+    });
+
+    /* ============================================================
+       ✅ EVENT STATUS BREAKDOWN (HORIZONTAL BAR)
+    ============================================================ */
+
+    let eventValues = [upcomingEvents, completedEvents, cancelledEvents];
+
+    if (eventValues.every(v => v === 0)) {
+        eventValues = [1, 1, 1]; // prevents blank chart
     }
+
+    new Chart(document.getElementById("eventsStatusBar"), {
+        type: "bar",
+        data: {
+            labels: ["Upcoming", "Completed", "Cancelled"],
+            datasets: [{
+                label: "Events",
+                data: eventValues,
+                backgroundColor: ["#2C6EAD", "#16A085", "#D35400"],
+                borderRadius: 10,
+                barThickness: 28
+            }]
+        },
+        options: {
+            indexAxis: "y",
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { beginAtZero: true }
+            }
+        }
+    });
+
+    /* ============================================================
+       ✅ EVENTS THIS MONTH (LINE CHART)
+    ============================================================ */
+
+    let monthLabels = Object.keys(eventsThisMonthData);
+    let monthValues = Object.values(eventsThisMonthData);
+
+    if (monthLabels.length === 0 || monthValues.every(v => v === 0)) {
+        monthLabels = ["No Data"];
+        monthValues = [1];
+    }
+
+    new Chart(document.getElementById("eventsMonthChart"), {
+        type: "line",
+        data: {
+            labels: monthLabels,
+            datasets: [{
+                label: "Events",
+                data: monthValues,
+                borderColor: "#C0392B",
+                backgroundColor: "rgba(192,57,43,0.2)",
+                borderWidth: 3,
+                pointRadius: 5,
+                tension: 0.35,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } }
+        }
+    });
+
 });
 </script>
+
+

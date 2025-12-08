@@ -142,12 +142,17 @@ Route::middleware(['auth:admin'])->group(function () {
         Route::delete('/{event:event_id}/expected-volunteers/{volunteer_id}', [CreateEventController::class, 'removeExpectedVolunteer'])
             ->name('events.expectedVolunteers.remove');
 
-        // cancel/restore
+        // cancel
         Route::post('/{event:event_id}/cancel', [EventDetailsController::class, 'cancel'])
             ->name('events.cancel');
-
+            
+        // restore
         Route::post('/{event:event_id}/restore', [EventDetailsController::class, 'restore'])
             ->name('events.restore');
+
+        // delete (single event)
+        Route::delete('/{eventId}', [EventDetailsController::class, 'destroy'])
+            ->name('events.destroy');
 
         /* ------------------ IMPORT ATTENDANCE ------------------ */
         Route::get('/{event:event_id}/attendance/import', [AttendanceImportController::class, 'index'])
@@ -168,4 +173,5 @@ Route::middleware(['auth:admin'])->group(function () {
         Route::post('/{event:event_id}/attendance/import/preview/delete', [AttendanceImportController::class, 'deletePreviewRow'])
             ->name('attendance.import.preview.delete');
     });
+
 });

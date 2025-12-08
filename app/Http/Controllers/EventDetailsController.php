@@ -34,9 +34,7 @@ class EventDetailsController extends Controller
 
         $defaultAvatar = asset('storage/defaults/default_user.png');
 
-        // ============================================================
-        // ROSTER (Expected Volunteers)
-        // ============================================================
+        // ================= ROSTER (Expected Volunteers) =================
         $expectedRows = $event->expectedVolunteers ?? collect();
 
         $attendeesExpectedJs = $expectedRows
@@ -57,6 +55,20 @@ class EventDetailsController extends Controller
                     'course'      => optional($v->course)->course_name,
                     'email'       => $v->school_email ?? $v->email ?? null,
                     'school_id'   => $v->school_id ?? $v->id_number ?? null,
+
+                    // contact + emergency (best-effort fallbacks)
+                    'contact'     => $v->contact_number
+                        ?? $v->contact_no
+                        ?? $v->contact
+                        ?? $v->phone
+                        ?? $v->mobile
+                        ?? $v->mobile_no
+                        ?? null,
+                    'emergency'   => $v->emergency_contact
+                        ?? $v->emergency_number
+                        ?? $v->emergency_contact_name
+                        ?? null,
+
                     'profile_pic' => $avatar,
                     'profile_url' => route('volunteers.show', $v->volunteer_id),
                 ];
@@ -65,9 +77,7 @@ class EventDetailsController extends Controller
 
         $expectedCount = $expectedRows->count();
 
-        // ============================================================
-        // Status derive
-        // ============================================================
+        // ================= Status derive =================
         $now   = Carbon::now();
         $start = $event->start_datetime ? Carbon::parse($event->start_datetime) : null;
         $end   = $event->end_datetime   ? Carbon::parse($event->end_datetime)   : null;
@@ -75,9 +85,7 @@ class EventDetailsController extends Controller
         $derivedStatus = $this->deriveStatus($event->status, $start, $end, $now);
         $event->status = $derivedStatus;
 
-        // ============================================================
-        // ACTUAL ATTENDANCE (EventAttendance, eager-loaded)
-        // ============================================================
+        // ================= ACTUAL ATTENDANCE =================
         $attendanceRows = collect();
         if (Schema::hasTable('event_attendances')) {
             $attendanceRows = $event->attendances ?? collect();
@@ -85,14 +93,14 @@ class EventDetailsController extends Controller
 
         $actualCount = $attendanceRows->count();
 
-        // late is merged into present
+        // late is merged into present for top stats
         $attendedRows = $attendanceRows->filter(function ($att) {
             $s = strtolower((string)($att->status ?? ''));
             return in_array($s, ['present', 'late', ''], true);
         });
 
         $presentCount = $attendedRows->count();
-        $lateCount    = 0; // we no longer expose late separately
+        $lateCount    = 0; // we no longer expose late separately in stats
         $walkInCount  = $attendanceRows->where('walk_in', 1)->count();
 
         $attendeesActualJs = collect();
@@ -112,11 +120,25 @@ class EventDetailsController extends Controller
             $volunteerId = $vol->volunteer_id;
 
             $att = $attendanceByVolunteer->get($volunteerId);
-            $status = 'absent';
-            $walkIn = false;
-            $email = $vol->school_email ?? $vol->email ?? null;
-            $schoolId = $vol->school_id ?? $vol->id_number ?? null;
-            $sourceLabel = 'No check-in';
+            $status        = 'absent';
+            $email         = $vol->school_email ?? $vol->email ?? null;
+            $schoolId      = $vol->school_id ?? $vol->id_number ?? null;
+            $sourceLabel   = 'No check-in';
+            $importedLabel = null;
+
+            // base contact/emergency from volunteer profile
+            $contact = $vol->contact_number
+                ?? $vol->contact_no
+                ?? $vol->contact
+                ?? $vol->phone
+                ?? $vol->mobile
+                ?? $vol->mobile_no
+                ?? null;
+
+            $emergency = $vol->emergency_contact
+                ?? $vol->emergency_number
+                ?? $vol->emergency_contact_name
+                ?? null;
 
             if ($att) {
                 $statusRaw = strtolower((string)($att->status ?? 'present'));
@@ -128,8 +150,6 @@ class EventDetailsController extends Controller
                     $status = $statusRaw;
                 }
 
-                $walkIn = (bool)($att->walk_in ?? false);
-
                 if (!empty($att->school_email)) {
                     $email = $att->school_email;
                 }
@@ -137,7 +157,22 @@ class EventDetailsController extends Controller
                     $schoolId = $att->school_id;
                 }
 
-                $sourceLabel = $this->formatAttendanceSource($att);
+                // override contact/emergency if attendance row has them
+                $contact = $att->contact_number
+                    ?? $att->contact_no
+                    ?? $att->contact
+                    ?? $att->phone
+                    ?? $att->mobile
+                    ?? $att->mobile_no
+                    ?? $contact;
+
+                $emergency = $att->emergency_contact
+                    ?? $att->emergency_number
+                    ?? $att->emergency_no
+                    ?? $emergency;
+
+                $sourceLabel   = $att->source ?? 'Attendance import';
+                $importedLabel = $this->formatAttendanceSource($att);
             }
 
             $avatar = $defaultAvatar;
@@ -148,16 +183,19 @@ class EventDetailsController extends Controller
             }
 
             $attendeesActualJs->push([
-                'id'          => $volunteerId,
-                'name'        => $vol->full_name,
-                'course'      => optional($vol->course)->course_name,
-                'email'       => $email,
-                'school_id'   => $schoolId,
-                'status'      => $status, // 'present' or 'absent'
-                'walk_in'     => $walkIn,
-                'source'      => $sourceLabel,
-                'profile_pic' => $avatar,
-                'profile_url' => route('volunteers.show', $volunteerId),
+                'id'             => $volunteerId ?: ('walkin_' . ($att->attendance_id ?? uniqid())),
+                'name'           => $vol?->full_name ?? $att->full_name ?? 'Walk-in',
+                'course'         => optional($vol?->course)->course_name,
+                'email'          => $email,
+                'school_id'      => $schoolId,
+                'contact'        => $contact,
+                'emergency'      => $emergency,
+                'status'         => $status,          // 'present' | 'absent' | other
+                'walk_in'        => false,            // roster people are never walk-ins
+                'source'         => $sourceLabel,
+                'imported_label' => $importedLabel,
+                'profile_pic'    => $avatar,
+                'profile_url'    => $volunteerId ? route('volunteers.show', $volunteerId) : null,
             ]);
         }
 
@@ -177,17 +215,53 @@ class EventDetailsController extends Controller
             });
 
         foreach ($walkIns as $att) {
-            $vol = $att->volunteer; // may be null if we couldn't resolve
+            $vol = $att->volunteer; // may be null
 
             $statusRaw = strtolower((string)($att->status ?? 'present'));
-            $status = in_array($statusRaw, ['present', 'late', ''], true) ? 'present' : $statusRaw;
+            $status = in_array($statusRaw, ['present', 'late', ''], true)
+                ? 'present'
+                : $statusRaw;
+
+            $walkIn = (bool)($att->walk_in ?? true);
 
             $volunteerId = $vol?->volunteer_id ?? null;
 
-            $email    = $att->school_email
-                ?? ($vol->school_email ?? $vol->email ?? null);
+            $email = $att->school_email
+                ?? $vol?->school_email
+                ?? $vol?->email
+                ?? null;
+
             $schoolId = $att->school_id
-                ?? ($vol->school_id ?? $vol->id_number ?? null);
+                ?? $vol?->school_id
+                ?? $vol?->id_number
+                ?? null;
+
+            // contact: prefer attendance row, then fall back to volunteer
+            $contact = $att->contact_number
+                ?? $att->contact_no
+                ?? $att->contact
+                ?? $att->phone
+                ?? $att->mobile
+                ?? $att->mobile_no
+                ?? ($vol?->contact_number
+                    ?? $vol?->contact_no
+                    ?? $vol?->contact
+                    ?? $vol?->phone
+                    ?? $vol?->mobile
+                    ?? $vol?->mobile_no
+                    ?? null);
+
+            // emergency: prefer attendance row, then volunteer
+            $emergency = $att->emergency_contact
+                ?? $att->emergency_number
+                ?? $att->emergency_no
+                ?? ($vol?->emergency_contact
+                    ?? $vol?->emergency_number
+                    ?? $vol?->emergency_contact_name
+                    ?? null);
+
+            $sourceLabel   = $att->source ?? ($walkIn ? 'Walk-in' : 'Attendance import');
+            $importedLabel = $this->formatAttendanceSource($att);
 
             $avatar = $defaultAvatar;
             if ($vol) {
@@ -199,16 +273,19 @@ class EventDetailsController extends Controller
             }
 
             $attendeesActualJs->push([
-                'id'          => $volunteerId ?: ('walkin_' . ($att->attendance_id ?? uniqid())),
-                'name'        => $vol?->full_name ?? $att->full_name ?? 'Walk-in',
-                'course'      => optional($vol?->course)->course_name,
-                'email'       => $email,
-                'school_id'   => $schoolId,
-                'status'      => $status,           // 'present' or custom
-                'walk_in'     => true,
-                'source'      => $this->formatAttendanceSource($att),
-                'profile_pic' => $avatar,
-                'profile_url' => $volunteerId ? route('volunteers.show', $volunteerId) : null,
+                'id'             => $volunteerId ?: ('walkin_' . ($att->attendance_id ?? uniqid())),
+                'name'           => $vol?->full_name ?? $att->full_name ?? 'Walk-in',
+                'course'         => optional($vol?->course)->course_name,
+                'email'          => $email,
+                'school_id'      => $schoolId,
+                'contact'        => $contact,
+                'emergency'      => $emergency,
+                'status'         => $status,
+                'walk_in'        => $walkIn,
+                'source'         => $sourceLabel,
+                'imported_label' => $importedLabel,
+                'profile_pic'    => $avatar,
+                'profile_url'    => $volunteerId ? route('volunteers.show', $volunteerId) : null,
             ]);
         }
 
@@ -216,9 +293,7 @@ class EventDetailsController extends Controller
 
         $absentCount = $attendeesActualJs->where('status', 'absent')->count();
 
-        // ============================================================
-        // Attendance UI gating
-        // ============================================================
+        // ================= Attendance UI gating =================
         $attendanceEnabled = in_array($derivedStatus, [self::STATUS_ONGOING, self::STATUS_COMPLETED], true);
         if ($actualCount > 0) {
             $attendanceEnabled = true;
@@ -231,18 +306,14 @@ class EventDetailsController extends Controller
                 : 'Attendance is disabled for upcoming events. It becomes available when the event starts (or after an attendance import).',
         ];
 
-        // Simple flag for "has attendance" used by JS gating
         $hasAttendanceImport = $actualCount > 0;
 
-        // Max volunteers (optional column)
         $maxVolunteers = Schema::hasColumn('events', 'max_volunteers')
             ? ($event->max_volunteers ?? null)
             : null;
 
-        // Default tab: Attendance if we have any actual attendance; otherwise Roster
         $defaultTab = $actualCount > 0 ? 'actual' : 'expected';
 
-        // Per-event logs for the Event Details page
         $eventLogs = EventLog::where('event_id', $event->event_id)
             ->orderBy('timestamp', 'desc')
             ->get();
@@ -272,9 +343,6 @@ class EventDetailsController extends Controller
         ));
     }
 
-    /**
-     * Converts profile_picture_path into a public URL.
-     */
     private function toPublicStorageUrl(string $path): ?string
     {
         $p = trim($path);
@@ -298,9 +366,6 @@ class EventDetailsController extends Controller
         return asset('storage/' . $p);
     }
 
-    /**
-     * Small helper to render a readable source/when label for attendance pills.
-     */
     private function formatAttendanceSource($attendance): ?string
     {
         try {
@@ -312,15 +377,11 @@ class EventDetailsController extends Controller
                 return $dt->format('M d, Y · h:i A');
             }
         } catch (\Throwable $e) {
-            // fall back to raw source
         }
 
         return $attendance->source ?? null;
     }
 
-    /**
-     * Cancel event with a required reason
-     */
     public function cancel(Request $request, $eventId)
     {
         $admin = Auth::guard('admin')->user();
@@ -348,7 +409,6 @@ class EventDetailsController extends Controller
 
             $event->save();
 
-            // Event log keeps the human-readable reason
             $this->logEvent(
                 $event->event_id,
                 $admin->admin_id,
@@ -356,7 +416,6 @@ class EventDetailsController extends Controller
                 "Cancelled event. Reason: {$reason}"
             );
 
-            // Fact log just records the action (no reason dump)
             $this->logFact(
                 $admin->admin_id,
                 $event,
@@ -367,18 +426,14 @@ class EventDetailsController extends Controller
             DB::commit();
 
             return redirect()
-                ->route('event.details.show', $event->event_id)
+                ->route('events.index') // back to event listing
                 ->with('submit_success', 'Event cancelled successfully.');
-
         } catch (\Throwable $e) {
             DB::rollBack();
             return back()->withErrors(['server' => 'Failed to cancel event: ' . $e->getMessage()]);
         }
     }
 
-    /**
-     * Restore a cancelled event back to planned
-     */
     public function restore(Request $request, $eventId)
     {
         $admin = Auth::guard('admin')->user();
@@ -409,7 +464,6 @@ class EventDetailsController extends Controller
 
             $details = $reason !== '' ? "Restored event. Reason: {$reason}" : "Restored event.";
 
-            // Event log with optional reason
             $this->logEvent(
                 $event->event_id,
                 $admin->admin_id,
@@ -417,7 +471,6 @@ class EventDetailsController extends Controller
                 $details
             );
 
-            // Fact log only records the action
             $this->logFact(
                 $admin->admin_id,
                 $event,
@@ -430,10 +483,52 @@ class EventDetailsController extends Controller
             return redirect()
                 ->route('event.details.show', $event->event_id)
                 ->with('submit_success', 'Event restored to Planned.');
-
         } catch (\Throwable $e) {
             DB::rollBack();
             return back()->withErrors(['server' => 'Failed to restore event: ' . $e->getMessage()]);
+        }
+    }
+
+    public function destroy(Request $request, $eventId)
+    {
+        $admin = Auth::guard('admin')->user();
+        if (!$admin) {
+            return back()->withErrors(['auth' => 'Authentication failed.']);
+        }
+
+        $event = Event::findOrFail($eventId);
+
+        try {
+            DB::beginTransaction();
+
+            $title = $event->title;
+
+            $this->logEvent(
+                $event->event_id,
+                $admin->admin_id,
+                'Delete',
+                "Deleted event \"{$title}\"."
+            );
+
+            $this->logFact(
+                $admin->admin_id ?? null,
+                $event,
+                'Delete',
+                'Event permanently deleted.'
+            );
+
+            $event->delete();
+
+            DB::commit();
+
+            return redirect()
+                ->route('events.index')   // Event Manager / listing page
+                ->with('submit_success', 'Event deleted successfully.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->withErrors([
+                'server' => 'Failed to delete event: ' . $e->getMessage(),
+            ]);
         }
     }
 

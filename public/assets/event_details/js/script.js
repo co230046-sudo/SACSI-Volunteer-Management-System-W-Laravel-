@@ -2,7 +2,6 @@
   "use strict";
 
   const BOOT = window.__EVENT_DETAILS_BOOT || {};
-
   const CSRF_TOKEN = BOOT.csrfToken || "";
 
   // --- Data from backend -----------------------------------------------------
@@ -68,8 +67,44 @@
     window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
   }
 
-  // Expose in case something else wants it
   window.openResultModal = openResultModal;
+
+  // --- contact / emergency helpers ------------------------------------------
+  function resolveContact(v) {
+    return (
+      v.contact ||
+      v.phone ||
+      v.mobile ||
+      v.mobile_no ||
+      v.contact_number ||
+      v.contact_no ||
+      v.number || // in case the column is literally "number"
+      ""
+    );
+  }
+
+  function resolveEmergency(v) {
+    return (
+      v.emergency_contact ||
+      v.emergency_number ||
+      v.emergency_no ||
+      v.emergency ||
+      ""
+    );
+  }
+
+  function resolveImportedLabel(v) {
+    return (
+      v.imported_label ||
+      v.imported_at_label ||
+      v.checkin_label ||
+      v.checkin_at_label ||
+      v.time_label ||
+      v.imported_at ||
+      v.checkin_at ||
+      ""
+    );
+  }
 
   // --- Dropdown helpers ------------------------------------------------------
   function closeAllDropdowns() {
@@ -79,13 +114,14 @@
   function setupDropdown(dd) {
     if (!dd) return;
     const trigger = dd.querySelector(".dd-trigger");
-    trigger &&
+    if (trigger) {
       trigger.addEventListener("click", (e) => {
         e.stopPropagation();
         const willOpen = !dd.classList.contains("open");
         closeAllDropdowns();
         dd.classList.toggle("open", willOpen);
       });
+    }
 
     dd.addEventListener("click", (e) => {
       const item = e.target.closest(".dd-item");
@@ -139,52 +175,25 @@
     q("#dd-course")?.classList.toggle("is-empty", courses.size === 0);
   }
 
-  // --- Attendance with ABSENT synthesis -------------------------------------
+  // --- Attendance (no extra JS absents) -------------------------------------
   let ACTUAL = [];
   let ABSENT_ROWS = [];
   let ABSENT_COUNT = 0;
 
   function recomputeActualWithAbsents() {
-    // Normalize raw actual rows
     const normalizedActual = RAW_ACTUAL.map((row) => ({
       ...row,
       walk_in: truthy(row.walk_in),
       status: norm(row.status || "present") || "present",
+      contact: resolveContact(row),
+      emergency: resolveEmergency(row),
     }));
 
-    const rosterIds = new Set(
-      EXPECTED.map((v) => Number(v.id) || 0).filter(Boolean)
+    ACTUAL = normalizedActual;
+    ABSENT_ROWS = normalizedActual.filter(
+      (r) => r.status === "absent" && !truthy(r.walk_in)
     );
-    const attendedIds = new Set(
-      normalizedActual
-        .filter((r) => !r.walk_in)
-        .map((r) => Number(r.id) || 0)
-        .filter(Boolean)
-    );
-
-    ABSENT_ROWS = [];
-    EXPECTED.forEach((ev) => {
-      const id = Number(ev.id) || 0;
-      if (!id) return;
-      if (!attendedIds.has(id)) {
-        ABSENT_ROWS.push({
-          id,
-          name: ev.name,
-          course: ev.course,
-          email: ev.email,
-          school_id: ev.school_id,
-          profile_pic: ev.profile_pic,
-          profile_url: ev.profile_url,
-          status: "absent",
-          walk_in: false,
-          source: "No check-in",
-          synthetic_absent: true,
-        });
-      }
-    });
-
     ABSENT_COUNT = ABSENT_ROWS.length;
-    ACTUAL = normalizedActual.concat(ABSENT_ROWS);
   }
 
   recomputeActualWithAbsents();
@@ -195,7 +204,6 @@
   let actPage = 1;
   const ITEMS_PER_PAGE = 10;
 
-  // status filter for Attendance tab
   let ACTIVE_STATUS_FILTER = "";
 
   function updateStatusFilterButtons() {
@@ -288,6 +296,7 @@
     const courseVal = (q("#course")?.value ?? "").toString().trim();
 
     return items.filter((v) => {
+      // text search
       let okTerm = true;
       if (term) {
         const blob = [
@@ -297,6 +306,7 @@
           v.school_id,
           v.status,
           v.source,
+          resolveContact(v),
         ]
           .filter(Boolean)
           .join(" ")
@@ -304,11 +314,13 @@
         okTerm = blob.includes(term);
       }
 
+      // course filter – applies to both expected & actual
       let okCourse = true;
-      if (courseVal && activeTab === "expected") {
+      if (courseVal) {
         okCourse = (v.course ?? "").toString().trim() === courseVal;
       }
 
+      // status filter – only for Attendance tab
       let okStatus = true;
       if (activeTab === "actual" && ACTIVE_STATUS_FILTER) {
         const s = norm(v.status || "");
@@ -341,7 +353,7 @@
     return DEFAULT_AVATAR;
   }
 
-  // --- highlight helper (for auto-suggest jump) -----------------------------
+  // --- highlight helper -----------------------------------------------------
   function ensureHighlightStyles() {
     if (document.getElementById("event-details-highlight-style")) return;
     const style = document.createElement("style");
@@ -359,7 +371,6 @@
     ensureHighlightStyles();
     const gridId = tab === "actual" ? "#grid-actual" : "#grid-expected";
 
-    // safari/older browser safe escape
     const esc =
       window.CSS && CSS.escape
         ? CSS.escape(String(id))
@@ -412,7 +423,7 @@
       slice.forEach((v) => {
         const card = document.createElement("div");
         card.className =
-          "student-card " + (type === "actual" ? "student-card--actual" : "");
+          "student-card" + (type === "actual" ? " student-card--actual" : "");
         card.dataset.id = v.id ?? "";
 
         const statusRaw = norm(v.status || "");
@@ -424,42 +435,70 @@
         let statusClass = "";
         if (type === "actual") {
           if (isAbsent) {
-            statusLabel = "ABSENT";
+            statusLabel = "Absent";
             statusClass = "pill-sm--neutral";
           } else if (isLate) {
-            statusLabel = "LATE";
+            statusLabel = "Late";
             statusClass = "pill-sm--warn";
           } else {
-            statusLabel = "PRESENT";
+            statusLabel = "Present";
             statusClass = "pill-sm--good";
           }
         }
 
-        const rightMeta =
-          type === "actual"
-            ? `<div class="meta-right">
-                  ${
-                    statusLabel
-                      ? `<span class="pill-sm ${statusClass}">${statusLabel}</span>`
-                      : ""
-                  }
-                  ${
-                    isWalk
-                      ? '<span class="pill-sm pill-sm--neutral">WALK-IN</span>'
-                      : ""
-                  }
-                  ${
-                    v.source
-                      ? `<span class="pill-sm pill-sm--neutral">${escapeHtml(
-                          String(v.source).toUpperCase()
-                        )}</span>`
-                      : ""
-                  }
-               </div>`
-            : `<button type="button" class="btn btn-sm btn-card-remove ms-auto"
+        let rightMeta = "";
+
+        if (type === "actual") {
+          const importedLabel = resolveImportedLabel(v);
+          const email = v.email || "";
+          const contact = resolveContact(v);
+          const emergency = resolveEmergency(v);
+          let sourceText = v.source || "";
+
+          if (!sourceText) {
+            if (isWalk) sourceText = "Walk-in";
+            else if (isAbsent) sourceText = "No check-in";
+            else sourceText = "Attendance import";
+          }
+
+          const statusPill = statusLabel
+            ? `<span class="pill-sm ${statusClass}">${escapeHtml(
+                statusLabel.toUpperCase()
+              )}</span>`
+            : "";
+          const walkPill = isWalk
+            ? '<span class="pill-sm pill-sm--neutral">WALK-IN</span>'
+            : "";
+
+          const detailsBtn = `
+            <button type="button"
+                    class="btn-details"
+                    data-details-toggle
+                    data-imported="${escapeHtml(importedLabel || "")}"
+                    data-email="${escapeHtml(email || "")}"
+                    data-contact="${escapeHtml(contact || "")}"
+                    data-emergency="${escapeHtml(emergency || "")}"
+                    data-source="${escapeHtml(sourceText || "")}">
+              <i class="fa-solid fa-circle-info"></i>
+              <span>Details</span>
+            </button>
+          `;
+
+          rightMeta = `
+            <div class="meta-right">
+              ${statusPill}
+              ${walkPill}
+              ${detailsBtn}
+            </div>
+          `;
+        } else {
+          rightMeta = `
+            <button type="button" class="btn btn-sm btn-card-remove ms-auto"
                     data-remove-expected="${v.id}" title="Remove from roster">
-                    <i class="fa-solid fa-xmark"></i>
-               </button>`;
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          `;
+        }
 
         const avatar = resolveAvatarUrl(v);
         const nameHtml = v.profile_url
@@ -479,7 +518,9 @@
           >
           <div class="meta">
             ${nameHtml}
-            <div class="course">${escapeHtml(courseOrEmail)}</div>
+            <div class="course" title="${escapeHtml(
+              courseOrEmail
+            )}">${escapeHtml(courseOrEmail)}</div>
           </div>
           ${rightMeta}
         `;
@@ -534,7 +575,7 @@
     renderActiveTab(actPage + 1);
   });
 
-  // --- remove expected from roster ------------------------------------------
+  // --- remove expected helper -----------------------------------------------
   async function removeExpectedVolunteer(vid) {
     const url = REMOVE_EXPECTED_URL_TEMPLATE.replace("__VID__", String(vid));
     const res = await fetch(url, {
@@ -557,9 +598,96 @@
     return true;
   }
 
+  // --- Attendance Details modal ---------------------------------------------
+  function ensureAttendanceDetailsModal() {
+    if (q("#attendanceDetailsModal")) return;
+
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = `
+      <div class="modal fade" id="attendanceDetailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content modal-soft">
+            <div class="modal-header modal-soft-header">
+              <div class="d-flex align-items-center gap-2">
+                <div class="modal-icon"><i class="fa-solid fa-user"></i></div>
+                <div>
+                  <h5 class="modal-title mb-0" id="attDetailsTitle">Volunteer details</h5>
+                  <div class="small text-muted" id="attDetailsSubtitle"></div>
+                </div>
+              </div>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body modal-soft-body">
+              <div class="student-card-details-grid">
+                <div class="student-card-details-row">
+                  <div class="student-card-details-label">Imported:</div>
+                  <div class="student-card-details-value" id="attDetailsImported">—</div>
+                </div>
+                <div class="student-card-details-row">
+                  <div class="student-card-details-label">Email:</div>
+                  <div class="student-card-details-value" id="attDetailsEmail">—</div>
+                </div>
+                <div class="student-card-details-row">
+                  <div class="student-card-details-label">Contact:</div>
+                  <div class="student-card-details-value" id="attDetailsContact">—</div>
+                </div>
+                <div class="student-card-details-row">
+                  <div class="student-card-details-label">Emergency:</div>
+                  <div class="student-card-details-value" id="attDetailsEmergency">—</div>
+                </div>
+                <div class="student-card-details-row">
+                  <div class="student-card-details-label">Source:</div>
+                  <div class="student-card-details-value" id="attDetailsSource">—</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(wrapper.firstElementChild);
+  }
+
+  function openAttendanceDetailsModal(card, btn) {
+    ensureAttendanceDetailsModal();
+    const modalEl = q("#attendanceDetailsModal");
+    if (!modalEl) return;
+
+    const name =
+      card.querySelector(".name")?.textContent?.trim() || "Volunteer details";
+    const course =
+      card.querySelector(".course")?.textContent?.trim() || "";
+
+    q("#attDetailsTitle").textContent = name;
+    q("#attDetailsSubtitle").textContent = course;
+
+    const d = btn.dataset || {};
+    q("#attDetailsImported").textContent = d.imported || "—";
+    q("#attDetailsEmail").textContent = d.email || "—";
+    q("#attDetailsContact").textContent = d.contact || "—";
+    q("#attDetailsEmergency").textContent = d.emergency || "—";
+    q("#attDetailsSource").textContent = d.source || "—";
+
+    window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
+
+  // --- card click handling: details modal + remove expected -----------------
   document.addEventListener("click", async (e) => {
+    // Details button (Attendance cards)
+    const detailsBtn = e.target.closest("[data-details-toggle]");
+    if (detailsBtn) {
+      const card = detailsBtn.closest(".student-card--actual");
+      if (card) {
+        e.preventDefault();
+        e.stopPropagation();
+        openAttendanceDetailsModal(card, detailsBtn);
+      }
+      return;
+    }
+
+    // Remove expected button
     const btn = e.target.closest("[data-remove-expected]");
     if (!btn) return;
+
     const vid = Number(btn.getAttribute("data-remove-expected"));
     if (!vid) return;
 
@@ -726,38 +854,44 @@
     const out = [];
     const seen = new Set();
 
-    function add(item, tab) {
-      const id = item.id ?? item.volunteer_id ?? item.school_id ?? item.email;
-      if (!id) return;
-      const key = tab + ":" + id;
-      if (seen.has(key)) return;
+    function addFrom(source, tab) {
+      source.forEach((item) => {
+        const id = item.id ?? item.volunteer_id ?? item.school_id ?? item.email;
+        if (!id) return;
+        if (seen.has(id)) return;
 
-      const blob = [
-        item.name || item.full_name,
-        item.course,
-        item.email,
-        item.school_id,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      if (!blob.includes(t)) return;
+        const blob = [
+          item.name || item.full_name,
+          item.course,
+          item.email,
+          item.school_id,
+          resolveContact(item),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
 
-      seen.add(key);
-      out.push({
-        id: item.id ?? item.volunteer_id,
-        name: item.name || item.full_name || "Unknown",
-        course: item.course || item.course_name || "",
-        email: item.email || "",
-        school_id: item.school_id || "",
-        tab,
-        status: item.status || "",
-        walk_in: truthy(item.walk_in),
+        if (!blob.includes(t)) return;
+
+        const contact = resolveContact(item);
+
+        seen.add(id);
+        out.push({
+          id: item.id ?? item.volunteer_id,
+          name: item.name || item.full_name || "Unknown",
+          course: item.course || item.course_name || "",
+          email: item.email || "",
+          school_id: item.school_id || "",
+          contact,
+          tab,
+          status: item.status || "",
+          walk_in: truthy(item.walk_in),
+        });
       });
     }
 
-    EXPECTED.forEach((v) => add(v, "expected"));
-    ACTUAL.forEach((v) => add(v, "actual"));
+    addFrom(ACTUAL, "actual");
+    addFrom(EXPECTED, "expected");
 
     return out.slice(0, 8);
   }
@@ -786,6 +920,7 @@
         const metaParts = [];
         if (s.course) metaParts.push(s.course);
         if (s.email) metaParts.push(s.email);
+        if (s.contact) metaParts.push(s.contact);
         if (s.school_id) metaParts.push("#" + s.school_id);
         metaParts.push(s.tab === "expected" ? "Roster" : "Attendance");
         if (s.walk_in) metaParts.push("Walk-in");
@@ -867,7 +1002,8 @@
         cb.remove();
 
         const removeBtn = document.createElement("button");
-        removeBtn.className = "btn btn-sm btn-outline-secondary ms-auto remove-added";
+        removeBtn.className =
+          "btn btn-sm btn-outline-secondary ms-auto remove-added";
         removeBtn.type = "button";
         removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> Remove';
         card.appendChild(removeBtn);
@@ -879,15 +1015,33 @@
       renderAvailableList();
     });
 
+    // Remove from "Selected" + click-card-to-toggle-checkbox in modal
     document.addEventListener("click", (e) => {
-      const btn = e.target.closest(".remove-added");
-      if (!btn) return;
-      const card = btn.closest(".student-card");
-      if (!card) return;
-      card.remove();
-      updateSelectedCount();
-      ensureSelectedEmptyState();
-      renderAvailableList();
+      // remove button in Selected list
+      const removeBtn = e.target.closest(".remove-added");
+      if (removeBtn) {
+        const card = removeBtn.closest(".student-card");
+        if (!card) return;
+        card.remove();
+        updateSelectedCount();
+        ensureSelectedEmptyState();
+        renderAvailableList();
+        return;
+      }
+
+      // toggle card selection in Available list
+      const modalCard = e.target.closest(".modal-student");
+      if (modalCard) {
+        const cb = modalCard.querySelector(".available-check");
+        if (!cb) return;
+
+        if (e.target === cb) {
+          modalCard.classList.toggle("is-selected", cb.checked);
+        } else {
+          cb.checked = !cb.checked;
+          modalCard.classList.toggle("is-selected", cb.checked);
+        }
+      }
     });
 
     q("#save-student-btn")?.addEventListener("click", async () => {
@@ -992,7 +1146,7 @@
       });
     }
 
-    // Summary gating (front-end guard; back-end still the source of truth)
+    // Summary gating
     const btnSummary = document.getElementById("btnSummary");
     if (btnSummary) {
       btnSummary.addEventListener("click", (e) => {
@@ -1073,7 +1227,7 @@
     );
   });
 
-  // Global document click: close dropdowns + suggestions
+  // Global document click: close suggestions + dropdowns
   document.addEventListener("click", (e) => {
     const inSearch =
       e.target.closest(".search-wrap") || e.target.closest("#search-suggest");

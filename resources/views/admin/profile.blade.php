@@ -5,6 +5,9 @@
 <link rel="stylesheet" href="{{ asset('assets/admin_profile/Admin_profile.css') }}">
 <script src="{{ asset('assets/admin_profile/admin_profile.js') }}"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+
 <section id="Student-Section" style="opacity:1;">
 
 <style>
@@ -316,7 +319,13 @@ body.modal-open {
 
                                 <td><div class="detail-card"><h6><i class="fas fa-user-shield"></i> Role</h6><p>{{ $admin->role }}</p></div></td>
 
-                                <td><div class="detail-card"><h6><i class="fas fa-phone"></i> Contact #</h6><p>{{ $admin->contact_number }}</p></div></td>
+                                <td>
+                                <div class="detail-card">
+                                    <h6><i class="fas fa-phone"></i> Contact #</h6>
+                                    <p>{{ !empty($admin->contact_number) ? $admin->contact_number : 'Not Provided' }}</p>
+                                </div>
+                                </td>
+
 
                                 <td><div class="detail-card"><h6><i class="fas fa-calendar-alt"></i> Created</h6><p>{{ $admin->created_at->format('Y-m-d') }}</p></div></td>
                             </tr>

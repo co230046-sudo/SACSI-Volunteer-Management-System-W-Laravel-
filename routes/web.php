@@ -13,6 +13,7 @@ use App\Http\Controllers\AttendanceImportController;
 use App\Http\Controllers\EventDetailsController;
 use App\Http\Controllers\AdminProfileController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EventTypeController;
 use App\Models\ActivityLog;
 use App\Models\Admin;
 
@@ -174,6 +175,11 @@ Route::middleware(['auth:admin'])->group(function () {
             Route::delete('/{event:event_id}/organizers', [EventDetailsController::class, 'destroyOrganizer'])
             ->name('events.organizers.destroy');
 
+        /* ------------------ Event Type ------------------ */
+        Route::prefix('event-types')->name('event-types.')->group(function () {
+            Route::get('/create', [EventTypeController::class, 'create'])->name('create');
+            Route::post('/', [EventTypeController::class, 'store'])->name('store');
+        });
 
         /* ------------------ IMPORT ATTENDANCE ------------------ */
         Route::get('/{event:event_id}/attendance/import', [AttendanceImportController::class, 'index'])

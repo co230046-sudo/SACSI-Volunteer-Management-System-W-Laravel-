@@ -2,9 +2,9 @@
   /**
    * Create/Edit Event Blade (single file)
    * Fixes:
-   * - Event Type dropdown markup + behavior is now consistent with Barangay dropdown
-   * - Dropdowns keep selected values after validation errors (server-seeded trigger + hidden input)
-   * - Modal styling/text made consistent with event-details look/feel (same button system)
+   * - Event Type dropdown is text-only (no icon) for consistent design + future-proof
+   * - Multi-day events supported: end_datetime min follows start_datetime (no forced same-day)
+   * - Dropdown triggers keep selected values after validation errors (server seeded)
    */
 
   use Carbon\Carbon;
@@ -107,7 +107,15 @@
     $selectedEventType = $eventTypes->firstWhere('event_type_id', (int)$valTypeId);
   }
   $selectedTypeLabel = $selectedEventType?->label ?? '';
-  $selectedTypeIcon  = $selectedEventType?->icon_class ?? '';
+
+  // Text-only triggers
+  $eventTypeTrigger = $selectedTypeLabel
+    ? '<span class="cs-left">' . e($selectedTypeLabel) . '</span><span class="cs-caret"><i class="fa-solid fa-chevron-down"></i></span>'
+    : '<span class="cs-left">Select Event Type</span><span class="cs-caret"><i class="fa-solid fa-chevron-down"></i></span>';
+
+  $barangayTrigger = $selectedBarangayLabel
+    ? '<span class="cs-left"><i class="fa-solid fa-location-dot"></i> ' . e($selectedBarangayLabel) . '</span><span class="cs-caret"><i class="fa-solid fa-chevron-down"></i></span>'
+    : '<span class="cs-left">Select Barangay</span><span class="cs-caret"><i class="fa-solid fa-chevron-down"></i></span>';
 
   // Organizers list (old() takes priority; else event organizers; else 1 blank row)
   $orgOldNames = old('organizers.name');
@@ -137,14 +145,6 @@
   if (count($orgList) === 0) {
     $orgList[] = ['name' => '', 'email' => '', 'contact' => ''];
   }
-
-  $eventTypeTrigger = $selectedTypeLabel
-    ? '<span class="cs-left">' . ($selectedTypeIcon ? '<i class="' . e($selectedTypeIcon) . '"></i>' : '') . e($selectedTypeLabel) . '</span><span class="cs-caret"><i class="fa-solid fa-chevron-down"></i></span>'
-    : '<span class="cs-left">Select Event Type</span><span class="cs-caret"><i class="fa-solid fa-chevron-down"></i></span>';
-
-  $barangayTrigger = $selectedBarangayLabel
-    ? '<span class="cs-left"><i class="fa-solid fa-location-dot"></i> ' . e($selectedBarangayLabel) . '</span><span class="cs-caret"><i class="fa-solid fa-chevron-down"></i></span>'
-    : '<span class="cs-left">Select Barangay</span><span class="cs-caret"><i class="fa-solid fa-chevron-down"></i></span>';
 @endphp
 
 <!DOCTYPE html>
@@ -217,12 +217,20 @@
               <input type="hidden" name="event_type_id" id="event_type_id_hidden" value="{{ $valTypeId }}">
 
               <div class="custom-options">
+                {{-- ✅ Add Event Type action (must be a .custom-option so your JS can catch it) --}}
+                <span class="custom-option"
+                      data-value="__add_event_type__"
+                      data-label="Add Event Type">
+                  <i class="fa-solid fa-plus"></i> Add Event Type
+                </span>
+
+                <div style="height: 6px;"></div>
+
                 @foreach ($eventTypes as $type)
                   <span class="custom-option"
                         data-value="{{ $type->event_type_id }}"
-                        data-label="{{ $type->label }}"
-                        data-icon="{{ $type->icon_class }}" data-label="{{ $type->label }}">
-                    <i class="{{ $type->icon_class }}"></i> {{ $type->label }}
+                        data-label="{{ $type->label }}">
+                    {{ $type->label }}
                   </span>
                 @endforeach
               </div>
@@ -270,7 +278,7 @@
                   <span class="custom-option"
                         data-value="{{ $loc->location_id }}"
                         data-label="{{ $loc->barangay }}"
-                        data-district="{{ $loc->district_id }}" data-label="{{ $loc->barangay }}">
+                        data-district="{{ $loc->district_id }}">
                     <i class="fa-solid fa-location-dot"></i> {{ $loc->barangay }}
                   </span>
                 @endforeach
@@ -359,7 +367,6 @@
   </section>
 </div>
 
-{
 {{-- ===========================
    MODALS (Bootstrap, same style as Event Details)
 =========================== --}}
@@ -553,6 +560,42 @@
   </div>
 </div>
 
+{{-- ✅ Add Event Type (MODAL) --}}
+<div class="modal fade" id="eventTypeModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 520px;">
+    <div class="modal-content modal-soft">
+      <div class="modal-header modal-soft-header modal-soft-header--info">
+        <h5 class="modal-title">
+          <i class="fa-solid fa-plus"></i> Add Event Type
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <form method="POST" action="{{ route('event-types.store') }}">
+        @csrf
+        <div class="modal-body">
+          <input type="text"
+                 name="label"
+                 class="organizer-detail-input"
+                 placeholder="Event Type label (e.g., Coastal Cleanup)"
+                 value="{{ old('label') }}"
+                 required>
+          <div class="soft-sub mt-2">This will add a new event type, then return you to Create Event.</div>
+        </div>
+
+        <div class="modal-footer modal-soft-footer">
+          <button type="button" class="btn modal-soft-btn modal-soft-btn--ghost" data-bs-dismiss="modal">
+            <i class="fa-solid fa-xmark"></i> Cancel
+          </button>
+          <button type="submit" class="btn modal-soft-btn modal-soft-btn--danger">
+            <i class="fa-solid fa-check"></i> Save
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 @if ($errors->any())
 <script>
   document.addEventListener("DOMContentLoaded", () => {
@@ -570,7 +613,6 @@
   });
 </script>
 @endif
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 {{-- Custom Select Logic --}}
@@ -580,12 +622,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   selects.forEach(select => {
     const trigger = select.querySelector(".custom-select-trigger");
-    const labelEl = trigger.querySelector(".cs-label") || trigger;
     const options = select.querySelectorAll(".custom-option");
-    const field = select.dataset.field;
+    const field   = select.dataset.field;
+    const hidden  = select.querySelector("input[type='hidden']");
 
-    // we render hidden input server-side
-    const hidden = select.querySelector("input[type='hidden']");
+    if (!trigger || !hidden) return;
 
     trigger.addEventListener("click", e => {
       e.stopPropagation();
@@ -599,15 +640,21 @@ document.addEventListener("DOMContentLoaded", () => {
       option.addEventListener("click", () => {
         const value = option.dataset.value || "";
         const plainLabel = (option.dataset.label || option.textContent || "").trim();
-        const icon  = option.dataset.icon || "";
+
+        // ✅ Add Event Type special action (run BEFORE setting hidden/trigger)
+        if (value === "__add_event_type__") {
+          select.classList.remove("open");
+          new bootstrap.Modal(document.getElementById("eventTypeModal")).show();
+          return;
+        }
+
 
         hidden.value = value;
 
-        if (field === "event_type_id") {
-          labelEl.innerHTML = icon ? `<i class="${icon}"></i> ${plainLabel}` : plainLabel;
-        } else {
-          labelEl.textContent = plainLabel;
-        }
+        // TEXT ONLY (no icon logic)
+        const left = trigger.querySelector(".cs-left");
+        if (left) left.textContent = plainLabel;
+        else trigger.textContent = plainLabel;
 
         select.classList.remove("open");
 
@@ -619,10 +666,13 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
+    // Searchable dropdown behavior (barangay)
     if (select.classList.contains("searchable")) {
-      const searchBox = select.querySelector(".search-box");
-      const searchInput = searchBox.querySelector("input");
-      const searchIcon = select.querySelector(".search-icon");
+      const searchBox   = select.querySelector(".search-box");
+      const searchInput = searchBox?.querySelector("input");
+      const searchIcon  = select.querySelector(".search-icon");
+
+      if (!searchBox || !searchInput) return;
 
       searchBox.addEventListener("click", e => e.stopPropagation());
       searchInput.addEventListener("click", e => e.stopPropagation());
@@ -633,10 +683,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (q.length > 0) {
           searchInput.classList.add("search-active");
-          searchIcon.classList.add("tilt");
+          if (searchIcon) searchIcon.classList.add("tilt");
         } else {
           searchInput.classList.remove("search-active");
-          searchIcon.classList.remove("tilt");
+          if (searchIcon) searchIcon.classList.remove("tilt");
         }
 
         options.forEach(option => {
@@ -652,12 +702,13 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".custom-select.open").forEach(s => s.classList.remove("open"));
   });
 
-  // Seed triggers for edit/old values
+  // Seed district when barangay already selected
   const locVal = document.getElementById("location_id_hidden")?.value;
   if (locVal) {
     const select = document.querySelector("#barangay-select");
-    const trigger = select?.querySelector(".custom-select-trigger .cs-label");
+    const trigger = select?.querySelector(".custom-select-trigger .cs-left");
     const opt = select?.querySelector(`.custom-option[data-value='${locVal}']`);
+
     if (trigger && opt) trigger.textContent = (opt.dataset.label || opt.textContent).trim();
 
     const dist = opt?.dataset?.district || document.getElementById("districtHidden")?.value;
@@ -667,15 +718,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Seed event type text when already selected
   const typeVal = document.getElementById("event_type_id_hidden")?.value;
-  if (typeVal) {
+  if (typeVal && typeVal !== "__add_event_type__") {
     const select = document.querySelector("#event-type-select");
-    const trigger = select?.querySelector(".custom-select-trigger .cs-label");
+    const triggerLeft = select?.querySelector(".custom-select-trigger .cs-left");
     const opt = select?.querySelector(`.custom-option[data-value='${typeVal}']`);
-    if (trigger && opt) {
-      const icon = opt.dataset.icon || "";
-      const label = (opt.dataset.label || opt.textContent).trim();
-      trigger.innerHTML = icon ? `<i class="${icon}"></i> ${label}` : label;
+    if (triggerLeft && opt) {
+      triggerLeft.textContent = (opt.dataset.label || opt.textContent).trim();
     }
   }
 });
@@ -753,6 +803,29 @@ function openOrganizerModal(btn){
 
   bsShow("organizerDetailsModal");
 }
+</script>
+
+{{-- ✅ Multi-day support (end min follows start, no forced same-day) --}}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const start = document.getElementById("start_datetime");
+  const end   = document.getElementById("end_datetime");
+  if (!start || !end) return;
+
+  function syncEndMin(){
+    if (!start.value) return;
+    end.min = start.value;
+
+    // If user had an end earlier than start, clear it (don’t auto-change it)
+    if (end.value && end.value < start.value) {
+      end.value = "";
+    }
+  }
+
+  start.addEventListener("input", syncEndMin);
+  start.addEventListener("change", syncEndMin);
+  syncEndMin();
+});
 </script>
 
 </body>

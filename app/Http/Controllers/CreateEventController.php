@@ -83,13 +83,11 @@ class CreateEventController extends Controller
             'force_create'   => 'nullable|in:0,1',
         ]);
 
-        // At least one organizer name
-        $names = $request->input('organizers.name', []);
-        $hasAtLeastOne = false;
-        foreach ($names as $n) {
-            if (is_string($n) && trim($n) !== '') { $hasAtLeastOne = true; break; }
-        }
-        if (!$hasAtLeastOne) {
+        // Build + dedupe organizers BEFORE writing
+        $normalizedOrganizers = $this->normalizeOrganizerInput($request);
+
+        // At least one organizer name (after trim/dedupe)
+        if (count($normalizedOrganizers) < 1) {
             return back()->withErrors(['organizers.name' => 'Please provide at least one organizer name.'])->withInput();
         }
 
@@ -147,19 +145,13 @@ class CreateEventController extends Controller
 
             $event = Event::create($eventData);
 
-            // save organizers
-            $emails   = $request->input('organizers.email', []);
-            $contacts = $request->input('organizers.contact', []);
-
-            foreach ($names as $i => $name) {
-                $name = trim((string)$name);
-                if ($name === '') continue;
-
+            // Save organizers (DEDUPED)
+            foreach ($normalizedOrganizers as $org) {
                 EventOrganizer::create([
                     'event_id' => $event->event_id,
-                    'name'     => $name,
-                    'email'    => isset($emails[$i]) ? ($emails[$i] ?: null) : null,
-                    'contact'  => isset($contacts[$i]) ? ($contacts[$i] ?: null) : null,
+                    'name'     => $org['name'],
+                    'email'    => $org['email'],
+                    'contact'  => $org['contact'],
                 ]);
             }
 
@@ -220,12 +212,10 @@ class CreateEventController extends Controller
             'organizers.contact.*' => 'nullable|string|max:255',
         ]);
 
-        $names = $request->input('organizers.name', []);
-        $hasAtLeastOne = false;
-        foreach ($names as $n) {
-            if (is_string($n) && trim($n) !== '') { $hasAtLeastOne = true; break; }
-        }
-        if (!$hasAtLeastOne) {
+        // Build + dedupe organizers BEFORE writing
+        $normalizedOrganizers = $this->normalizeOrganizerInput($request);
+
+        if (count($normalizedOrganizers) < 1) {
             return back()->withErrors(['organizers.name' => 'Please provide at least one organizer name.'])->withInput();
         }
 
@@ -254,20 +244,15 @@ class CreateEventController extends Controller
 
             $event->save();
 
+            // Replace organizers (DEDUPED)
             EventOrganizer::where('event_id', $event->event_id)->delete();
 
-            $emails   = $request->input('organizers.email', []);
-            $contacts = $request->input('organizers.contact', []);
-
-            foreach ($names as $i => $name) {
-                $name = trim((string)$name);
-                if ($name === '') continue;
-
+            foreach ($normalizedOrganizers as $org) {
                 EventOrganizer::create([
                     'event_id' => $event->event_id,
-                    'name'     => $name,
-                    'email'    => isset($emails[$i]) ? ($emails[$i] ?: null) : null,
-                    'contact'  => isset($contacts[$i]) ? ($contacts[$i] ?: null) : null,
+                    'name'     => $org['name'],
+                    'email'    => $org['email'],
+                    'contact'  => $org['contact'],
                 ]);
             }
 
@@ -379,6 +364,56 @@ class CreateEventController extends Controller
     /* =========================================================
        HELPERS
     ========================================================= */
+
+    /**
+     * Normalize + dedupe organizers. Prevent duplicates BEFORE insert.
+     * Rule:
+     * - If email present: unique by email (case-insensitive)
+     * - Else: unique by normalized name (case-insensitive, whitespace collapsed)
+     */
+    private function normalizeOrganizerInput(Request $request): array
+    {
+        $names    = (array) $request->input('organizers.name', []);
+        $emails   = (array) $request->input('organizers.email', []);
+        $contacts = (array) $request->input('organizers.contact', []);
+
+        $out = [];
+        $seen = [];
+
+        foreach ($names as $i => $nameRaw) {
+            $name = trim((string) $nameRaw);
+            if ($name === '') continue;
+
+            $emailRaw = $emails[$i] ?? null;
+            $email = is_string($emailRaw) ? trim($emailRaw) : null;
+            $email = ($email === '') ? null : $email;
+
+            $contactRaw = $contacts[$i] ?? null;
+            $contact = is_string($contactRaw) ? trim($contactRaw) : null;
+            $contact = ($contact === '') ? null : $contact;
+
+            // Build dedupe key
+            if ($email) {
+                $key = 'email:' . mb_strtolower($email);
+            } else {
+                $normName = preg_replace('/\s+/', ' ', mb_strtolower($name));
+                $key = 'name:' . $normName;
+            }
+
+            if (isset($seen[$key])) continue;
+            $seen[$key] = true;
+
+            $out[] = [
+                'name'    => $name,
+                'email'   => $email,
+                'contact' => $contact,
+            ];
+        }
+
+        // enforce max 3 after dedupe
+        return array_slice($out, 0, 3);
+    }
+
     private function deriveStatus(?string $stored, ?Carbon $start, ?Carbon $end, Carbon $now): string
     {
         $stored = strtolower((string)($stored ?? self::STATUS_PLANNED));

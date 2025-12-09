@@ -1146,3 +1146,54 @@ body{
   outline: none;
   box-shadow: 0 0 0 2px rgba(122, 35, 43, 0.35);
 }
+
+/* 1) Firefox */
+html, body {
+  scrollbar-width: none;        /* hides bar */
+}
+
+/* 2) IE/Edge Legacy */
+html, body {
+  -ms-overflow-style: none;     /* hides bar */
+}
+
+/* 3) WebKit / Blink (Chrome, Safari, Edge) */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Make the tab pane fill space and allow children to stretch */
+.em-pane{
+  display: flex;
+  flex-direction: column;
+  min-height: 50vh; /* adjust to taste */
+}
+
+/* When empty, let the empty card take remaining space */
+.em-empty{
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;  /* vertically center message */
+  align-items: center;      /* horizontally center */
+  width: 100%;
+}
+
+/* stop margin-collapsing + give the pane a real "inside" */
+.em-pane{
+  display: flex;
+  flex-direction: column;
+  min-height: 60vh;
+  padding-bottom: 16px;      /* creates breathing room at bottom */
+  box-sizing: border-box;
+  margin-top:0; /* prevent collapsing with child margin */
+}
+
+/* prevent the empty card from pushing outside the pane */
+.em-empty{
+  flex: 1;
+  margin: 0;                 /* important if you had margin before */
+  border-radius: 18px;       /* optional, just matches the look */
+}

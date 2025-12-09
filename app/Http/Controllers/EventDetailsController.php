@@ -489,7 +489,7 @@ class EventDetailsController extends Controller
             return back()->withErrors(['server' => 'Failed to restore event: ' . $e->getMessage()]);
         }
     }
-
+    
     public function destroy(Request $request, $eventId)
     {
         $admin = Auth::guard('admin')->user();
@@ -504,11 +504,17 @@ class EventDetailsController extends Controller
 
             $title = $event->title;
 
+            // ✅ build details BEFORE delete (NOW $event exists)
+            $details = 'Deleted event "'.$event->title.'"'
+                .' (Code: '.($event->event_code ?? '—').')'
+                .' (Date: '.optional($event->start_datetime)->format('M d, Y').').';
+
+            // Use this $details in your activity log (instead of only "$title")
             $this->logEvent(
                 $event->event_id,
                 $admin->admin_id,
                 'Delete',
-                "Deleted event \"{$title}\"."
+                $details
             );
 
             $this->logFact(
@@ -523,8 +529,15 @@ class EventDetailsController extends Controller
             DB::commit();
 
             return redirect()
-                ->route('events.index')   // Event Manager / listing page
-                ->with('submit_success', 'Event deleted successfully.');
+                ->route('events.manage')
+                ->with('success', [
+                    'title' => 'Event deleted',
+                    'message' => 'Event deleted successfully.',
+                    'event_title' => $title,
+                    'event_code'  => $event->event_code,
+                    'event_date'  => optional($event->start_datetime)->format('M d, Y'),
+                ]);
+
         } catch (\Throwable $e) {
             DB::rollBack();
             return back()->withErrors([
@@ -532,6 +545,7 @@ class EventDetailsController extends Controller
             ]);
         }
     }
+
 
     private function deriveStatus(?string $stored, ?Carbon $start, ?Carbon $end, Carbon $now): string
     {
@@ -589,130 +603,130 @@ class EventDetailsController extends Controller
     }
 
     public function updateOrganizer(Request $request, Event $event)
-{
-    $admin = Auth::guard('admin')->user();
-    if (!$admin) return back()->withErrors(['auth' => 'Authentication failed.']);
+    {
+        $admin = Auth::guard('admin')->user();
+        if (!$admin) return back()->withErrors(['auth' => 'Authentication failed.']);
 
-    $data = $request->validate([
-        'organizer_id' => 'required|integer',
-        'name'   => 'required|string|max:120',
-        'email'  => 'nullable|string|max:190',
-        'contact'=> 'nullable|string|max:60',
-    ]);
+        $data = $request->validate([
+            'organizer_id' => 'required|integer',
+            'name'   => 'required|string|max:120',
+            'email'  => 'nullable|string|max:190',
+            'contact'=> 'nullable|string|max:60',
+        ]);
 
-    // ✅ you already have $event from route model binding
-    $org = EventOrganizer::where('event_id', $event->event_id)
-        ->where('organizer_id', (int) $data['organizer_id'])
-        ->first();
+        // ✅ you already have $event from route model binding
+        $org = EventOrganizer::where('event_id', $event->event_id)
+            ->where('organizer_id', (int) $data['organizer_id'])
+            ->first();
 
-    if (!$org) {
-        return back()->with('organizer_error', 'Organizer no longer exists (or not part of this event).');
-    }
+        if (!$org) {
+            return back()->with('organizer_error', 'Organizer no longer exists (or not part of this event).');
+        }
 
-    $name    = trim($data['name']);
-    $email   = trim((string)($data['email'] ?? '')) ?: null;
-    $contact = trim((string)($data['contact'] ?? '')) ?: null;
+        $name    = trim($data['name']);
+        $email   = trim((string)($data['email'] ?? '')) ?: null;
+        $contact = trim((string)($data['contact'] ?? '')) ?: null;
 
-    $dupQuery = EventOrganizer::where('event_id', $event->event_id)
-        ->where('organizer_id', '!=', $org->organizer_id)
-        ->whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower($name)]);
+        $dupQuery = EventOrganizer::where('event_id', $event->event_id)
+            ->where('organizer_id', '!=', $org->organizer_id)
+            ->whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower($name)]);
 
-    $dupQuery->when(
-        $email !== null,
-        fn($q) => $q->whereRaw('LOWER(TRIM(email)) = ?', [mb_strtolower($email)]),
-        fn($q) => $q->whereNull('email')
-    );
-
-    $dupQuery->when(
-        $contact !== null,
-        fn($q) => $q->whereRaw('TRIM(contact) = ?', [$contact]),
-        fn($q) => $q->whereNull('contact')
-    );
-
-    if ($dupQuery->exists()) {
-        return back()->with('organizer_warning', 'Organizer already exists for this event.');
-    }
-
-    try {
-        DB::beginTransaction();
-
-        $before = ['name' => $org->name, 'email' => $org->email, 'contact' => $org->contact];
-
-        $org->name = $name;
-        $org->email = $email;
-        $org->contact = $contact;
-        $org->save();
-
-        $after = ['name' => $org->name, 'email' => $org->email, 'contact' => $org->contact];
-
-        $this->logEvent(
-            $event->event_id,
-            $admin->admin_id,
-            'Update Organizer',
-            "Updated organizer #{$org->organizer_id} (" . ($before['name'] ?? '') . " → " . ($after['name'] ?? '') . ")."
+        $dupQuery->when(
+            $email !== null,
+            fn($q) => $q->whereRaw('LOWER(TRIM(email)) = ?', [mb_strtolower($email)]),
+            fn($q) => $q->whereNull('email')
         );
 
-        $this->logFact(
-            $admin->admin_id,
-            $event,
-            'Update Organizer',
-            ['organizer_id' => (int)$org->organizer_id, 'before' => $before, 'after' => $after]
+        $dupQuery->when(
+            $contact !== null,
+            fn($q) => $q->whereRaw('TRIM(contact) = ?', [$contact]),
+            fn($q) => $q->whereNull('contact')
         );
 
-        DB::commit();
-        return back()->with('organizer_success', 'Organizer updated.');
-    } catch (\Throwable $e) {
-        DB::rollBack();
-        return back()->with('organizer_error', 'Failed to update organizer: ' . $e->getMessage());
+        if ($dupQuery->exists()) {
+            return back()->with('organizer_warning', 'Organizer already exists for this event.');
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $before = ['name' => $org->name, 'email' => $org->email, 'contact' => $org->contact];
+
+            $org->name = $name;
+            $org->email = $email;
+            $org->contact = $contact;
+            $org->save();
+
+            $after = ['name' => $org->name, 'email' => $org->email, 'contact' => $org->contact];
+
+            $this->logEvent(
+                $event->event_id,
+                $admin->admin_id,
+                'Update Organizer',
+                "Updated organizer #{$org->organizer_id} (" . ($before['name'] ?? '') . " → " . ($after['name'] ?? '') . ")."
+            );
+
+            $this->logFact(
+                $admin->admin_id,
+                $event,
+                'Update Organizer',
+                ['organizer_id' => (int)$org->organizer_id, 'before' => $before, 'after' => $after]
+            );
+
+            DB::commit();
+            return back()->with('organizer_success', 'Organizer updated.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->with('organizer_error', 'Failed to update organizer: ' . $e->getMessage());
+        }
     }
-}
 
-public function destroyOrganizer(Request $request, Event $event)
-{
-    $admin = Auth::guard('admin')->user();
-    if (!$admin) return back()->withErrors(['auth' => 'Authentication failed.']);
+    public function destroyOrganizer(Request $request, Event $event)
+    {
+        $admin = Auth::guard('admin')->user();
+        if (!$admin) return back()->withErrors(['auth' => 'Authentication failed.']);
 
-    $data = $request->validate([
-        'organizer_id' => 'required|integer',
-    ]);
+        $data = $request->validate([
+            'organizer_id' => 'required|integer',
+        ]);
 
-    // ✅ you already have $event from route model binding
-    $org = EventOrganizer::where('event_id', $event->event_id)
-        ->where('organizer_id', (int) $data['organizer_id'])
-        ->first();
+        // ✅ you already have $event from route model binding
+        $org = EventOrganizer::where('event_id', $event->event_id)
+            ->where('organizer_id', (int) $data['organizer_id'])
+            ->first();
 
-    if (!$org) {
-        return back()->with('organizer_error', 'Organizer no longer exists (or not part of this event).');
+        if (!$org) {
+            return back()->with('organizer_error', 'Organizer no longer exists (or not part of this event).');
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $orgName = $org->name;
+            $orgId = $org->organizer_id;
+
+            $org->delete();
+
+            $this->logEvent(
+                $event->event_id,
+                $admin->admin_id,
+                'Delete Organizer',
+                "Deleted organizer #{$orgId} ({$orgName})."
+            );
+
+            $this->logFact(
+                $admin->admin_id,
+                $event,
+                'Delete Organizer',
+                ['organizer_id' => (int)$orgId, 'name' => $orgName]
+            );
+
+            DB::commit();
+            return back()->with('organizer_deleted', 'Organizer deleted.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->with('organizer_error', 'Failed to delete organizer: ' . $e->getMessage());
+        }
     }
-
-    try {
-        DB::beginTransaction();
-
-        $orgName = $org->name;
-        $orgId = $org->organizer_id;
-
-        $org->delete();
-
-        $this->logEvent(
-            $event->event_id,
-            $admin->admin_id,
-            'Delete Organizer',
-            "Deleted organizer #{$orgId} ({$orgName})."
-        );
-
-        $this->logFact(
-            $admin->admin_id,
-            $event,
-            'Delete Organizer',
-            ['organizer_id' => (int)$orgId, 'name' => $orgName]
-        );
-
-        DB::commit();
-        return back()->with('organizer_deleted', 'Organizer deleted.');
-    } catch (\Throwable $e) {
-        DB::rollBack();
-        return back()->with('organizer_error', 'Failed to delete organizer: ' . $e->getMessage());
-    }
-}
 
 }

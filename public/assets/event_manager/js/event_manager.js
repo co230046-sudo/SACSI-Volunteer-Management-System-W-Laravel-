@@ -1086,14 +1086,20 @@
   const urlTab = new URL(window.location.href).searchParams.get("tab");
   setTab((urlTab || state.tab).trim());
 
-  if (flags) {
+    if (flags) {
     const hasSuccess = flags.getAttribute("data-has-success") === "1";
     const hasError   = flags.getAttribute("data-has-error") === "1";
     const errorMsg   = flags.getAttribute("data-error-msg") || "";
 
-    if (hasSuccess) mSuccess?.show();
-    else if (hasError) showNotice("Error", errorMsg || "Something went wrong.");
+    if (hasSuccess) {
+      // ensure modal isn't double-instantiated
+      const el = document.getElementById("emModalSuccess");
+      if (el && window.bootstrap) bootstrap.Modal.getOrCreateInstance(el).show();
+    } else if (hasError) {
+      showNotice("Error", errorMsg || "Something went wrong.");
+    }
   }
+
 
   syncCount();
   applyNow();

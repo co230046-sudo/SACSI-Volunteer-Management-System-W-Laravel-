@@ -74,23 +74,19 @@ class EventManagerController extends Controller
         /*
         |--------------------------------------------------------------
         | Event Activity Log (EventLogs only) – DB side
-        |   JS will do the actual filtering in the modal.
-        |   These query params are kept so you *can* deep-link if needed.
         |--------------------------------------------------------------
         */
-        $logAction    = $request->query('log_action');   // e.g. "Create", "Edit"
-        $logSearch    = $request->query('log_search');   // free-text search
-        $logStartDate = $request->query('log_start');    // yyyy-mm-dd
-        $logEndDate   = $request->query('log_end');      // yyyy-mm-dd
+        $logAction    = $request->query('log_action');
+        $logSearch    = $request->query('log_search');
+        $logStartDate = $request->query('log_start');
+        $logEndDate   = $request->query('log_end');
 
         $eventLogsQuery = EventLog::with('admin');
 
-        // Filter by action
         if (!empty($logAction)) {
             $eventLogsQuery->where('action', $logAction);
         }
 
-        // Search in action + details
         if (!empty($logSearch)) {
             $s = '%' . $logSearch . '%';
             $eventLogsQuery->where(function ($q) use ($s) {
@@ -99,7 +95,6 @@ class EventManagerController extends Controller
             });
         }
 
-        // Date range (inclusive)
         if (!empty($logStartDate)) {
             $start = \Carbon\Carbon::parse($logStartDate)->startOfDay();
             $eventLogsQuery->where('timestamp', '>=', $start);
@@ -115,8 +110,7 @@ class EventManagerController extends Controller
             ->limit(200)
             ->get();
 
-        // Distinct actions for dropdown (+ make sure core actions always exist)
-        $eventLogActions = collect(['Create', 'Edit', 'Cancel', 'Restore', 'Delete'])
+        $eventLogActions = collect(['Create', 'Edit', 'Cancel', 'Restore', 'Delete', 'Bulk Delete'])
             ->merge(
                 EventLog::select('action')
                     ->distinct()
@@ -142,16 +136,19 @@ class EventManagerController extends Controller
     public function bulkDestroy(Request $request)
     {
         $admin = Auth::guard('admin')->user();
+        if (!$admin) {
+            return back()->withErrors(['auth' => 'Authentication failed.']);
+        }
 
-        $ids = (array)$request->input('event_ids', []);
-        $ids = array_values(array_filter($ids, fn($v) => $v !== null && $v !== ''));
+        $ids = (array) $request->input('event_ids', []);
+        $ids = array_values(array_unique(array_filter($ids, fn($v) => $v !== null && $v !== '')));
 
         if (count($ids) === 0) {
             return back()->with('error', 'Nothing selected to delete.');
         }
 
-        // Get events so we can log details
-        $events = Event::whereIn('event_id', $ids)->get();
+        // Load events + location (for readable logs)
+        $events = Event::with('location')->whereIn('event_id', $ids)->get();
 
         if ($events->isEmpty()) {
             return back()->with('error', 'No events were deleted. They may already be gone.');
@@ -159,35 +156,78 @@ class EventManagerController extends Controller
 
         $deleted = 0;
 
-        DB::transaction(function () use ($events, $admin, &$deleted) {
+        DB::transaction(function () use ($events, $admin, $ids, &$deleted) {
+            $adminName = $admin->name ?? $admin->username ?? ('Admin #' . ($admin->admin_id ?? '—'));
+
+            // Summary FactLog + EventLog for the bulk operation (human readable, keeps all info)
+            $summaryTitles = $events->pluck('title')->filter()->take(10)->values()->all();
+            $summaryLine = count($events) > 10
+                ? implode(', ', $summaryTitles) . ' (and ' . (count($events) - 10) . ' more)'
+                : implode(', ', $summaryTitles);
+
+            $bulkDetails = 'Bulk delete executed by ' . $adminName . '. '
+                . 'Deleted ' . $events->count() . ' event(s). '
+                . 'Event IDs: ' . implode(', ', $events->pluck('event_id')->all()) . '. '
+                . ($summaryLine ? 'Titles: ' . $summaryLine . '.' : '');
+
+            EventLog::create([
+                'event_id'  => $events->first()->event_id, // anchor (optional)
+                'admin_id'  => $admin->admin_id ?? null,
+                'action'    => 'Bulk Delete',
+                'details'   => $bulkDetails,
+                'timestamp' => now(),
+            ]);
+
+            FactLog::create([
+                'admin_id'    => $admin->admin_id ?? null,
+                'entity_type' => 'Event',
+                'entity_id'   => null,
+                'action'      => 'Bulk Delete',
+                'details'     => $bulkDetails,
+                'timestamp'   => now(),
+            ]);
+
             foreach ($events as $event) {
-                // ✅ Human-readable EventLog (shown in Event Activity Log modal)
+                // Build human-readable details BEFORE delete
+                $title = $event->title ?? 'Untitled Event';
+                $code  = $event->event_code ?? '—';
+
+                $start = $event->start_datetime ? $event->start_datetime->format('M d, Y h:i A') : '—';
+                $end   = $event->end_datetime ? $event->end_datetime->format('M d, Y h:i A') : '—';
+
+                $venue = $event->venue ?? '—';
+                $district = $event->location?->district_id ?? $event->district_id ?? '—';
+                $barangay = $event->location?->barangay ?? '—';
+
+                // ✅ EventLog (shown in Event Manager Activity Log)
+                $details = 'Event permanently deleted. '
+                    . 'Title: "' . $title . '". '
+                    . 'Code: ' . $code . '. '
+                    . 'Event ID: ' . $event->event_id . '. '
+                    . 'Start: ' . $start . '. '
+                    . 'End: ' . $end . '. '
+                    . 'Venue: ' . $venue . '. '
+                    . 'Barangay: ' . $barangay . '. '
+                    . 'District: ' . $district . '. '
+                    . 'Method: Bulk delete. '
+                    . 'Deleted by: ' . $adminName . '.';
+
                 EventLog::create([
                     'event_id'  => $event->event_id,
                     'admin_id'  => $admin->admin_id ?? null,
                     'action'    => 'Delete',
-                    'details'   => sprintf(
-                        'Deleted event "%s" (Event ID: %d, Code: %s) via bulk delete.',
-                        $event->title ?? 'Untitled Event',
-                        $event->event_id,
-                        $event->event_code ?? '—'
-                    ),
+                    'details'   => $details,
                     'timestamp' => now(),
                 ]);
 
-                // ✅ Silent FactLog (kept in DB, not shown in this UI yet)
+                // ✅ FactLog (also human readable, keeps ALL info)
                 FactLog::create([
                     'admin_id'    => $admin->admin_id ?? null,
                     'entity_type' => 'Event',
                     'entity_id'   => $event->event_id,
-                    'action'      => 'Bulk Delete',
-                    'details'     => json_encode([
-                        'event_id'   => $event->event_id,
-                        'event_code' => $event->event_code,
-                        'title'      => $event->title,
-                    ], JSON_UNESCAPED_UNICODE),
+                    'action'      => 'Delete',
+                    'details'     => $details,
                     'timestamp'   => now(),
-                    'import_id'   => null,
                 ]);
 
                 $event->delete();

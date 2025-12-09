@@ -20,7 +20,7 @@
   @include('layouts.page_loader')
   @include('layouts.navbar')
   @include('layouts.back_button')
-  
+
   @php
     // ✅ Districts locked to 1 and 2 (requested)
     $districts = [1, 2];
@@ -34,7 +34,11 @@
       ->values()
       ->all();
 
-     use Illuminate\Support\Str;
+    use Illuminate\Support\Str;
+
+    // Success payload may be string OR array
+    $successPayload = session('success');
+    $successIsArray = is_array($successPayload);
   @endphp
 
   <div class="em-wrap">
@@ -308,7 +312,6 @@
                 $dateText = $start->format('M d, Y');
                 $timeText = $start->format('h:i A') . ' - ' . $end->format('h:i A');
               } else {
-                // Multi-day: show both start/end clearly
                 $dateText = $start->format('M d, Y') . ' – ' . $end->format('M d, Y');
                 $timeText = $start->format('M d, Y h:i A') . ' – ' . $end->format('M d, Y h:i A');
               }
@@ -410,7 +413,11 @@
                 <i class="fa-regular fa-eye"></i> View
               </a>
 
-              @if(\Illuminate\Support\Facades\Route::has('events.summary'))
+              @php
+                $hasSummary = ($status === 'completed') || ($event->attendances_count ?? 0) > 0;
+              @endphp
+
+              @if($hasSummary)
                 <a class="em-btn" href="{{ route('events.summary', $event->event_id) }}">
                   <i class="fa-regular fa-file-lines"></i> Summary
                 </a>
@@ -545,14 +552,40 @@
     </div>
   </div>
 
+  {{-- ✅ Success modal now renders array payload (event details) --}}
   <div class="modal fade" id="emModalSuccess" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content em-modal">
         <div class="modal-header">
-          <h5 class="modal-title"><i class="fa-regular fa-circle-check me-2"></i> Success</h5>
+          <h5 class="modal-title">
+            <i class="fa-regular fa-circle-check me-2"></i>
+            {{ $successIsArray ? ($successPayload['title'] ?? 'Success') : 'Success' }}
+          </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <div class="modal-body">{{ session('success') ?? 'Done.' }}</div>
+
+        <div class="modal-body">
+          @if($successIsArray)
+            <div class="fw-semibold mb-1">{{ $successPayload['message'] ?? 'Done.' }}</div>
+
+            @php
+              $et = $successPayload['event_title'] ?? null;
+              $ec = $successPayload['event_code'] ?? null;
+              $ed = $successPayload['event_date'] ?? null;
+            @endphp
+
+            @if($et || $ec || $ed)
+              <div class="small text-muted">
+                @if($et) <div><b>Title:</b> {{ $et }}</div> @endif
+                @if($ec) <div><b>Code:</b> {{ $ec }}</div> @endif
+                @if($ed) <div><b>Date:</b> {{ $ed }}</div> @endif
+              </div>
+            @endif
+          @else
+            {{ session('success') ?? 'Done.' }}
+          @endif
+        </div>
+
         <div class="modal-footer">
           <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
         </div>
@@ -594,20 +627,12 @@
           <form id="emLogFilterForm" class="row g-3 mb-3">
             <div class="col-12 col-md-4">
               <label class="form-label mb-1 small fw-semibold">Start date</label>
-              <input
-                type="date"
-                name="log_start"
-                class="form-control form-control-sm"
-                value="{{ request('log_start') }}">
+              <input type="date" name="log_start" class="form-control form-control-sm" value="{{ request('log_start') }}">
             </div>
 
             <div class="col-12 col-md-4">
               <label class="form-label mb-1 small fw-semibold">End date</label>
-              <input
-                type="date"
-                name="log_end"
-                class="form-control form-control-sm"
-                value="{{ request('log_end') }}">
+              <input type="date" name="log_end" class="form-control form-control-sm" value="{{ request('log_end') }}">
             </div>
 
             <div class="col-12 col-md-4">
@@ -615,23 +640,14 @@
               <select name="log_action" class="form-select form-select-sm">
                 <option value="">All actions</option>
                 @foreach($eventLogActions as $action)
-                  <option
-                    value="{{ $action }}"
-                    @selected(request('log_action') === $action)
-                  >
-                    {{ $action }}
-                  </option>
+                  <option value="{{ $action }}" @selected(request('log_action') === $action)>{{ $action }}</option>
                 @endforeach
               </select>
             </div>
 
             <div class="col-12">
               <label class="form-label mb-1 small fw-semibold">Search</label>
-              <input
-                type="text"
-                name="log_search"
-                class="form-control form-control-sm"
-                placeholder="Search by user, event, barangay, etc…">
+              <input type="text" name="log_search" class="form-control form-control-sm" placeholder="Search by user, event, barangay, etc…">
             </div>
           </form>
 
@@ -655,27 +671,14 @@
                     $adminName = optional($log->admin)->name ?? optional($log->admin)->username ?? '—';
                   @endphp
 
-                  <tr
-                    class="em-log-row"
-                    data-action="{{ $log->action }}"     {{-- e.g. "Create", "Edit", "Delete" --}}
-                    data-date="{{ $dateOnly }}"          {{-- yyyy-mm-dd --}}
-                    data-search="{{ Str::lower(
-                      trim(
-                        $when . ' ' .
-                        $log->action . ' ' .
-                        $adminName . ' ' .
-                        ($log->details ?? '')
-                      )
-                    ) }}"
-                  >
+                  <tr class="em-log-row"
+                      data-action="{{ $log->action }}"
+                      data-date="{{ $dateOnly }}"
+                      data-search="{{ Str::lower(trim($when.' '.$log->action.' '.$adminName.' '.($log->details ?? ''))) }}">
                     <td>{{ $when }}</td>
                     <td>{{ $log->action }}</td>
                     <td>{{ $adminName }}</td>
-                    <td>
-                      <div class="small text-muted">
-                        {{ $log->details ?? '—' }}
-                      </div>
-                    </td>
+                    <td><div class="small text-muted">{{ $log->details ?? '—' }}</div></td>
                   </tr>
                 @endforeach
               </tbody>
@@ -684,32 +687,19 @@
         </div>
 
         <div class="modal-footer">
-          <button
-            id="emLogResetBtn"
-            type="button"
-            class="btn btn-outline-secondary btn-sm">
-            Reset
-          </button>
-
-          <button
-            type="submit"
-            form="emLogFilterForm"
-            class="btn btn-primary btn-sm">
-            Apply
-          </button>
+          <button id="emLogResetBtn" type="button" class="btn btn-outline-secondary btn-sm">Reset</button>
+          <button type="submit" form="emLogFilterForm" class="btn btn-primary btn-sm">Apply</button>
         </div>
       </div>
     </div>
   </div>
 
-
-
-
+  {{-- ✅ Server flags now safely support array success using JSON --}}
   <div id="emServerFlags"
       data-has-success="{{ session()->has('success') ? '1' : '0' }}"
-      data-success-msg="{{ session('success') ? e(session('success')) : '' }}"
+      data-success-json='@json(session("success"))'
       data-has-error="{{ session()->has('error') ? '1' : '0' }}"
-      data-error-msg="{{ session('error') ? e(session('error')) : '' }}"
+      data-error-msg="{{ session("error") ? e(session("error")) : "" }}"
       hidden>
   </div>
 
@@ -776,17 +766,26 @@
     </div>
   </div>
 
+  <form method="POST" action="{{ route('events.bulkDestroy') }}" id="emBulkDeleteForm">
+  @csrf
+  @method('DELETE')
+  <div id="emBulkHiddenInputs"></div>
+  <button type="submit">Delete</button>
+</form>
+
+
   @if(request('show_log_modal') === '1')
   <script>
   document.addEventListener('DOMContentLoaded', function () {
       var el = document.getElementById('emActivityModal');
       if (el && window.bootstrap) {
-          var modal = new bootstrap.Modal(el);
+          var modal = bootstrap.Modal.getOrCreateInstance(el);
           modal.show();
       }
   });
   </script>
   @endif
+
 
   {{-- Data payloads for JS --}}
   <script>

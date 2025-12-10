@@ -30,9 +30,6 @@ return new class extends Migration
                 $table->timestamp('start_datetime')->nullable();
                 $table->timestamp('end_datetime')->nullable();
 
-                // Optional capacity (if you use it elsewhere)
-                $table->unsignedInteger('max_volunteers')->nullable();
-
                 $table->enum('status', ['planned','ongoing','completed','cancelled'])
                     ->default('planned');
 

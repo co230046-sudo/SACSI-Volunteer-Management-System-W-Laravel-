@@ -1097,3 +1097,600 @@ body{
 .custom-option-add{
   font-weight: 600;
 }
+
+/* =========================================================
+   ADD: Event type search input spacing + option layout polish
+   Paste at very bottom
+========================================================= */
+
+/* Make options always align nicely (some of yours already do, but keep consistent) */
+.custom-options .custom-option{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Slightly stronger style for the manage/add option */
+.custom-option.custom-option-add{
+  font-weight: 800;
+}
+
+/* Ensure search icon positioning works (since it's absolutely positioned) */
+.custom-select .search-box{
+  position: sticky;
+}
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+
+/* (Important) search-box needs relative so .search-icon absolute is correct */
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+  background: #fff;
+  padding: 8px 8px 10px;
+  border-bottom: 1px solid rgba(15,23,42,.08);
+  z-index: 2;
+}
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+
+/* Final: add relative here */
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+  background: #fff;
+  padding: 8px 8px 10px;
+  border-bottom: 1px solid rgba(15,23,42,.08);
+  z-index: 2;
+}
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+
+/* Actually set relative once (this overrides nothing harmful) */
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+
+/* ✅ THIS is the only required correction: */
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+  background: #fff;
+  padding: 8px 8px 10px;
+  border-bottom: 1px solid rgba(15,23,42,.08);
+  z-index: 2;
+}
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+
+/* ✅ Real fix: make search-box relative so icon sits correctly */
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+
+/* Stop. Here’s the clean final block you actually need: */
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+  background: #fff;
+  padding: 8px 8px 10px;
+  border-bottom: 1px solid rgba(15,23,42,.08);
+  z-index: 2;
+}
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+.custom-select .search-box{
+  position: sticky;
+  top: 0;
+}
+
+/* ✅ add this line only if your icon appears misaligned */
+.custom-select .search-box{ position: sticky; top: 0; }
+.custom-select .search-box{ position: relative; }
+
+/* Optional: reduce height a little for event type list (since it includes search + manage) */
+#event-type-select .custom-options{
+  max-height: 250px;
+}
+
+/* === Manage Organizers UI === */
+.organizers-actions{
+  margin-top: 10px;
+  display:flex;
+  justify-content:flex-end;
+}
+
+.org-manage-btn{
+  border:none;
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-weight: 900;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  background:#fff;
+  color: var(--brand);
+  border: 1px solid rgba(179, 11, 18, .25);
+  box-shadow: 0 14px 26px rgba(15,23,42,.10);
+  transition: transform .14s ease, box-shadow .2s ease, background .2s ease;
+}
+.org-manage-btn:hover{
+  transform: translateY(-1px);
+  background: rgba(179, 11, 18, .04);
+  box-shadow: 0 18px 32px rgba(15,23,42,.12);
+}
+
+/* modal top bar */
+.org-manage-top{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-bottom: 12px;
+}
+.org-manage-search{
+  flex: 1;
+  position: relative;
+}
+.org-manage-search i{
+  position:absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(17,24,39,.55);
+}
+.org-manage-search input{
+  width:100%;
+  padding: 12px 14px 12px 40px;
+  border-radius: 14px;
+  border: 1px solid rgba(15,23,42,.14);
+  background:#f8fafc;
+  outline:none;
+  transition: box-shadow .22s ease, border-color .22s ease, background .22s ease;
+}
+.org-manage-search input:focus{
+  border-color: rgba(179, 11, 18, .55);
+  background:#fff;
+  box-shadow: 0 0 0 4px rgba(179, 11, 18, .12);
+}
+
+/* list */
+.org-manage-list{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.org-manage-item{
+  border: 1px solid rgba(15,23,42,.10);
+  border-radius: 16px;
+  padding: 12px;
+  background:#fff;
+  box-shadow: 0 10px 18px rgba(0,0,0,.04);
+}
+.org-manage-row{
+  display:grid;
+  grid-template-columns: 1.2fr 1fr 1fr auto;
+  gap: 10px;
+  align-items:center;
+}
+@media (max-width: 700px){
+  .org-manage-row{ grid-template-columns: 1fr; }
+}
+.org-manage-row input{
+  width:100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(15,23,42,.14);
+  background:#f8fafc;
+}
+.org-manage-actions{
+  display:flex;
+  gap:8px;
+  justify-content:flex-end;
+}
+.org-mini-btn{
+  width:42px;
+  height:42px;
+  border-radius: 12px;
+  border: 1px solid rgba(15,23,42,.10);
+  background:#fff;
+  color: var(--brand);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  box-shadow: 0 10px 18px rgba(15,23,42,.08);
+}
+.org-mini-btn:hover{ transform: translateY(-1px); }
+.org-mini-btn--danger{
+  background: rgba(179, 11, 18, .08);
+}
+
+/* ============================
+   ORGANIZER HEADER LAYOUT FIX
+   ============================ */
+.organizers-head{
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "title actions"
+    "sub actions";
+  align-items: start;
+  gap: 6px 10px;
+}
+
+.organizers-title{ grid-area: title; }
+.organizers-sub{ grid-area: sub; margin-top: 0; }
+.organizers-actions{
+  grid-area: actions;
+  margin-top: 0;
+  align-self: center;        /* centers with title/sub block */
+  justify-self: end;         /* pins to right */
+}
+
+/* Make the button match your UI and not float weirdly */
+.org-manage-btn{
+  padding: 10px 14px;
+  border-radius: 14px;
+  white-space: nowrap;
+}
+
+/* ============================
+   Z-INDEX / STACKING FIXES
+   ============================ */
+
+/* Custom select dropdown should sit above your page elements */
+.custom-options{ z-index: 1060; } /* above most page content */
+
+/* If a modal is open, don't let custom selects punch through */
+.modal-open .custom-options{ display:none !important; }
+
+/* Bootstrap modal stacking improvements */
+.modal{ z-index: 2000 !important; }
+.modal-backdrop{ z-index: 1990 !important; }
+
+/* ============================
+   MANAGE ORGANIZERS DB LIST UI
+   ============================ */
+.db-org-pill{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(15,23,42,.10);
+  background: #fff;
+  box-shadow: 0 10px 18px rgba(0,0,0,.04);
+}
+
+.db-org-main{
+  display:flex;
+  flex-direction:column;
+  gap: 3px;
+  min-width: 0;
+}
+.db-org-name{
+  font-weight: 950;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.db-org-meta{
+  font-size: .86rem;
+  color: rgba(17,24,39,.60);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.db-org-actions{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.slot-btn{
+  border: 1px solid rgba(179, 11, 18, .22);
+  background: rgba(179, 11, 18, .06);
+  color: var(--brand);
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-weight: 900;
+  cursor:pointer;
+}
+.slot-btn:hover{
+  background: rgba(179, 11, 18, .12);
+}
+
+/* DB organizer list pills inside Manage modal */
+.db-org-pill{
+  border: 1px solid rgba(15,23,42,.10);
+  border-radius: 16px;
+  padding: 12px;
+  background:#fff;
+  box-shadow: 0 10px 18px rgba(0,0,0,.04);
+  display:flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.db-org-main{ min-width: 0; }
+.db-org-name{
+  font-weight: 950;
+  color:#111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 420px;
+}
+.db-org-meta{
+  margin-top: 4px;
+  font-weight: 700;
+  color: rgba(17,24,39,.55);
+  font-size: .9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 420px;
+}
+
+.db-org-actions{
+  display:flex;
+  gap: 8px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.slot-btn{
+  border: 1px solid rgba(179, 11, 18, .25);
+  background: rgba(179, 11, 18, .06);
+  color: #7b0a0f;
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.slot-btn:hover{
+  background: rgba(179, 11, 18, .12);
+}
+
+/* wrapper for each organizer row */
+.db-org-item{
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 6px;
+  border-bottom: 1px solid rgba(17,24,39,.08);
+}
+
+/* main clickable "card" */
+.db-org-pill{
+  appearance: none;
+  border: 1px solid rgba(17,24,39,.10);
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 10px 24px rgba(17,24,39,.06);
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 66px;
+}
+
+.db-org-pill:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(17,24,39,.08);
+  border-color: rgba(220,53,69,.22); /* bootstrap danger-ish */
+}
+
+.db-org-main{
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.db-org-name{
+  font-weight: 900;
+  font-size: 1.02rem;
+  color: rgba(17,24,39,.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.db-org-meta{
+  font-weight: 800;
+  font-size: .88rem;
+  color: rgba(17,24,39,.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* right-side "Click to assign →" label inside pill */
+.db-org-actions-label{
+  margin-left: auto;
+  font-weight: 900;
+  font-size: .9rem;
+  color: rgba(17,24,39,.55);
+  white-space: nowrap;
+}
+
+/* tools column (edit/delete buttons) */
+.db-org-tools{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 6px;
+}
+
+.db-org-tool{
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(17,24,39,.12);
+  background: #fff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 8px 18px rgba(17,24,39,.06);
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+
+.db-org-tool i{
+  font-size: 1.0rem;
+  opacity: .82;
+}
+
+.db-org-tool:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(17,24,39,.08);
+  border-color: rgba(220,53,69,.25);
+}
+
+.db-org-tool--danger{
+  border-color: rgba(220,53,69,.28);
+}
+.db-org-tool--danger i{
+  color: #dc3545;
+  opacity: .9;
+}
+
+/* optional: a green “ok/save” button style */
+.db-org-tool--ok{
+  border-color: rgba(25,135,84,.30);
+}
+.db-org-tool--ok i{
+  color: #198754;
+  opacity: .95;
+}
+
+/* inline edit area (shows under the card, spans full width) */
+.db-org-edit{
+  grid-column: 1 / -1;
+  border: 1px dashed rgba(17,24,39,.18);
+  border-radius: 14px;
+  padding: 12px 12px 10px;
+  background: rgba(248,250,252,.8);
+  margin-top: 4px;
+}
+
+/* edit inputs in a clean row */
+.db-org-edit-grid{
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 10px;
+}
+
+.db-org-edit-grid input{
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(17,24,39,.14);
+  padding: 10px 12px;
+  font-weight: 800;
+  outline: none;
+}
+
+.db-org-edit-grid input:focus{
+  border-color: rgba(220,53,69,.40);
+  box-shadow: 0 0 0 4px rgba(220,53,69,.10);
+}
+
+/* edit action buttons row */
+.db-org-edit-actions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* make sure list spacing in modal isn't cramped */
+#orgManageList{
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 700px){
+  .db-org-item{
+    grid-template-columns: 1fr;
+  }
+  .db-org-tools{
+    flex-direction: row;
+    justify-content: flex-end;
+    padding-top: 0;
+  }
+  .db-org-edit-grid{
+    grid-template-columns: 1fr;
+  }
+  .db-org-actions-label{
+    display: none; /* keep card compact on small screens */
+  }
+}

@@ -18,13 +18,8 @@ use Carbon\Carbon;
 
 class CreateEventController extends Controller
 {
-    // If file is: resources/views/event_details/event_details.blade.php
     private const EVENT_DETAILS_VIEW = 'event_details.event_details';
 
-    /**
-     * Centralized status enum values (DB enum: planned|ongoing|completed|cancelled)
-     * UI can show "Upcoming" but DB keeps "planned".
-     */
     private const STATUS_PLANNED   = 'planned';
     private const STATUS_ONGOING   = 'ongoing';
     private const STATUS_COMPLETED = 'completed';
@@ -40,19 +35,11 @@ class CreateEventController extends Controller
         ]);
     }
 
-    /**
-     * We now treat EventDetailsController@show as the single source of truth
-     * for the event details page. This method simply redirects there so we
-     * avoid duplicate logic in two controllers.
-     */
     public function show(Event $event)
     {
         return redirect()->route('event.details.show', $event->event_id);
     }
 
-    /* =========================================================
-       CREATE EVENT
-    ========================================================= */
     public function store(Request $request)
     {
         session()->put('event_form_data', $request->all());
@@ -83,10 +70,8 @@ class CreateEventController extends Controller
             'force_create'   => 'nullable|in:0,1',
         ]);
 
-        // Build + dedupe organizers BEFORE writing
         $normalizedOrganizers = $this->normalizeOrganizerInput($request);
 
-        // At least one organizer name (after trim/dedupe)
         if (count($normalizedOrganizers) < 1) {
             return back()->withErrors(['organizers.name' => 'Please provide at least one organizer name.'])->withInput();
         }
@@ -96,7 +81,6 @@ class CreateEventController extends Controller
             return back()->withErrors(['auth' => 'Authentication failed.'])->withInput();
         }
 
-        // Duplicate warning: title + location_id + start_datetime
         $force = $request->input('force_create') === '1';
         $possibleDup = Event::query()
             ->where('title', $request->title)
@@ -145,7 +129,6 @@ class CreateEventController extends Controller
 
             $event = Event::create($eventData);
 
-            // Save organizers (DEDUPED)
             foreach ($normalizedOrganizers as $org) {
                 EventOrganizer::create([
                     'event_id' => $event->event_id,
@@ -164,16 +147,12 @@ class CreateEventController extends Controller
             return redirect()
                 ->route('event.details.show', $event->event_id)
                 ->with('submit_success', "Event created. Code: {$event->event_code}");
-
         } catch (\Throwable $e) {
             DB::rollBack();
             return back()->withErrors(['server' => 'Failed to create event: ' . $e->getMessage()])->withInput();
         }
     }
 
-    /* =========================================================
-       EDIT / UPDATE EVENT
-    ========================================================= */
     public function edit(Event $event)
     {
         $event->load(['organizers']);
@@ -212,7 +191,6 @@ class CreateEventController extends Controller
             'organizers.contact.*' => 'nullable|string|max:255',
         ]);
 
-        // Build + dedupe organizers BEFORE writing
         $normalizedOrganizers = $this->normalizeOrganizerInput($request);
 
         if (count($normalizedOrganizers) < 1) {
@@ -237,14 +215,12 @@ class CreateEventController extends Controller
                 $event->max_volunteers = $request->input('max_volunteers');
             }
 
-            // Status is not edited here (dedicated "cancel/complete" actions should manage it).
             if (!in_array(strtolower((string)$event->status), [self::STATUS_CANCELLED, self::STATUS_COMPLETED], true)) {
                 $event->status = self::STATUS_PLANNED;
             }
 
             $event->save();
 
-            // Replace organizers (DEDUPED)
             EventOrganizer::where('event_id', $event->event_id)->delete();
 
             foreach ($normalizedOrganizers as $org) {
@@ -267,16 +243,12 @@ class CreateEventController extends Controller
             return redirect()
                 ->route('event.details.show', $event->event_id)
                 ->with('submit_success', 'Event updated successfully.');
-
         } catch (\Throwable $e) {
             DB::rollBack();
             return back()->withErrors(['server' => 'Failed to update event: ' . $e->getMessage()])->withInput();
         }
     }
 
-    /* =========================================================
-       EXPECTED VOLUNTEERS (AJAX)
-    ========================================================= */
     public function addVolunteers(Request $request, Event $event)
     {
         $admin = Auth::guard('admin')->user();
@@ -361,16 +333,6 @@ class CreateEventController extends Controller
         }
     }
 
-    /* =========================================================
-       HELPERS
-    ========================================================= */
-
-    /**
-     * Normalize + dedupe organizers. Prevent duplicates BEFORE insert.
-     * Rule:
-     * - If email present: unique by email (case-insensitive)
-     * - Else: unique by normalized name (case-insensitive, whitespace collapsed)
-     */
     private function normalizeOrganizerInput(Request $request): array
     {
         $names    = (array) $request->input('organizers.name', []);
@@ -392,7 +354,6 @@ class CreateEventController extends Controller
             $contact = is_string($contactRaw) ? trim($contactRaw) : null;
             $contact = ($contact === '') ? null : $contact;
 
-            // Build dedupe key
             if ($email) {
                 $key = 'email:' . mb_strtolower($email);
             } else {
@@ -410,24 +371,7 @@ class CreateEventController extends Controller
             ];
         }
 
-        // enforce max 3 after dedupe
         return array_slice($out, 0, 3);
-    }
-
-    private function deriveStatus(?string $stored, ?Carbon $start, ?Carbon $end, Carbon $now): string
-    {
-        $stored = strtolower((string)($stored ?? self::STATUS_PLANNED));
-
-        // Hard states always win.
-        if (in_array($stored, [self::STATUS_CANCELLED, self::STATUS_COMPLETED], true)) {
-            return $stored;
-        }
-
-        if (!$start || !$end) return self::STATUS_PLANNED;
-
-        if ($now->lt($start)) return self::STATUS_PLANNED;
-        if ($now->betweenIncluded($start, $end)) return self::STATUS_ONGOING;
-        return self::STATUS_COMPLETED;
     }
 
     private function generateUniqueEventCode(): string
@@ -488,306 +432,5 @@ class CreateEventController extends Controller
             'details'     => $encodedDetails,
             'timestamp'   => now(),
         ]);
-    }
-
-    /**
-     * Log summary view safely (once per admin/event/day) so it doesn't spam FactLog.
-     */
-    private function logSummaryViewOncePerDay(Event $event, string $chartMode, string $chartHint): void
-    {
-        try {
-            $admin = Auth::guard('admin')->user();
-            if (!$admin) return;
-
-            $alreadyLogged = FactLog::where('admin_id', $admin->admin_id)
-                ->where('entity_type', 'Event')
-                ->where('entity_id', $event->event_id)
-                ->where('action', 'View Summary')
-                ->whereDate('timestamp', now()->toDateString())
-                ->exists();
-
-            if ($alreadyLogged) return;
-
-            $this->logFact($admin->admin_id, $event, 'View Summary', [
-                'event_id'   => $event->event_id,
-                'event_code' => $event->event_code ?? null,
-                'title'      => $event->title ?? null,
-                'chart_mode' => $chartMode,
-                'chart_hint' => $chartHint,
-            ]);
-
-        } catch (\Throwable $e) {
-            // ignore logging errors so summary page still loads
-        }
-    }
-
-    /* =========================================================
-       SUMMARY (late is treated as present)
-    ========================================================= */
-    public function summary(Event $event)
-    {
-        $event->load([
-            'location',
-            'eventType',
-            'feedbacks.volunteer',
-        ]);
-
-        $now   = Carbon::now();
-        $start = $event->start_datetime ? Carbon::parse($event->start_datetime) : null;
-        $end   = $event->end_datetime   ? Carbon::parse($event->end_datetime)   : null;
-
-        $derivedStatus = $this->deriveStatus($event->status, $start, $end, $now);
-        $event->status = $derivedStatus;
-
-        // 1) Only completed events can view summary
-        if ($derivedStatus !== self::STATUS_COMPLETED) {
-            return redirect()
-                ->route('event.details.show', $event->event_id)
-                ->with('summary_notice', 'Event Summary is only available once the event is completed.');
-        }
-
-        // 2) Attendance table must exist
-        if (!Schema::hasTable('event_attendances')) {
-            return redirect()
-                ->route('event.details.show', $event->event_id)
-                ->with('summary_notice', 'Event Summary is unavailable because the attendance table is missing.');
-        }
-
-        // 3) Attendance must be imported for THIS event (and code must match if present)
-        $eventCode = strtoupper(trim((string)($event->event_code ?? '')));
-
-        $rowsAll = DB::table('event_attendances')
-            ->where('event_id', $event->event_id)
-            ->get();
-
-        if ($rowsAll->isEmpty()) {
-            return redirect()
-                ->route('event.details.show', $event->event_id)
-                ->with('summary_notice', 'Event Summary is locked until attendance is imported for this event.');
-        }
-
-        $rows = $rowsAll;
-
-        if ($eventCode !== '') {
-            $rows = $rowsAll->filter(function ($r) use ($eventCode) {
-                return strtoupper(trim((string)($r->event_code ?? ''))) === $eventCode;
-            })->values();
-
-            if ($rows->isEmpty()) {
-                return redirect()
-                    ->route('event.details.show', $event->event_id)
-                    ->with('summary_notice', 'Attendance was imported, but it belongs to a different Event Code. Please import the correct attendance for this event.');
-            }
-        }
-
-        // ============================================================
-        // Expected count (Roster)
-        // ============================================================
-        $expectedCount = 0;
-        if (method_exists($event, 'expectedVolunteers')) {
-            $expectedCount = (int) $event->expectedVolunteers()->count();
-        }
-
-        // ============================================================
-        // Attendance counts (late -> present)
-        // ============================================================
-        $hasAttendanceImport     = true;
-        $attendanceImportedTotal = $rows->count();
-
-        $attendedRows = $rows->filter(function ($r) {
-            $s = strtolower((string)($r->status ?? ''));
-            return in_array($s, ['present', 'late', ''], true);
-        });
-
-        $presentCount = $attendedRows->count();
-        $lateCount    = 0; // we no longer expose late separately
-        $walkInCount  = $rows->where('walk_in', 1)->count();
-
-        $attendedCount = $presentCount;
-
-        // Attendance Rate: attended / expected
-        $attendanceRate = ($expectedCount > 0)
-            ? (int) round(($attendedCount / $expectedCount) * 100)
-            : 0;
-
-        $maxVolunteers = (!empty($event->max_volunteers) && (int)$event->max_volunteers > 0)
-            ? (int)$event->max_volunteers
-            : null;
-
-        // Capacity Used: based on attended seats used.
-        $capacityUsed = (!is_null($maxVolunteers) && $maxVolunteers > 0)
-            ? (int) round(($attendedCount / $maxVolunteers) * 100)
-            : null;
-
-        // ============================================================
-        // Chart mode + hint
-        // ============================================================
-        $chartMode = 'actual';
-        $chartHint = 'Based on imported attendance (present)';
-
-        // ============================================================
-        // Volunteer profiles for year-level distribution
-        // ============================================================
-        $volunteerIds = $rows->pluck('volunteer_id')->filter()->unique()->values();
-        $profilesById = collect();
-
-        if ($volunteerIds->count() > 0 && Schema::hasTable('volunteer_profiles')) {
-            $profilesById = DB::table('volunteer_profiles')
-                ->whereIn('volunteer_id', $volunteerIds)
-                ->get()
-                ->keyBy('volunteer_id');
-        }
-
-        $yearCounts = [];
-        foreach ($attendedRows as $r) {
-            $v = $r->volunteer_id ? ($profilesById[$r->volunteer_id] ?? null) : null;
-            $yl = $v ? trim((string)($v->year_level ?? '')) : '';
-            $key = $yl !== '' ? $yl : 'Unknown';
-            $yearCounts[$key] = ($yearCounts[$key] ?? 0) + 1;
-        }
-
-        $labelFor = function (string $key) {
-            $k = strtolower(trim($key));
-            return match (true) {
-                in_array($k, ['1','1st','1st year'], true) => '1st Year',
-                in_array($k, ['2','2nd','2nd year'], true) => '2nd Year',
-                in_array($k, ['3','3rd','3rd year'], true) => '3rd Year',
-                in_array($k, ['4','4th','4th year'], true) => '4th Year',
-                in_array($k, ['grade 11','g11','11'], true) => 'Grade 11',
-                in_array($k, ['grade 12','g12','12'], true) => 'Grade 12',
-                $k === 'unknown' => 'Unknown',
-                default => $key,
-            };
-        };
-
-        // brand palette
-        $palette = ['#b23a45', '#2563eb', '#16a34a', '#f59e0b', '#7c3aed', '#0ea5e9', '#64748b'];
-
-        arsort($yearCounts);
-        $totalForChart = array_sum($yearCounts);
-
-        $chartData = [];
-        $i = 0;
-        foreach ($yearCounts as $key => $count) {
-            $pct = $totalForChart > 0 ? round(($count / $totalForChart) * 100, 1) : 0;
-            $chartData[] = [
-                'label'      => $labelFor((string)$key),
-                'count'      => (int)$count,
-                'percentage' => (float)$pct,
-                'color'      => $palette[$i % count($palette)],
-            ];
-            $i++;
-        }
-
-        // ============================================================
-        // Feedback parsing + avatar + profile URL + ORDERED Q/A
-        // ============================================================
-        $defaultAvatar = asset('storage/defaults/default_user.png');
-
-        $questionOrder = [
-            'like'     => 'What did you like about this event?',
-            'improve'  => 'What should we improve on next time?',
-            'issues'   => 'Any issues you encountered during the event?',
-            'comments' => 'Any other comments?',
-        ];
-
-        $extractAnswers = function (string $raw) {
-            $raw = trim($raw);
-
-            // Normalize common label variants into one-per-line
-            $normalized = preg_replace('/\s*(What did you like about this event\?|Like:)\s*/i', "\nLIKE: ", $raw);
-            $normalized = preg_replace('/\s*(What should we improve on next time\?|Improve next time:|Improve:)\s*/i', "\nIMPROVE: ", $normalized);
-            $normalized = preg_replace('/\s*(Any issues you encountered during the event\?|Issues:)\s*/i', "\nISSUES: ", $normalized);
-            $normalized = preg_replace('/\s*(Any other comments\?|Comments:)\s*/i', "\nCOMMENTS: ", $normalized);
-
-            $parts = array_values(array_filter(array_map('trim', preg_split("/\r\n|\n|\r/", $normalized))));
-
-            $out = [
-                'like' => null, 'improve' => null, 'issues' => null, 'comments' => null
-            ];
-
-            foreach ($parts as $p) {
-                if (preg_match('/^LIKE:\s*(.*)$/i', $p, $m))       $out['like'] = trim($m[1] ?? '');
-                elseif (preg_match('/^IMPROVE:\s*(.*)$/i', $p, $m)) $out['improve'] = trim($m[1] ?? '');
-                elseif (preg_match('/^ISSUES:\s*(.*)$/i', $p, $m))  $out['issues'] = trim($m[1] ?? '');
-                elseif (preg_match('/^COMMENTS:\s*(.*)$/i', $p, $m))$out['comments'] = trim($m[1] ?? '');
-            }
-
-            // If nothing matched, treat as general comment
-            $hasAny = collect($out)->contains(fn($v) => is_string($v) && trim($v) !== '');
-            if (!$hasAny && $raw !== '') {
-                $out['comments'] = $raw;
-            }
-
-            // Clean empty -> null
-            foreach ($out as $k => $v) {
-                $v = is_string($v) ? trim($v) : $v;
-                $out[$k] = ($v === '' ? null : $v);
-            }
-
-            return $out;
-        };
-
-        $feedbacks = $event->feedbacks
-            ->filter(fn($fb) => is_string($fb->feedback_text) && trim($fb->feedback_text) !== '')
-            ->map(function ($fb) use ($defaultAvatar, $questionOrder, $extractAnswers) {
-                $v = $fb->volunteer;
-
-                // avatar resolve
-                $avatar = $defaultAvatar;
-                if ($v) {
-                    if (!empty($v->profile_picture_path)) {
-                        $avatar = asset('storage/' . ltrim(str_replace('\\', '/', (string)$v->profile_picture_path), '/'));
-                    } elseif (!empty($v->profile_picture_url)) {
-                        $avatar = (string)$v->profile_picture_url;
-                    }
-                }
-
-                // profile link
-                $profileUrl = $v ? route('volunteers.show', $v->volunteer_id) : null;
-
-                // extract ordered answers
-                $answers = $extractAnswers((string)$fb->feedback_text);
-
-                $qa = collect($questionOrder)->map(function ($qText, $key) use ($answers) {
-                    $a = $answers[$key] ?? null;
-                    return [
-                        'q' => $qText,
-                        'a' => ($a !== null && trim((string)$a) !== '') ? $a : 'None.',
-                    ];
-                })->values()->all();
-
-                return (object)[
-                    'id'            => $fb->id ?? null,
-                    'rating'        => $fb->rating ?? null,
-                    'submitted_at'  => $fb->submitted_at ?? null,
-                    'created_at'    => $fb->created_at ?? null,
-                    'volunteer_name'=> $v?->full_name ?? 'Unknown Volunteer',
-                    'avatar'        => $avatar,
-                    'profile_url'   => $profileUrl,
-                    'qa'            => $qa,
-                ];
-            })
-            ->values();
-
-        $this->logSummaryViewOncePerDay($event, $chartMode, $chartHint);
-
-        return view('event_summary.event_summary', compact(
-            'event',
-            'expectedCount',
-            'attendedCount',
-            'attendanceRate',
-            'maxVolunteers',
-            'capacityUsed',
-            'chartData',
-            'feedbacks',
-            'chartMode',
-            'chartHint',
-            'hasAttendanceImport',
-            'attendanceImportedTotal',
-            'presentCount',
-            'lateCount',
-            'walkInCount'
-        ));
     }
 }

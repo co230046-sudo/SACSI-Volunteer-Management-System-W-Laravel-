@@ -9,13 +9,13 @@ use App\Models\FactLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class EventManagerController extends Controller
 {
     public function index(Request $request)
     {
-        $now = now();
+        // ✅ Make sure your time comparisons match your scheduler + app timezone
+        $now = now('Asia/Manila');
 
         // Base query with relation
         $base = Event::query()->with('location');
@@ -156,10 +156,9 @@ class EventManagerController extends Controller
 
         $deleted = 0;
 
-        DB::transaction(function () use ($events, $admin, $ids, &$deleted) {
+        DB::transaction(function () use ($events, $admin, &$deleted) {
             $adminName = $admin->name ?? $admin->username ?? ('Admin #' . ($admin->admin_id ?? '—'));
 
-            // Summary FactLog + EventLog for the bulk operation (human readable, keeps all info)
             $summaryTitles = $events->pluck('title')->filter()->take(10)->values()->all();
             $summaryLine = count($events) > 10
                 ? implode(', ', $summaryTitles) . ' (and ' . (count($events) - 10) . ' more)'
@@ -171,7 +170,7 @@ class EventManagerController extends Controller
                 . ($summaryLine ? 'Titles: ' . $summaryLine . '.' : '');
 
             EventLog::create([
-                'event_id'  => $events->first()->event_id, // anchor (optional)
+                'event_id'  => $events->first()->event_id,
                 'admin_id'  => $admin->admin_id ?? null,
                 'action'    => 'Bulk Delete',
                 'details'   => $bulkDetails,
@@ -188,7 +187,6 @@ class EventManagerController extends Controller
             ]);
 
             foreach ($events as $event) {
-                // Build human-readable details BEFORE delete
                 $title = $event->title ?? 'Untitled Event';
                 $code  = $event->event_code ?? '—';
 
@@ -199,7 +197,6 @@ class EventManagerController extends Controller
                 $district = $event->location?->district_id ?? $event->district_id ?? '—';
                 $barangay = $event->location?->barangay ?? '—';
 
-                // ✅ EventLog (shown in Event Manager Activity Log)
                 $details = 'Event permanently deleted. '
                     . 'Title: "' . $title . '". '
                     . 'Code: ' . $code . '. '
@@ -220,7 +217,6 @@ class EventManagerController extends Controller
                     'timestamp' => now(),
                 ]);
 
-                // ✅ FactLog (also human readable, keeps ALL info)
                 FactLog::create([
                     'admin_id'    => $admin->admin_id ?? null,
                     'entity_type' => 'Event',

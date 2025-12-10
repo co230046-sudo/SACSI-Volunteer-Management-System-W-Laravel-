@@ -2,9 +2,8 @@
   /**
    * Create/Edit Event Blade (single file)
    * Fixes:
-   * - Event Type dropdown is text-only (no icon) for consistent design + future-proof
-   * - Multi-day events supported: end_datetime min follows start_datetime (no forced same-day)
-   * - Dropdown triggers keep selected values after validation errors (server seeded)
+   * - Event Type dropdown now has searchbar (same pattern as barangay)
+   * - JS moved to /assets/create_event/js/script.js
    */
 
   use Carbon\Carbon;
@@ -211,17 +210,24 @@
           <div class="volunteer-info hint" data-hint="Required. Helps categorize and filter events later.">
             <span class="icon"><i class="fa-solid fa-calendar-check"></i></span>
 
-            <div class="custom-select" id="event-type-select" data-field="event_type_id">
+            <!-- ✅ Event Type now SEARCHABLE -->
+            <div class="custom-select searchable" id="event-type-select" data-field="event_type_id">
               <div class="custom-select-trigger">{!! $eventTypeTrigger !!}</div>
 
               <input type="hidden" name="event_type_id" id="event_type_id_hidden" value="{{ $valTypeId }}">
 
               <div class="custom-options">
-                {{-- ✅ Add Event Type action (must be a .custom-option so your JS can catch it) --}}
-                <span class="custom-option"
+                <!-- ✅ Search box (same UX as barangay) -->
+                <div class="search-box">
+                  <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                  <input type="text" class="selectSearchInput" data-target="event-type-select" placeholder="Search event type...">
+                </div>
+
+                {{-- ✅ Manage Event Types --}}
+                <span class="custom-option custom-option-add"
                       data-value="__add_event_type__"
-                      data-label="Add Event Type">
-                  <i class="fa-solid fa-plus"></i> Add Event Type
+                      data-label="Manage Event Types">
+                  <i class="fa-solid fa-gear"></i> Manage Event Types
                 </span>
 
                 <div style="height: 6px;"></div>
@@ -305,6 +311,11 @@
               <span>Organizers</span>
             </div>
             <div class="organizers-sub">Required: at least 1 organizer. Max 3. Use the pencil button for optional details.</div>
+            <div class="organizers-actions">
+              <button type="button" class="org-manage-btn" id="openManageOrganizersBtn">
+                <i class="fa-solid fa-list-check"></i> Manage
+              </button>
+            </div>
           </div>
 
           <div class="organizers-stack" id="organizers-wrapper">
@@ -317,6 +328,7 @@
                        value="{{ $o['name'] }}"
                        {{ $i === 0 ? 'required' : '' }}>
 
+                <!-- keep existing onclicks (script.js also supports delegation) -->
                 <button type="button" class="org-btn org-btn-ghost" onclick="openOrganizerModal(this)" title="Details">
                   <i class="fa-solid fa-pen-to-square"></i>
                 </button>
@@ -368,7 +380,7 @@
 </div>
 
 {{-- ===========================
-   MODALS (Bootstrap, same style as Event Details)
+   MODALS (Bootstrap)
 =========================== --}}
 
 {{-- Validation Errors --}}
@@ -498,6 +510,26 @@
   </div>
 </div>
 
+{{-- ✅ Organizer Duplicate --}}
+<div class="modal fade" id="organizerDuplicateModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 520px;">
+    <div class="modal-content modal-soft">
+      <div class="modal-header modal-soft-header modal-soft-header--warning">
+        <h5 class="modal-title">
+          <i class="fa-solid fa-triangle-exclamation"></i> Duplicate organizer
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="organizerDuplicateMsg">
+        This organizer already exists in this event.
+      </div>
+      <div class="modal-footer modal-soft-footer">
+        <button type="button" class="btn modal-soft-btn modal-soft-btn--danger" data-bs-dismiss="modal">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {{-- Organizer Minimum --}}
 <div class="modal fade" id="organizerMinimumModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -560,42 +592,186 @@
   </div>
 </div>
 
-{{-- ✅ Add Event Type (MODAL) --}}
+{{-- ✅ Manage Event Types (your existing modal kept) --}}
 <div class="modal fade" id="eventTypeModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" style="max-width: 520px;">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width:760px;">
     <div class="modal-content modal-soft">
       <div class="modal-header modal-soft-header modal-soft-header--info">
         <h5 class="modal-title">
-          <i class="fa-solid fa-plus"></i> Add Event Type
+          <i class="fa-solid fa-gear"></i> Manage Event Types
         </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
 
-      <form method="POST" action="{{ route('event-types.store') }}">
-        @csrf
-        <div class="modal-body">
-          <input type="text"
-                 name="label"
-                 class="organizer-detail-input"
-                 placeholder="Event Type label (e.g., Coastal Cleanup)"
-                 value="{{ old('label') }}"
-                 required>
-          <div class="soft-sub mt-2">This will add a new event type, then return you to Create Event.</div>
+      <div class="modal-body">
+        <div class="org-manage-top">
+          <div class="org-manage-search" style="flex:1;">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="eventTypeManageSearch" placeholder="Search event type...">
+          </div>
+
+          <button type="button" class="btn modal-soft-btn modal-soft-btn--danger" id="eventTypeAddNewBtn">
+            <i class="fa-solid fa-plus"></i> Add New
+          </button>
         </div>
 
-        <div class="modal-footer modal-soft-footer">
-          <button type="button" class="btn modal-soft-btn modal-soft-btn--ghost" data-bs-dismiss="modal">
-            <i class="fa-solid fa-xmark"></i> Cancel
-          </button>
-          <button type="submit" class="btn modal-soft-btn modal-soft-btn--danger">
-            <i class="fa-solid fa-check"></i> Save
-          </button>
+        <div id="eventTypeManageList" class="org-manage-list"></div>
+
+        <div class="soft-sub mt-2">
+          Tip: delete is blocked if the type is already used by events.
         </div>
-      </form>
+      </div>
+
+      <div class="modal-footer modal-soft-footer">
+        <button type="button" class="btn modal-soft-btn modal-soft-btn--ghost" data-bs-dismiss="modal">
+          <i class="fa-solid fa-xmark"></i> Close
+        </button>
+      </div>
     </div>
   </div>
 </div>
 
+{{-- ✅ Event Type Success --}}
+<div class="modal fade" id="eventTypeSuccessModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+    <div class="modal-content modal-soft">
+      <div class="modal-header modal-soft-header modal-soft-header--info">
+        <h5 class="modal-title">
+          <i class="fa-solid fa-circle-check"></i> Event type saved
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="soft-lead">{{ session('submit_success') }}</div>
+        <div class="soft-sub">You can now select it from the Event Type dropdown.</div>
+      </div>
+      <div class="modal-footer modal-soft-footer">
+        <button type="button" class="btn modal-soft-btn modal-soft-btn--danger" data-bs-dismiss="modal">
+          <i class="fa-solid fa-check"></i> OK
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{-- ✅ Organizer Updated Success --}}
+<div class="modal fade" id="organizerSavedModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+    <div class="modal-content modal-soft">
+      <div class="modal-header modal-soft-header modal-soft-header--info">
+        <h5 class="modal-title">
+          <i class="fa-solid fa-circle-check"></i> Organizer updated
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        Saved organizer details successfully.
+      </div>
+      <div class="modal-footer modal-soft-footer">
+        <button type="button" class="btn modal-soft-btn modal-soft-btn--danger" data-bs-dismiss="modal">
+          <i class="fa-solid fa-check"></i> OK
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{-- ✅ Manage Organizers --}}
+<div class="modal fade" id="manageOrganizersModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width:760px;">
+    <div class="modal-content modal-soft">
+      <div class="modal-header modal-soft-header modal-soft-header--info">
+        <h5 class="modal-title">
+          <i class="fa-solid fa-users-gear"></i> Manage Organizers
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="org-manage-top">
+          <div class="org-manage-search" style="flex:1;">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="orgManageSearch" placeholder="Search organizer name / email / contact...">
+          </div>
+        </div>
+
+        <!-- ✅ Slot selector (Option B) -->
+        <div class="org-slotbar" id="orgSlotBar" style="margin: 14px 0 10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <div style="font-weight:900; opacity:.75;">Assign to:</div>
+
+          <div class="btn-group" role="group" aria-label="Organizer slots">
+            <button type="button" class="btn btn-outline-danger org-slot-btn active" data-slot="0">
+              Organizer 1
+            </button>
+            <button type="button" class="btn btn-outline-danger org-slot-btn" data-slot="1">
+              Organizer 2
+            </button>
+            <button type="button" class="btn btn-outline-danger org-slot-btn" data-slot="2">
+              Organizer 3
+            </button>
+          </div>
+
+          <div class="soft-sub" style="margin-left:auto;">
+            Tip: Select a slot, then click an organizer to assign.
+          </div>
+        </div>
+        
+        <div id="orgManageList" class="org-manage-list"></div>
+      </div>
+
+      <div class="modal-footer modal-soft-footer">
+        <button type="button" class="btn modal-soft-btn modal-soft-btn--ghost" data-bs-dismiss="modal">
+          <i class="fa-solid fa-xmark"></i> Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="softActionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+    <div class="modal-content modal-soft">
+      <div class="modal-header modal-soft-header modal-soft-header--warning" id="softActionHeader">
+        <h5 class="modal-title" id="softActionTitle">
+          <i class="fa-solid fa-triangle-exclamation"></i> Notice
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="softActionBody">
+        Something happened.
+      </div>
+      <div class="modal-footer modal-soft-footer">
+        <button type="button" class="btn modal-soft-btn modal-soft-btn--danger" data-bs-dismiss="modal">
+          <i class="fa-solid fa-check"></i> OK
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="softConfirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+    <div class="modal-content modal-soft">
+      <div class="modal-header modal-soft-header modal-soft-header--warning" id="softConfirmHeader">
+        <h5 class="modal-title" id="softConfirmTitle">
+          <i class="fa-solid fa-triangle-exclamation"></i> Confirm
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="softConfirmBody">Are you sure?</div>
+      <div class="modal-footer modal-soft-footer">
+        <button type="button" class="btn modal-soft-btn modal-soft-btn--ghost" id="softConfirmCancel" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn modal-soft-btn modal-soft-btn--danger" id="softConfirmOk">
+          Yes
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{-- ✅ Auto-open modals (server-driven) --}}
 @if ($errors->any())
 <script>
   document.addEventListener("DOMContentLoaded", () => {
@@ -613,220 +789,32 @@
   });
 </script>
 @endif
+
+@if(session('submit_success'))
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const m = new bootstrap.Modal(document.getElementById('eventTypeSuccessModal'));
+    m.show();
+  });
+</script>
+@endif
+
+
+<script>
+  window.ORGANIZERS_API_URL = "{{ route('organizers.index') }}";            // /events/organizers
+  window.ORGANIZER_UPDATE_URL = "{{ url('/events/organizers') }}"; // PUT /events/organizers/{id}
+  window.ORGANIZER_DELETE_URL = "{{ url('/events/organizers') }}"; // DELETE /events/organizers/{id}
+  window.EVENT_TYPES_API_URL = "{{ route('event-types.json') }}";           // /events/event-types/json
+  window.EVENT_TYPE_UPDATE_URL = "{{ url('/events/event-types') }}";        // /events/event-types/{id}
+  window.EVENT_TYPE_DELETE_URL = "{{ url('/events/event-types') }}";        // /events/event-types/{id}
+  window.EVENT_TYPE_STORE_URL  = "{{ route('event-types.store') }}";        // /events/event-types
+  window.CSRF_TOKEN = "{{ csrf_token() }}";
+</script>
+
+
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
-{{-- Custom Select Logic --}}
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const selects = document.querySelectorAll(".custom-select");
-
-  selects.forEach(select => {
-    const trigger = select.querySelector(".custom-select-trigger");
-    const options = select.querySelectorAll(".custom-option");
-    const field   = select.dataset.field;
-    const hidden  = select.querySelector("input[type='hidden']");
-
-    if (!trigger || !hidden) return;
-
-    trigger.addEventListener("click", e => {
-      e.stopPropagation();
-      document.querySelectorAll(".custom-select.open").forEach(s => {
-        if (s !== select) s.classList.remove("open");
-      });
-      select.classList.toggle("open");
-    });
-
-    options.forEach(option => {
-      option.addEventListener("click", () => {
-        const value = option.dataset.value || "";
-        const plainLabel = (option.dataset.label || option.textContent || "").trim();
-
-        // ✅ Add Event Type special action (run BEFORE setting hidden/trigger)
-        if (value === "__add_event_type__") {
-          select.classList.remove("open");
-          new bootstrap.Modal(document.getElementById("eventTypeModal")).show();
-          return;
-        }
-
-
-        hidden.value = value;
-
-        // TEXT ONLY (no icon logic)
-        const left = trigger.querySelector(".cs-left");
-        if (left) left.textContent = plainLabel;
-        else trigger.textContent = plainLabel;
-
-        select.classList.remove("open");
-
-        if (field === "location_id") {
-          const districtVal = option.dataset.district || "";
-          document.getElementById("districtHidden").value  = districtVal;
-          document.getElementById("districtDisplay").value = districtVal ? `District ${districtVal}` : "";
-        }
-      });
-    });
-
-    // Searchable dropdown behavior (barangay)
-    if (select.classList.contains("searchable")) {
-      const searchBox   = select.querySelector(".search-box");
-      const searchInput = searchBox?.querySelector("input");
-      const searchIcon  = select.querySelector(".search-icon");
-
-      if (!searchBox || !searchInput) return;
-
-      searchBox.addEventListener("click", e => e.stopPropagation());
-      searchInput.addEventListener("click", e => e.stopPropagation());
-
-      searchInput.addEventListener("keyup", () => {
-        const q = searchInput.value.toLowerCase();
-        const keywords = q.split(" ").filter(w => w.length > 0);
-
-        if (q.length > 0) {
-          searchInput.classList.add("search-active");
-          if (searchIcon) searchIcon.classList.add("tilt");
-        } else {
-          searchInput.classList.remove("search-active");
-          if (searchIcon) searchIcon.classList.remove("tilt");
-        }
-
-        options.forEach(option => {
-          const text = (option.dataset.label || option.textContent || "").toLowerCase();
-          const match = keywords.every(k => text.includes(k));
-          option.style.display = match ? "flex" : "none";
-        });
-      });
-    }
-  });
-
-  document.addEventListener("click", () => {
-    document.querySelectorAll(".custom-select.open").forEach(s => s.classList.remove("open"));
-  });
-
-  // Seed district when barangay already selected
-  const locVal = document.getElementById("location_id_hidden")?.value;
-  if (locVal) {
-    const select = document.querySelector("#barangay-select");
-    const trigger = select?.querySelector(".custom-select-trigger .cs-left");
-    const opt = select?.querySelector(`.custom-option[data-value='${locVal}']`);
-
-    if (trigger && opt) trigger.textContent = (opt.dataset.label || opt.textContent).trim();
-
-    const dist = opt?.dataset?.district || document.getElementById("districtHidden")?.value;
-    if (dist) {
-      document.getElementById("districtHidden").value = dist;
-      document.getElementById("districtDisplay").value = `District ${dist}`;
-    }
-  }
-
-  // Seed event type text when already selected
-  const typeVal = document.getElementById("event_type_id_hidden")?.value;
-  if (typeVal && typeVal !== "__add_event_type__") {
-    const select = document.querySelector("#event-type-select");
-    const triggerLeft = select?.querySelector(".custom-select-trigger .cs-left");
-    const opt = select?.querySelector(`.custom-option[data-value='${typeVal}']`);
-    if (triggerLeft && opt) {
-      triggerLeft.textContent = (opt.dataset.label || opt.textContent).trim();
-    }
-  }
-});
-</script>
-
-{{-- Submit + Duplicate + Organizer --}}
-<script>
-let activeOrganizerRow = null;
-
-function bsShow(id){ new bootstrap.Modal(document.getElementById(id)).show(); }
-function bsHide(id){ bootstrap.Modal.getOrCreateInstance(document.getElementById(id)).hide(); }
-
-document.addEventListener("DOMContentLoaded", () => {
-  const form = document.getElementById("create-event-form");
-
-  document.getElementById("open-create-modal-btn")?.addEventListener("click", () => bsShow("confirmModal"));
-  document.getElementById("confirm-create-btn")?.addEventListener("click", () => form?.submit());
-
-  // Duplicate confirm (create only)
-  document.getElementById("dup-confirm-btn")?.addEventListener("click", () => {
-    document.getElementById("force_create").value = "1";
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('duplicateModal')).hide();
-    form?.submit();
-  });
-
-  // Organizer save
-  document.getElementById("org-save-btn")?.addEventListener("click", () => {
-    if (!activeOrganizerRow) return;
-    activeOrganizerRow.querySelector("input[name='organizers[email][]']").value =
-      document.getElementById("orgEmail").value.trim();
-    activeOrganizerRow.querySelector("input[name='organizers[contact][]']").value =
-      document.getElementById("orgContact").value.trim();
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('organizerDetailsModal')).hide();
-  });
-});
-
-function addOrganizer(){
-  const wrapper = document.getElementById("organizers-wrapper");
-  if (wrapper.children.length >= 3){
-    bsShow("organizerLimitModal");
-    return;
-  }
-
-  const row = document.createElement("div");
-  row.className = "organizer-row";
-  row.innerHTML = `
-    <input type="text" name="organizers[name][]" placeholder="Organizer Name" class="organizer-input" ${wrapper.children.length === 0 ? "required" : ""}>
-    <button type="button" class="org-btn org-btn-ghost" onclick="openOrganizerModal(this)" title="Details">
-      <i class="fa-solid fa-pen-to-square"></i>
-    </button>
-    <button type="button" class="org-btn org-btn-danger" onclick="removeOrganizer(this)" title="Remove">
-      <i class="fa-solid fa-xmark"></i>
-    </button>
-    <input type="hidden" name="organizers[email][]" value="">
-    <input type="hidden" name="organizers[contact][]" value="">
-  `;
-  wrapper.appendChild(row);
-}
-
-function removeOrganizer(btn){
-  const wrapper = document.getElementById("organizers-wrapper");
-  if (wrapper.children.length <= 1){
-    bsShow("organizerMinimumModal");
-    return;
-  }
-  btn.closest(".organizer-row")?.remove();
-}
-
-function openOrganizerModal(btn){
-  activeOrganizerRow = btn.closest(".organizer-row");
-  document.getElementById("orgEmail").value =
-    activeOrganizerRow.querySelector("input[name='organizers[email][]']").value;
-  document.getElementById("orgContact").value =
-    activeOrganizerRow.querySelector("input[name='organizers[contact][]']").value;
-
-  bsShow("organizerDetailsModal");
-}
-</script>
-
-{{-- ✅ Multi-day support (end min follows start, no forced same-day) --}}
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const start = document.getElementById("start_datetime");
-  const end   = document.getElementById("end_datetime");
-  if (!start || !end) return;
-
-  function syncEndMin(){
-    if (!start.value) return;
-    end.min = start.value;
-
-    // If user had an end earlier than start, clear it (don’t auto-change it)
-    if (end.value && end.value < start.value) {
-      end.value = "";
-    }
-  }
-
-  start.addEventListener("input", syncEndMin);
-  start.addEventListener("change", syncEndMin);
-  syncEndMin();
-});
-</script>
+<script src="{{ asset('assets/create_event/js/script.js') }}"></script>
 
 </body>
 </html>

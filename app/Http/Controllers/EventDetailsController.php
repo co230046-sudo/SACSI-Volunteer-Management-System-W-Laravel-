@@ -57,7 +57,6 @@ class EventDetailsController extends Controller
                     'email'       => $v->school_email ?? $v->email ?? null,
                     'school_id'   => $v->school_id ?? $v->id_number ?? null,
 
-                    // contact + emergency (best-effort fallbacks)
                     'contact'     => $v->contact_number
                         ?? $v->contact_no
                         ?? $v->contact
@@ -101,12 +100,11 @@ class EventDetailsController extends Controller
         });
 
         $presentCount = $attendedRows->count();
-        $lateCount    = 0; // we no longer expose late separately in stats
+        $lateCount    = 0;
         $walkInCount  = $attendanceRows->where('walk_in', 1)->count();
 
         $attendeesActualJs = collect();
 
-        // Map of attendance rows by volunteer_id for roster lookups
         $attendanceByVolunteer = $attendanceRows
             ->whereNotNull('volunteer_id')
             ->keyBy('volunteer_id');
@@ -114,9 +112,7 @@ class EventDetailsController extends Controller
         // 1) Everyone on the roster -> Present / Absent
         foreach ($expectedRows as $ev) {
             $vol = $ev->volunteer;
-            if (!$vol) {
-                continue;
-            }
+            if (!$vol) continue;
 
             $volunteerId = $vol->volunteer_id;
 
@@ -127,7 +123,6 @@ class EventDetailsController extends Controller
             $sourceLabel   = 'No check-in';
             $importedLabel = null;
 
-            // base contact/emergency from volunteer profile
             $contact = $vol->contact_number
                 ?? $vol->contact_no
                 ?? $vol->contact
@@ -144,21 +139,13 @@ class EventDetailsController extends Controller
             if ($att) {
                 $statusRaw = strtolower((string)($att->status ?? 'present'));
 
-                // Normalize 'late' -> 'present' for UI
-                if (in_array($statusRaw, ['present', 'late', ''], true)) {
-                    $status = 'present';
-                } else {
-                    $status = $statusRaw;
-                }
+                $status = in_array($statusRaw, ['present', 'late', ''], true)
+                    ? 'present'
+                    : $statusRaw;
 
-                if (!empty($att->school_email)) {
-                    $email = $att->school_email;
-                }
-                if (!empty($att->school_id)) {
-                    $schoolId = $att->school_id;
-                }
+                if (!empty($att->school_email)) $email = $att->school_email;
+                if (!empty($att->school_id)) $schoolId = $att->school_id;
 
-                // override contact/emergency if attendance row has them
                 $contact = $att->contact_number
                     ?? $att->contact_no
                     ?? $att->contact
@@ -191,8 +178,8 @@ class EventDetailsController extends Controller
                 'school_id'      => $schoolId,
                 'contact'        => $contact,
                 'emergency'      => $emergency,
-                'status'         => $status,          // 'present' | 'absent' | other
-                'walk_in'        => false,            // roster people are never walk-ins
+                'status'         => $status,
+                'walk_in'        => false,
                 'source'         => $sourceLabel,
                 'imported_label' => $importedLabel,
                 'profile_pic'    => $avatar,
@@ -216,7 +203,7 @@ class EventDetailsController extends Controller
             });
 
         foreach ($walkIns as $att) {
-            $vol = $att->volunteer; // may be null
+            $vol = $att->volunteer;
 
             $statusRaw = strtolower((string)($att->status ?? 'present'));
             $status = in_array($statusRaw, ['present', 'late', ''], true)
@@ -237,7 +224,6 @@ class EventDetailsController extends Controller
                 ?? $vol?->id_number
                 ?? null;
 
-            // contact: prefer attendance row, then fall back to volunteer
             $contact = $att->contact_number
                 ?? $att->contact_no
                 ?? $att->contact
@@ -252,7 +238,6 @@ class EventDetailsController extends Controller
                     ?? $vol?->mobile_no
                     ?? null);
 
-            // emergency: prefer attendance row, then volunteer
             $emergency = $att->emergency_contact
                 ?? $att->emergency_number
                 ?? $att->emergency_no
@@ -296,9 +281,7 @@ class EventDetailsController extends Controller
 
         // ================= Attendance UI gating =================
         $attendanceEnabled = in_array($derivedStatus, [self::STATUS_ONGOING, self::STATUS_COMPLETED], true);
-        if ($actualCount > 0) {
-            $attendanceEnabled = true;
-        }
+        if ($actualCount > 0) $attendanceEnabled = true;
 
         $attendanceUi = [
             'enabled' => $attendanceEnabled,
@@ -426,8 +409,9 @@ class EventDetailsController extends Controller
 
             DB::commit();
 
+            // ✅ FIX: your routes use events.manage, not events.index
             return redirect()
-                ->route('events.index') // back to event listing
+                ->route('events.manage')
                 ->with('submit_success', 'Event cancelled successfully.');
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -489,7 +473,7 @@ class EventDetailsController extends Controller
             return back()->withErrors(['server' => 'Failed to restore event: ' . $e->getMessage()]);
         }
     }
-    
+
     public function destroy(Request $request, $eventId)
     {
         $admin = Auth::guard('admin')->user();
@@ -504,12 +488,10 @@ class EventDetailsController extends Controller
 
             $title = $event->title;
 
-            // ✅ build details BEFORE delete (NOW $event exists)
             $details = 'Deleted event "'.$event->title.'"'
                 .' (Code: '.($event->event_code ?? '—').')'
                 .' (Date: '.optional($event->start_datetime)->format('M d, Y').').';
 
-            // Use this $details in your activity log (instead of only "$title")
             $this->logEvent(
                 $event->event_id,
                 $admin->admin_id,
@@ -545,7 +527,6 @@ class EventDetailsController extends Controller
             ]);
         }
     }
-
 
     private function deriveStatus(?string $stored, ?Carbon $start, ?Carbon $end, Carbon $now): string
     {
@@ -614,7 +595,6 @@ class EventDetailsController extends Controller
             'contact'=> 'nullable|string|max:60',
         ]);
 
-        // ✅ you already have $event from route model binding
         $org = EventOrganizer::where('event_id', $event->event_id)
             ->where('organizer_id', (int) $data['organizer_id'])
             ->first();
@@ -690,7 +670,6 @@ class EventDetailsController extends Controller
             'organizer_id' => 'required|integer',
         ]);
 
-        // ✅ you already have $event from route model binding
         $org = EventOrganizer::where('event_id', $event->event_id)
             ->where('organizer_id', (int) $data['organizer_id'])
             ->first();
@@ -728,5 +707,4 @@ class EventDetailsController extends Controller
             return back()->with('organizer_error', 'Failed to delete organizer: ' . $e->getMessage());
         }
     }
-
 }

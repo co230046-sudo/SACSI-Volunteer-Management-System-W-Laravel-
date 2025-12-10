@@ -14,6 +14,7 @@ use App\Http\Controllers\EventDetailsController;
 use App\Http\Controllers\AdminProfileController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventTypeController;
+use App\Http\Controllers\EventOrganizerDirectoryController;
 use App\Models\ActivityLog;
 use App\Models\Admin;
 
@@ -37,28 +38,28 @@ Route::middleware(['auth:admin'])->group(function () {
     // Dynamic profile first (must be above /admin/profile)
     Route::middleware(['auth:admin'])->prefix('admin')->name('admin.')->group(function () {
 
-    // ✅ ADMIN PROFILE PAGE
-    Route::get('/profile', [AdminProfileController::class, 'index'])
-        ->name('profile.self');
+        // ✅ ADMIN PROFILE PAGE
+        Route::get('/profile', [AdminProfileController::class, 'index'])
+            ->name('profile.self');
 
-    Route::get('/profile/{id}', [AdminProfileController::class, 'index'])
-        ->name('profile');
+        Route::get('/profile/{id}', [AdminProfileController::class, 'index'])
+            ->name('profile');
 
-    // ✅ UPDATE PROFILE
-    Route::put('/profile/update', [AdminProfileController::class, 'update'])
-        ->name('profile.update');
+        // ✅ UPDATE PROFILE
+        Route::put('/profile/update', [AdminProfileController::class, 'update'])
+            ->name('profile.update');
 
-    // ✅ FETCH LOGS (MODAL)
-    Route::get('/profile/logs/{id}', [AdminProfileController::class, 'getLogs'])
-        ->name('profile.logs');
+        // ✅ FETCH LOGS (MODAL)
+        Route::get('/profile/logs/{id}', [AdminProfileController::class, 'getLogs'])
+            ->name('profile.logs');
 
-    // ✅ ✅ ✅ FETCH PROFILE FOR MODAL (THIS WAS BROKEN BEFORE)
-    Route::get('/profile/view/{id}', [AdminProfileController::class, 'viewProfile'])
-        ->name('profile.view');
+        // ✅ ✅ ✅ FETCH PROFILE FOR MODAL (THIS WAS BROKEN BEFORE)
+        Route::get('/profile/view/{id}', [AdminProfileController::class, 'viewProfile'])
+            ->name('profile.view');
 
-    // ✅ DASHBOARD
-    Route::get('/dashboard', [DashboardController::class, 'index'])
-        ->name('dashboard');
+        // ✅ DASHBOARD
+        Route::get('/dashboard', [DashboardController::class, 'index'])
+            ->name('dashboard');
 
     });
 
@@ -129,6 +130,35 @@ Route::middleware(['auth:admin'])->group(function () {
     /* ------------------ EVENTS ------------------ */
     Route::prefix('events')->group(function () {
 
+        // ✅ Force {event} to be numeric everywhere inside /events/*
+        Route::pattern('event', '[0-9]+');
+
+        // ✅ MUST be above /{event:event_id} routes, so it never gets captured
+        /* ------------------ Event Organizer Directory ------------------ */
+        Route::get('/organizers', [EventOrganizerDirectoryController::class, 'index'])
+            ->name('organizers.index');
+
+        // Organizer Directory CRUD (DB)
+        Route::put('/organizers/{organizer}', [EventOrganizerDirectoryController::class, 'update'])
+            ->name('organizers.update');
+
+        Route::delete('/organizers/{organizer}', [EventOrganizerDirectoryController::class, 'destroy'])
+            ->name('organizers.destroy');
+
+        /* ------------------ Event Type ------------------ */
+        Route::get('/event-types/json', [EventTypeController::class, 'indexJson'])
+            ->name('event-types.json');
+
+        Route::post('/event-types', [EventTypeController::class, 'store'])
+            ->name('event-types.store');
+
+        Route::put('/event-types/{eventType}', [EventTypeController::class, 'update'])
+            ->name('event-types.update');
+
+        Route::delete('/event-types/{eventType}', [EventTypeController::class, 'destroy'])
+            ->name('event-types.destroy');
+
+        // create/store
         Route::get('/create', [CreateEventController::class, 'create'])
             ->name('events.create');
 
@@ -137,32 +167,40 @@ Route::middleware(['auth:admin'])->group(function () {
 
         // show event details
         Route::get('/{event:event_id}', [EventDetailsController::class, 'show'])
+            ->whereNumber('event')
             ->name('event.details.show');
 
         // edit/update
         Route::get('/{event:event_id}/edit', [CreateEventController::class, 'edit'])
+            ->whereNumber('event')
             ->name('events.edit');
 
         Route::put('/{event:event_id}', [CreateEventController::class, 'update'])
+            ->whereNumber('event')
             ->name('events.update');
 
         // summary
         Route::get('/{event:event_id}/summary', [CreateEventController::class, 'summary'])
+            ->whereNumber('event')
             ->name('events.summary');
 
         // expected volunteers
         Route::post('/{event:event_id}/expected-volunteers', [CreateEventController::class, 'addVolunteers'])
+            ->whereNumber('event')
             ->name('events.expectedVolunteers.add');
 
         Route::delete('/{event:event_id}/expected-volunteers/{volunteer_id}', [CreateEventController::class, 'removeExpectedVolunteer'])
+            ->whereNumber('event')
             ->name('events.expectedVolunteers.remove');
 
         // cancel
         Route::post('/{event:event_id}/cancel', [EventDetailsController::class, 'cancel'])
+            ->whereNumber('event')
             ->name('events.cancel');
-            
+
         // restore
         Route::post('/{event:event_id}/restore', [EventDetailsController::class, 'restore'])
+            ->whereNumber('event')
             ->name('events.restore');
 
         // delete (single event)
@@ -170,34 +208,36 @@ Route::middleware(['auth:admin'])->group(function () {
             ->name('events.destroy');
 
         Route::put('/{event:event_id}/organizers', [EventDetailsController::class, 'updateOrganizer'])
+            ->whereNumber('event')
             ->name('events.organizers.update');
 
-            Route::delete('/{event:event_id}/organizers', [EventDetailsController::class, 'destroyOrganizer'])
+        Route::delete('/{event:event_id}/organizers', [EventDetailsController::class, 'destroyOrganizer'])
+            ->whereNumber('event')
             ->name('events.organizers.destroy');
-
-        /* ------------------ Event Type ------------------ */
-        Route::prefix('event-types')->name('event-types.')->group(function () {
-            Route::get('/create', [EventTypeController::class, 'create'])->name('create');
-            Route::post('/', [EventTypeController::class, 'store'])->name('store');
-        });
 
         /* ------------------ IMPORT ATTENDANCE ------------------ */
         Route::get('/{event:event_id}/attendance/import', [AttendanceImportController::class, 'index'])
+            ->whereNumber('event')
             ->name('attendance.import.index');
 
         Route::post('/{event:event_id}/attendance/import/preview', [AttendanceImportController::class, 'preview'])
+            ->whereNumber('event')
             ->name('attendance.import.preview');
 
         Route::post('/{event:event_id}/attendance/import/commit', [AttendanceImportController::class, 'commit'])
+            ->whereNumber('event')
             ->name('attendance.import.commit');
 
         Route::post('/{event:event_id}/attendance/import/reset', [AttendanceImportController::class, 'reset'])
+            ->whereNumber('event')
             ->name('attendance.import.reset');
 
         Route::post('/{event:event_id}/attendance/import/preview/update', [AttendanceImportController::class, 'updatePreviewRow'])
+            ->whereNumber('event')
             ->name('attendance.import.preview.update');
 
         Route::post('/{event:event_id}/attendance/import/preview/delete', [AttendanceImportController::class, 'deletePreviewRow'])
+            ->whereNumber('event')
             ->name('attendance.import.preview.delete');
     });
 

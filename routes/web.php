@@ -15,6 +15,8 @@ use App\Http\Controllers\AdminProfileController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventTypeController;
 use App\Http\Controllers\EventOrganizerDirectoryController;
+use App\Http\Controllers\EventSummaryController;
+use App\Http\Controllers\SystemLogsController;
 use App\Models\ActivityLog;
 use App\Models\Admin;
 use App\Http\Controllers\AdminUserController;
@@ -67,6 +69,9 @@ Route::middleware(['auth:admin'])->group(function () {
             ->name('user.store');
 
 
+        // ❌ REMOVED: duplicate summary route was here
+        // Route::get('/events/{event}/summary', [EventSummaryController::class, 'show'])
+        //     ->name('events.summary');
     });
 
     /* ------------------ VOLUNTEER IMPORT ------------------ */
@@ -185,8 +190,8 @@ Route::middleware(['auth:admin'])->group(function () {
             ->whereNumber('event')
             ->name('events.update');
 
-        // summary
-        Route::get('/{event:event_id}/summary', [CreateEventController::class, 'summary'])
+        // ✅ summary (FIXED: points to EventSummaryController)
+        Route::get('/{event:event_id}/summary', [EventSummaryController::class, 'show'])
             ->whereNumber('event')
             ->name('events.summary');
 
@@ -247,4 +252,6 @@ Route::middleware(['auth:admin'])->group(function () {
             ->name('attendance.import.preview.delete');
     });
 
+    /* ------------------ System Logs ------------------ */ 
+    Route::get('/system-logs', [SystemLogsController::class, 'index']) ->name('system.logs.index');
 });

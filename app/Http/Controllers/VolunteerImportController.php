@@ -259,7 +259,7 @@ class VolunteerImportController extends Controller
                 'Volunteer Import',
                 $importLog->import_id,
                 'Previewed',
-                "Previewed CSV: " . count($valid) ." valid, "
+                "previewed CSV: " . count($valid) ." valid, "
                     . count($invalid) ." invalid, "
                     . count($duplicates) ." duplicates."
             );
@@ -975,7 +975,7 @@ private function validateRow(array $data)
                 isset($entries[$index]['volunteer_id']) ? 'VolunteerProfile' : 'Volunteer Import',
                 $entityId,
                 'Updated',
-                "Updated Entry #".($index+1).": " . implode(', ', $fieldDetails)
+                "updated Entry #".($index+1).": " . implode(', ', $fieldDetails)
             );
         }
 
@@ -1100,7 +1100,7 @@ private function validateRow(array $data)
                 'VolunteerImport',
                 null,
                 'Move Invalid → Valid — Failed',
-                'No rows selected'
+                'attempted to move entries but no rows were selected'
             );
 
             $flash = "
@@ -1180,7 +1180,7 @@ private function validateRow(array $data)
                     'VolunteerImport',
                     $id,
                     'Moved Invalid → Valid',
-                    "Moved Entry #{$fromNo} — {$name}"
+                    "moved Entry #{$fromNo} — {$name}"
                 );
             }
 
@@ -1256,7 +1256,7 @@ private function validateRow(array $data)
                 'VolunteerImport',
                 $id,
                 'Moved Invalid → Valid',
-                "Moved Entry #{$fromNo} — {$name}"
+                "moved Entry #{$fromNo} — {$name}"
             );
         }
 
@@ -1283,7 +1283,7 @@ private function validateRow(array $data)
             $from = (int)($e['origin_entry_no'] ?? 0);
 
             $html .= "
-                <div style='margin-bottom:10px; display:flex; gap:6px; align-items:center;'>
+                <div style='margin-bottom:10px; display:flex; gap:6px; align-items:center;'}>
                     <span style='color:#28a745;'>✔</span>
                     <span style='font-weight:600;'>Entry #{$from} — {$safe}</span>
                 </div>
@@ -1320,7 +1320,7 @@ private function validateRow(array $data)
                 'VolunteerImport',
                 null,
                 'Move Valid → Invalid — Failed',
-                'Entry not found'
+                'attempted to move a valid entry but the index was not found'
             );
 
             $flash = "
@@ -1378,7 +1378,7 @@ private function validateRow(array $data)
             'VolunteerImport',
             $id,
             'Moved Valid → Invalid',
-            "Moved Entry #{$fromNo} — {$name}"
+            "moved Entry #{$fromNo} — {$name}"
         );
 
         $flash = "
@@ -1449,7 +1449,7 @@ private function validateRow(array $data)
                             'Volunteer Import',
                             $volunteerId,
                             'Deleted',
-                            "Deleted Volunteer Entry #" . ($index + 1) . " {$name}"
+                            "deleted Volunteer Entry #" . ($index + 1) . " {$name}"
                         );
                     }
                 }
@@ -1468,7 +1468,7 @@ private function validateRow(array $data)
                         'Volunteer Import',
                         $entry->import_id,
                         'Deleted',
-                        "Deleted Import Log '{$name}' (ID {$entry->import_id})"
+                        "deleted Import Log '{$name}' (ID {$entry->import_id})"
                     );
                 }
                 ImportLog::whereIn('import_id', $selected)->delete();
@@ -1591,7 +1591,7 @@ private function validateRow(array $data)
                         'Volunteer Import',
                         $volunteerId,
                         'Restored',
-                        "Restored Volunteer Entry #" . ($index + 1) . " {$name}"
+                        "restored Volunteer Entry #" . ($index + 1) . " {$name}"
                     );
                 }
                 session([$tableType . 'Entries' => array_values($entries)]);
@@ -1613,7 +1613,7 @@ private function validateRow(array $data)
                             'Volunteer Import',
                             $entityId,
                             'Restored',
-                            "Restored Import Log '{$name}' (ID {$entityId})"
+                            "restored Import Log '{$name}' (ID {$entityId})"
                         );
                     }
                 }
@@ -1848,7 +1848,7 @@ private function validateRow(array $data)
                         'VolunteerProfile',
                         $volunteer->volunteer_id,
                         'Imported',
-                        "Imported Volunteer Entry #" . ($index + 1) . " – {$entry['full_name']}"
+                        "imported Volunteer Entry #" . ($index + 1) . " – {$entry['full_name']}"
                     );
                 }
             });
@@ -2041,7 +2041,7 @@ private function validateRow(array $data)
         /* -----------------------------------------------------------
         FACT LOG — Reset Import Preview (formatted summary)
         ----------------------------------------------------------- */
-        $formattedSummary = "Reset Import Preview: {$validCount} valid, {$invalidCount} invalid, {$duplicateCount} duplicates (Total: {$totalCleared}).";
+        $formattedSummary = "reset Import Preview: {$validCount} valid, {$invalidCount} invalid, {$duplicateCount} duplicates (Total: {$totalCleared}).";
 
         $this->logFact(
             'Reset Import Preview',
@@ -2489,7 +2489,7 @@ private function validateRow(array $data)
                 'Volunteer Import',
                 $volunteerId ?? $rowNum,
                 'Updated',
-                "Reset Profile Picture for Entry #{$rowNum} – {$name}"
+                "reset Profile Picture for Entry #{$rowNum} – {$name}"
             );
 
             return back()
@@ -2542,7 +2542,7 @@ private function validateRow(array $data)
             'Volunteer Import',
             $volunteerId ?? $rowNum,
             'Updated',
-            "Updated Profile Picture for Entry #{$rowNum} – {$name}"
+            "updated Profile Picture for Entry #{$rowNum} – {$name}"
         );
 
         return back()
@@ -2620,7 +2620,7 @@ private function validateRow(array $data)
             'Volunteer Import',
             $volunteerId ?? $rowNum,
             'Updated',
-            "Reset Profile Picture for Entry #{$rowNum} – {$name}"
+            "reset Profile Picture for Entry #{$rowNum} – {$name}"
         );
 
         return back()
@@ -2635,7 +2635,7 @@ private function validateRow(array $data)
 
      
     /**
-     * Centralized FactLog helper with auto entity type inference
+     * Centralized FactLog helper with normalized payload
      */
     private function logFact(
         string $factType,
@@ -2645,31 +2645,67 @@ private function validateRow(array $data)
         ?string $action = null,
         $details = null
     ): FactLog {
-
+        // Resolve admin
         $admin = Auth::guard('admin')->user();
-        $adminId = is_numeric($adminId) ? (int)$adminId : ($admin->admin_id ?? null);
+        $resolvedAdminId = is_numeric($adminId) ? (int)$adminId : ($admin->admin_id ?? null);
+        $username        = $admin->username ?? null;
+        $displayName     = $admin->name ?? $username ?? ($resolvedAdminId ? ('Admin #' . $resolvedAdminId) : 'Unknown Admin');
 
-        $encodedDetails = is_array($details) || is_object($details)
-            ? json_encode($details, JSON_UNESCAPED_UNICODE)
-            : (string)$details;
-
+        // Resolve entity type + id
+        $entityType = 'Unknown';
         if (is_object($entity)) {
             $entityType = class_basename($entity);
-            $modelKey = method_exists($entity, 'getKey') ? $entity->getKey() : null;
-            $entityId = $entityId ?? $modelKey;
+            $modelKey   = method_exists($entity, 'getKey') ? $entity->getKey() : null;
+            $entityId   = $entityId ?? $modelKey;
         } elseif (is_string($entity)) {
             $entityType = $entity;
-        } else {
-            $entityType = 'Unknown';
         }
+
+        $summaryBase = null;
+        $extraData   = null;
+
+        if (is_string($details)) {
+            // Treat as verb / description, e.g. "deleted 5 invalid entries"
+            $summaryBase = trim($details);
+        } elseif (is_array($details) || is_object($details)) {
+            $extraData   = $details;
+        }
+
+        // Build final summary, always including actor when possible
+        $summary = $summaryBase;
+        if ($summaryBase !== null && $displayName) {
+            // Avoid double prefix if summary already starts with the name
+            if (stripos($summaryBase, $displayName) === 0) {
+                $summary = $summaryBase;
+            } else {
+                $summary = $displayName . ' ' . $summaryBase;
+            }
+        }
+
+        $payload = [
+            'version' => 1,
+            'type'    => $factType,
+            'summary' => $summary,
+            'actor'   => [
+                'admin_id' => $resolvedAdminId,
+                'username' => $username,
+            ],
+            'entity'  => [
+                'type' => $entityType,
+                'id'   => $entityId,
+            ],
+            'action'  => $action,
+            'data'    => $extraData,
+            'at'      => now()->toIso8601String(),
+        ];
 
         return FactLog::create([
             'fact_type'   => $factType,
-            'admin_id'    => $adminId,
+            'admin_id'    => $resolvedAdminId,
             'entity_type' => $entityType,
             'entity_id'   => $entityId,
             'action'      => $action,
-            'details'     => $encodedDetails,
+            'details'     => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ]);
     }
 }

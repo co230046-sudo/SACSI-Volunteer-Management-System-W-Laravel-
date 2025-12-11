@@ -802,9 +802,10 @@ document.addEventListener("DOMContentLoaded", () => {
       </li>
 
 
-        <a href="routegoeshere" class="nav-link system-log-link">
-            <i class="fas fa-clipboard-list me-2"></i><span class="link-text">System Logs</span>
-        </a>
+        <a href="{{ route('system.logs.index') }}" class="nav-link system-log-link">
+  <i class="fas fa-clipboard-list me-2"></i><span class="link-text">System Logs</span>
+</a>
+
 
         @if(!empty($pageTitle) && $pageTitle !== "SACSI Volunteer Management")
             <div class="sidebar-divider"></div>

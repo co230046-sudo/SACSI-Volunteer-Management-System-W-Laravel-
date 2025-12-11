@@ -28,9 +28,8 @@
   --radius: 16px;
 }
 
-/* =========================================================
-   BASE
-========================================================= */
+*{ box-sizing: border-box; }
+
 body{
   font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, Arial;
   background: var(--bg);
@@ -39,6 +38,10 @@ body{
   color: var(--ink);
   font-weight: 500;
 }
+
+/* hide scrollbar but keep scroll */
+html, body { scrollbar-width: none; }
+html::-webkit-scrollbar, body::-webkit-scrollbar { width: 0; height: 0; }
 
 /* toast */
 .toast-lite{
@@ -57,9 +60,7 @@ body{
 }
 .toast-lite.show{ opacity: 1; transform: translateY(0); }
 
-/* =========================================================
-   PAGE WRAP + GRID
-========================================================= */
+/* PAGE WRAP + GRID */
 .summary-wrap{
   width: min(1480px, 94vw);
   margin: 0 auto 60px;
@@ -67,17 +68,18 @@ body{
 
 .summary-grid--split{
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-columns: minmax(0, 1fr) 460px;
   gap: 16px;
   align-items: start;
+}
+@media (max-width: 1400px){
+  .summary-grid--split{ grid-template-columns: minmax(0, 1fr) 420px; }
 }
 @media (max-width: 1100px){
   .summary-grid--split{ grid-template-columns: 1fr; }
 }
 
-/* =========================================================
-   MAIN CARD
-========================================================= */
+/* MAIN CARD */
 .summary-card{
   border-radius: var(--radius);
   background: var(--panel);
@@ -95,10 +97,9 @@ body{
   pointer-events:none;
 }
 
-/* =========================================================
-   TOP BAR (match your screenshot)
-========================================================= */
+/* TOP BAR */
 .summary-top{
+  position: relative;
   padding: 18px 20px 14px;
   display:flex;
   justify-content:space-between;
@@ -108,6 +109,12 @@ body{
   border-bottom: 1px solid rgba(17,24,39,.08);
 }
 
+.summary-top .top-left{
+  flex: 1 1 520px;
+  min-width: 0;
+  padding-right: 260px; /* reserve for right actions (absolute) */
+}
+
 .page-kicker{
   display:flex;
   align-items:center;
@@ -115,6 +122,16 @@ body{
   font-weight: 850;
   color: rgba(17,24,39,.55);
 }
+
+.top-actions-row{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  flex-wrap:wrap;
+}
+
+.title-and-details{ flex:1 1 520px; min-width:0; }
 
 .title-row{
   display:flex;
@@ -126,11 +143,12 @@ body{
 
 .event-h1{
   margin: 0;
-  font-size: clamp(2.1rem, 3vw, 3.4rem);
+  font-size: clamp(2.1rem, 3vw, 3.2rem);
   font-weight: 950;
   letter-spacing: -1px;
   line-height: 1.05;
   color: var(--brand-ink);
+  flex: 0 0 100%;
 }
 
 .status-badge{
@@ -178,17 +196,17 @@ body{
   align-items:center;
   gap: 10px;
 }
-
 .chip{
   display:inline-flex;
   align-items:center;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-radius: 999px;
   border: 1px solid rgba(178,58,69,.22);
   background: rgba(178,58,69,.08);
   color: var(--brand-ink);
   font-weight: 750;
+  max-width: 100%;
 }
 .chip i{ color: var(--brand); }
 
@@ -197,6 +215,8 @@ body{
   border: 1px solid rgba(17,24,39,.12);
   background: #fff;
   color: rgba(17,24,39,.80);
+  margin-left: auto;
+  white-space: nowrap;
 }
 .chip-btn:hover{
   background: rgba(178,58,69,.08);
@@ -214,7 +234,7 @@ body{
   display:inline-flex;
   align-items:center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 7px 9px;
   border-radius: 999px;
   border: 1px solid rgba(17,24,39,.12);
   background: rgba(17,24,39,.02);
@@ -223,15 +243,29 @@ body{
 }
 .subchip i{ color: var(--brand); }
 
-.top-right{
+/* RIGHT ACTIONS pinned */
+.summary-top .top-right{
+  position: absolute;
+  top: 18px;
+  right: 20px;
   display:flex;
-  align-items:flex-start;
+  align-items:center;
   gap: 10px;
+  z-index: 5;
 }
 
-/* =========================================================
-   EXPORT (fixes the dropdown breaking)
-========================================================= */
+/* responsive: unpin */
+@media (max-width: 768px){
+  .summary-top .top-right{
+    position: static;
+    width: 100%;
+    justify-content: flex-end;
+    margin-top: 10px;
+  }
+  .summary-top .top-left{ padding-right: 0; }
+}
+
+/* EXPORT */
 .export{ position: relative; }
 .btn-export{
   border-radius: 14px;
@@ -249,8 +283,7 @@ body{
 .export-menu{
   position: absolute;
   top: calc(100% + 10px);
-  left: 0;                 /* <- matches screenshot (menu drops under button) */
-  right: auto;
+  left: 0;
   min-width: 220px;
   background: #fff;
   border: 1px solid rgba(17,24,39,.10);
@@ -291,19 +324,7 @@ body{
 }
 .btn-softlink:hover{ background: rgba(178,58,69,.06); border-color: rgba(178,58,69,.18); color: var(--brand-ink); }
 
-/* =========================================================
-   INSIDE REPORT GRID
-========================================================= */
-.summary-grid{
-  padding: 18px 20px 20px;
-  display:grid;
-  grid-template-columns: 420px minmax(0,1fr);
-  gap: 16px;
-}
-@media (max-width: 1100px){
-  .summary-grid{ grid-template-columns: 1fr; }
-}
-
+/* PANELS */
 .panel{
   border-radius: var(--radius);
   background: #fff;
@@ -324,32 +345,46 @@ body{
 }
 .panel-title i{ color: var(--brand); }
 
-/* =========================================================
-   PIE CHART (keep your muted red, not hot pink)
-========================================================= */
+/* INSIDE REPORT GRID */
+.summary-grid{
+  padding: 18px 20px 20px;
+  display:grid;
+  gap: 16px;
+}
+
+/* ✅ TRI COLUMN: Pie | Info | Stats */
+.summary-grid--tri{
+  grid-template-columns: 320px minmax(0,1fr) 420px;
+  align-items: start;
+}
+@media (max-width: 1280px){
+  .summary-grid--tri{ grid-template-columns: 320px minmax(0,1fr); }
+  .summary-mid{ order: 2; }
+  .summary-right{ order: 3; }
+}
+@media (max-width: 1100px){
+  .summary-grid--tri{ grid-template-columns: 1fr; }
+}
+
+/* PIE CHART (smaller to avoid scroll) */
 .chart-shell{
   position: relative;
-  padding: 16px 14px 10px;
+  padding: 12px 12px 8px;
   display:flex;
   align-items:center;
   justify-content:center;
 }
-
 .chart{
-  width: 320px;
-  height: 320px;
+  width: 240px;
+  height: 240px;
   border-radius: 50%;
   background: conic-gradient(rgba(17,24,39,.10) 0deg 360deg);
   box-shadow: 0 18px 34px rgba(0,0,0,0.12);
 }
-@media (max-width: 520px){
-  .chart{ width: 270px; height: 270px; }
-}
-
 .chart-center{
   position:absolute;
-  width: 150px;
-  height: 150px;
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
   background: #fff;
   border: 1px solid rgba(17,24,39,.10);
@@ -360,9 +395,8 @@ body{
   flex-direction:column;
   text-align:center;
 }
-
 .chart-center-top{
-  font-size: 38px;
+  font-size: 30px;
   font-weight: 950;
   line-height: 1;
   color: rgba(17,24,39,.86);
@@ -372,7 +406,6 @@ body{
   font-weight: 850;
   color: rgba(17,24,39,.60);
 }
-
 .chart-tooltip{
   position:absolute;
   padding: 8px 10px;
@@ -386,39 +419,27 @@ body{
   transform: translate(-50%, -120%);
   white-space: nowrap;
 }
-
 .chart-legend{
-  padding: 10px 14px 12px;
+  padding: 8px 12px 10px;
   display:flex;
   flex-direction:column;
-  gap: 10px;
+  gap: 8px;
 }
-
 .legend-item{
   display:flex;
   align-items:center;
   gap: 10px;
-  padding: 10px 10px;
+  padding: 8px 10px;
   border-radius: 14px;
   background: rgba(17,24,39,.02);
   border: 1px solid rgba(17,24,39,.08);
 }
-.color-box{
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-}
-.legend-label{
-  font-weight: 900;
-  color: rgba(17,24,39,.84);
-}
-.legend-sub{
-  font-weight: 700;
-  color: rgba(17,24,39,.55);
-}
+.color-box{ width: 14px; height: 14px; border-radius: 4px; }
+.legend-label{ font-weight: 900; color: rgba(17,24,39,.84); }
+.legend-sub{ font-weight: 700; color: rgba(17,24,39,.55); }
 
-/* note under chart (must stay server-rendered) */
-.chart-note{ padding: 8px 14px 14px; }
+/* note under chart */
+.chart-note{ padding: 8px 12px 12px; }
 .note-row{
   display:flex;
   justify-content:space-between;
@@ -428,17 +449,43 @@ body{
 }
 .note-row:first-child{ border-top: 0; }
 
-/* =========================================================
-   OVERVIEW CARDS (matches screenshot spacing)
-========================================================= */
+/* INFO PANEL */
+.info-grid{
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+.info-row{
+  display:flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(17,24,39,.08);
+  background: rgba(17,24,39,.02);
+}
+.info-row .k{
+  font-weight: 900;
+  color: rgba(17,24,39,.65);
+}
+.info-row .v{
+  font-weight: 900;
+  color: rgba(17,24,39,.88);
+  text-align: right;
+  overflow-wrap:anywhere;
+}
+
+/* OVERVIEW STATS */
 .stats-row--tight{
   padding: 14px;
   display:grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
   gap: 12px;
 }
+.stats-row--tri{
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 @media (max-width: 520px){
-  .stats-row--tight{ grid-template-columns: 1fr; }
+  .stats-row--tri{ grid-template-columns: 1fr; }
 }
 
 .stat-box--tight{
@@ -450,6 +497,10 @@ body{
 .stat-box--primary{
   border-color: rgba(178,58,69,.22);
   background: rgba(178,58,69,.06);
+}
+.stat-box--placeholder{
+  border-style: dashed;
+  background: rgba(17,24,39,.02);
 }
 .stat-top{
   font-weight: 900;
@@ -467,61 +518,109 @@ body{
 }
 .stat-sub{ margin-top: 6px; color: rgba(17,24,39,.60) !important; }
 
-/* =========================================================
-   COMMENTS DRAWER (fix “weird” look)
-   Works with BOTH:
-   - your old HTML (comment-head + comment-name icon)
-   - the improved HTML (avatar + qa rows)
-========================================================= */
+/* COMMENTS DRAWER */
 .comments-drawer{ border-radius: var(--radius); overflow: hidden; }
+.comments-drawer > summary { list-style: none; }
+.comments-drawer > summary::-webkit-details-marker { display:none; }
+.comments-drawer > summary::marker { content:""; }
 
+.panel--summary{
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+  background: #fff;
+}
 .panel--summary .panel-head--clickable{
   display:flex;
   align-items:center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
 }
-.panel-chev{ color: rgba(17,24,39,.55); }
+.panel--summary .panel-title{
+  display:inline-flex;
+  align-items:center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(178,58,69,.22);
+  background: rgba(178,58,69,.08);
+  color: var(--brand-ink);
+  font-weight: 950;
+  line-height: 1;
+}
+
+.panel-chev{ color: rgba(17,24,39,.55); transition: transform .18s ease; }
+.comments-drawer[open] .panel-chev{ transform: rotate(180deg); }
 
 .comments-panel{ margin-top: 10px; }
 .comments-body{ padding: 14px; }
+
+@media (min-width: 1101px){
+  .comments-drawer{
+    position: sticky;
+    top: 92px;
+  }
+  .comments-panel .comments-body{
+    max-height: calc(100vh - 140px);
+    overflow: auto;
+    padding-right: 10px;
+  }
+  .comments-panel .comments-body::-webkit-scrollbar{ width: 10px; }
+  .comments-panel .comments-body::-webkit-scrollbar-thumb{
+    background: rgba(17,24,39,.18);
+    border-radius: 999px;
+  }
+}
 
 .comment-item{
   border-radius: 18px;
   border: 1px solid rgba(17,24,39,.08);
   background: #fff;
   box-shadow: 0 10px 18px rgba(0,0,0,0.04);
-  padding: 12px 12px;
   margin-bottom: 12px;
+  overflow: hidden;
 }
 .comment-item:last-child{ margin-bottom: 0; }
 
+.comment-item > summary{
+  list-style:none;
+}
+.comment-item > summary::-webkit-details-marker{ display:none; }
+.comment-item > summary::marker{ content:""; }
+
+.comment-summary{
+  cursor:pointer;
+  padding: 12px 12px;
+  user-select:none;
+}
+.comment-summary:hover{ background: rgba(17,24,39,.02); }
+.comment-summary:focus-visible{ box-shadow: var(--brand-ring); outline: none; }
+
 .comment-head{
   display:flex;
-  align-items:flex-start;
+  align-items:center;
   gap: 12px;
 }
 
-/* avatar (only visible if you add it in blade) */
 .comment-avatar{
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   overflow: hidden;
-  flex: 0 0 44px;
+  flex: 0 0 46px;
   border: 1px solid rgba(17,24,39,.10);
   background: #fff;
 }
-.comment-avatar img{
-  width:100%;
-  height:100%;
-  object-fit: cover;
-  display:block;
-}
+.comment-avatar img{ width:100%; height:100%; object-fit: cover; display:block; }
 
-/* name + meta block */
 .comment-head-main{ flex: 1 1 auto; min-width: 0; }
 
+.comment-title-row{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 10px;
+}
 .comment-name{
   font-weight: 950;
   color: #111827;
@@ -529,9 +628,17 @@ body{
   align-items:center;
   gap: 8px;
 }
-.comment-name i{ color: rgba(17,24,39,.55); } /* supports your old icon too */
 .comment-name-link{ color: inherit; text-decoration:none; }
 .comment-name-link:hover{ text-decoration: underline; }
+
+.comment-item-chev{
+  opacity: .65;
+  transition: transform .18s ease, opacity .18s ease;
+}
+.comment-item[open] .comment-item-chev{
+  transform: rotate(180deg);
+  opacity: 1;
+}
 
 .comment-meta{
   display:flex;
@@ -553,12 +660,18 @@ body{
   font-weight: 900;
 }
 .rating-pill i{ color: #f59e0b; }
-
 .time{ font-weight: 750; color: rgba(17,24,39,.55) !important; }
 
-/* OLD text block support (your existing .comment-text) */
+.comment-preview{
+  margin-top: 6px;
+  font-weight: 800;
+  color: rgba(17,24,39,.55) !important;
+}
+
+.comment-detail{ padding: 0 12px 12px; }
+
 .comment-text{
-  margin-top: 12px;
+  margin-top: 10px;
   padding: 10px 12px;
   border-radius: 14px;
   border: 1px solid rgba(17,24,39,.08);
@@ -566,41 +679,31 @@ body{
   color: rgba(17,24,39,.82);
   font-weight: 650;
   line-height: 1.55;
-  white-space: pre-wrap; /* if your controller inserts \n */
+  white-space: pre-wrap;
 }
 
-/* NEW QA block support */
 .comment-qa{
-  margin-top: 12px;
-  padding: 10px 12px;
+  margin-top: 10px;
+  padding: 12px 12px;
   border-radius: 14px;
   border: 1px solid rgba(17,24,39,.08);
   background: rgba(17,24,39,.02);
-  display:flex;
-  flex-direction:column;
-  gap: 8px;
 }
-
 .qa-row{
   display:grid;
-  grid-template-columns: 165px minmax(0,1fr);
+  grid-template-columns: 210px minmax(0,1fr);
   gap: 10px;
-  align-items:start;
+  padding: 10px 0;
+  border-top: 1px solid rgba(17,24,39,.10);
 }
-.qa-q{
-  font-weight: 900;
-  color: rgba(17,24,39,.62);
-}
-.qa-a{
-  font-weight: 800;
-  color: rgba(17,24,39,.82);
-  overflow-wrap:anywhere;
-}
+.qa-row:first-child{ border-top:0; padding-top:0; }
+.qa-row:last-child{ padding-bottom:0; }
+.qa-q{ font-weight: 900; color: rgba(17,24,39,.68); }
+.qa-a{ font-weight: 850; color: rgba(17,24,39,.88); overflow-wrap:anywhere; }
 @media (max-width: 520px){
   .qa-row{ grid-template-columns: 1fr; }
 }
 
-/* empty state */
 .empty-comment{
   border-radius: 18px;
   border: 1px dashed rgba(178,58,69,.28);
@@ -620,530 +723,200 @@ body{
   color: var(--brand-ink);
   font-size: 1.2rem;
 }
-.empty-title{
-  font-weight: 950;
-  color: var(--brand-ink);
-}
+.empty-title{ font-weight: 950; color: var(--brand-ink); }
 
-/* =========================================================
-   PRINT / EXPORT VISIBILITY
-========================================================= */
+/* PRINT / EXPORT */
 .print-only{ display:none; }
 .is-exporting .print-only{ display:block !important; }
 
-/* Hide the default <details>/<summary> disclosure triangle */
-.comments-drawer > summary {
-  list-style: none;          /* Firefox */
-}
+/* ================================
+   COMMENTS OFFCANVAS (SLIDE-IN)
+================================== */
 
-.comments-drawer > summary::-webkit-details-marker {
-  display: none;             /* Chrome/Safari/Edge */
-}
-
-.comments-drawer > summary::marker {
-  content: "";               /* Modern browsers */
-}
-
-/* SUMMARY TOP: left details + right actions (Export/View Event) */
-.summary-top{
-  display: flex;
-  align-items: flex-start;
+/* button in the right column */
+.comments-fab{
+  width: 100%;
+  border: 1px solid rgba(178,58,69,.22);
+  background: rgba(178,58,69,.08);
+  color: var(--brand-ink);
+  border-radius: 18px;
+  padding: 12px 14px;
+  font-weight: 950;
+  display:flex;
+  align-items:center;
   justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap; /* allow clean wrap on small screens */
+  gap: 12px;
+  box-shadow: 0 10px 18px rgba(0,0,0,0.04);
 }
+.comments-fab i{ color: var(--brand); }
+.comments-fab:hover{ background: rgba(178,58,69,.12); transform: translateY(-1px); }
 
-/* left should be allowed to shrink so it doesn't push actions down */
-.summary-top .top-left{
-  flex: 1 1 520px;
-  min-width: 0;
-}
-
-/* right side stays right on wide screens */
-.summary-top .top-right{
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-left: auto;
-  justify-content: flex-end;
-}
-
-/* optional: on small screens, let it drop but still align to the right */
-@media (max-width: 768px){
-  .summary-top .top-right{
-    width: 100%;
-    justify-content: flex-end;
-  }
-}
-
-
-.summary-top .top-left{ min-width: 0; }
-.top-actions-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
-.title-and-details{ flex:1 1 520px; min-width:0; }
-
-/* =========================================================
-   COMMENTS UX FIX (WIDER + PILL SUMMARY + SCROLL + NO TRIANGLE)
-   Paste at the VERY BOTTOM of your CSS
-========================================================= */
-
-/* 1) Make the right comments column wider */
-.summary-grid--split{
-  grid-template-columns: minmax(0, 1fr) 460px; /* was 380px */
-}
-@media (max-width: 1400px){
-  .summary-grid--split{ grid-template-columns: minmax(0, 1fr) 420px; }
-}
-@media (max-width: 1100px){
-  .summary-grid--split{ grid-template-columns: 1fr; }
-}
-
-/* 2) Make the comments side sticky + scroll inside when long */
-.summary-col--side{ position: relative; }
-
-@media (min-width: 1101px){
-  .comments-drawer{
-    position: sticky;
-    top: 92px; /* below your top padding/header */
-  }
-
-  .comments-panel .comments-body{
-    max-height: calc(100vh - 140px);
-    overflow: auto;
-    padding-right: 10px;
-  }
-
-  .comments-panel .comments-body::-webkit-scrollbar{ width: 10px; }
-  .comments-panel .comments-body::-webkit-scrollbar-thumb{
-    background: rgba(17,24,39,.18);
-    border-radius: 999px;
-  }
-}
-
-/* 3) Hide the default triangle for ALL details summaries (drawer + each comment) */
-.comments-drawer > summary,
-.comment-item > summary{
-  list-style: none;
-}
-.comments-drawer > summary::-webkit-details-marker,
-.comment-item > summary::-webkit-details-marker{
-  display: none;
-}
-.comments-drawer > summary::marker,
-.comment-item > summary::marker{
-  content: "";
-}
-
-/* 4) Drawer header: make "Comments" look like a pill button */
-.panel--summary{
-  padding: 10px 12px;               /* make it feel like a button area */
-  cursor: pointer;
-  user-select: none;
+.comments-count{
+  min-width: 34px;
+  height: 28px;
+  border-radius: 999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-weight: 950;
+  border: 1px solid rgba(17,24,39,.12);
   background: #fff;
+  color: rgba(17,24,39,.78);
 }
 
-.panel--summary .panel-head--clickable{
+/* overlay */
+.comments-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(17,24,39,.45);
+  z-index: 99990;
+}
+
+/* slide panel */
+.comments-panel-slide{
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: min(440px, 92vw);
+  background: #fff;
+  border-left: 1px solid rgba(17,24,39,.10);
+  box-shadow: var(--shadow-strong);
+  z-index: 99991;
+  transform: translateX(100%);
+  transition: transform .22s ease;
+  display:flex;
+  flex-direction: column;
+}
+.comments-panel-slide.is-open{
+  transform: translateX(0);
+}
+
+/* header */
+.comments-slide-head{
+  padding: 14px 14px;
+  border-bottom: 1px solid rgba(17,24,39,.08);
   display:flex;
   align-items:center;
   justify-content: space-between;
   gap: 12px;
 }
-
-.panel--summary .panel-title{
-  display:inline-flex;
-  align-items:center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(178,58,69,.22);
-  background: rgba(178,58,69,.08);
-  color: var(--brand-ink);
+.comments-slide-title{
   font-weight: 950;
-  line-height: 1;
-}
-
-.panel--summary .panel-title i{ color: var(--brand); }
-.panel--summary .panel-sub{ margin-left: 6px; }
-
-.comments-drawer[open] .panel--summary{
-  box-shadow: 0 10px 18px rgba(0,0,0,0.05);
-}
-
-.panel-chev{
-  transition: transform .18s ease;
-}
-.comments-drawer[open] .panel-chev{
-  transform: rotate(180deg);
-}
-
-/* 5) Each comment summary looks like a clean clickable pill row */
-.comment-item{
-  padding: 0; /* we’ll control padding inside summary/body */
-  overflow: hidden;
-}
-
-.comment-summary{
-  cursor: pointer;
-  padding: 12px 12px;
-  border-radius: 18px;
-  user-select: none;
-}
-
-.comment-item > summary.comment-summary{
-  background: #fff;
-}
-
-.comment-item > summary.comment-summary:hover{
-  background: rgba(17,24,39,.02);
-}
-
-.comment-item > summary.comment-summary:focus{
-  outline: none;
-}
-.comment-item > summary.comment-summary:focus-visible{
-  box-shadow: var(--brand-ring);
-}
-
-/* 6) Layout fixes so the header is balanced */
-.comment-head{
-  align-items: center;
-}
-
-.comment-avatar{
-  width: 46px;
-  height: 46px;
-  flex: 0 0 46px;
-  border-radius: 50%;
-}
-
-.comment-title-row{
+  color: var(--brand-ink);
   display:flex;
   align-items:center;
-  justify-content: space-between;
   gap: 10px;
 }
-
-.comment-item-chev{
-  opacity: .65;
-  transition: transform .18s ease, opacity .18s ease;
+.comments-slide-title i{ color: var(--brand); }
+.comments-slide-sub{
+  margin-left: 10px;
+  font-weight: 800;
+  color: rgba(17,24,39,.55);
+  font-size: .85rem;
 }
-.comment-item[open] .comment-item-chev{
-  transform: rotate(180deg);
-  opacity: 1;
+.comments-close{
+  border: 1px solid rgba(17,24,39,.12);
+  background: #fff;
+  border-radius: 14px;
+  padding: 8px 10px;
+  font-weight: 900;
+}
+.comments-close:hover{ background: rgba(178,58,69,.06); border-color: rgba(178,58,69,.18); }
+
+/* body scroll */
+.comments-slide-body{
+  padding: 14px;
+  overflow: auto;
 }
 
-/* 7) Comment body area */
-.comment-detail{
-  padding: 0 12px 12px;
+/* comment card */
+.cmt-card{
+  border-radius: 18px;
+  border: 1px solid rgba(17,24,39,.08);
+  background: #fff;
+  box-shadow: 0 10px 18px rgba(0,0,0,0.04);
+  padding: 12px;
+  margin-bottom: 12px;
 }
+.cmt-head{
+  display:flex;
+  align-items:center;
+  gap: 12px;
+}
+.cmt-avatar{
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow:hidden;
+  border: 1px solid rgba(17,24,39,.10);
+  flex: 0 0 44px;
+  background: #fff;
+}
+.cmt-avatar img{ width:100%; height:100%; object-fit: cover; display:block; }
+.cmt-meta{ min-width: 0; flex: 1 1 auto; }
+.cmt-name{
+  font-weight: 950;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cmt-name a{ color: inherit; text-decoration:none; }
+.cmt-name a:hover{ text-decoration: underline; }
+.cmt-sub{ margin-top: 4px; }
+.cmt-time{ font-weight: 800; }
 
-/* 8) QA rows: widen and add clear dividers per question */
-.comment-qa{
+.cmt-qa{
   margin-top: 10px;
-  padding: 12px 12px;
+  padding: 10px 12px;
   border-radius: 14px;
   border: 1px solid rgba(17,24,39,.08);
   background: rgba(17,24,39,.02);
-  gap: 0; /* we’ll use dividers */
 }
-
-.qa-row{
-  grid-template-columns: 210px minmax(0,1fr); /* wider question column */
+.cmt-qa-row{
+  display:grid;
+  grid-template-columns: 170px minmax(0,1fr);
+  gap: 10px;
   padding: 10px 0;
   border-top: 1px solid rgba(17,24,39,.10);
 }
-.qa-row:first-child{ border-top: 0; padding-top: 0; }
-.qa-row:last-child{ padding-bottom: 0; }
+.cmt-qa-row:first-child{ border-top: 0; padding-top: 0; }
+.cmt-qa-row:last-child{ padding-bottom: 0; }
+.cmt-q{ font-weight: 900; color: rgba(17,24,39,.62); }
+.cmt-a{ font-weight: 850; color: rgba(17,24,39,.84); overflow-wrap:anywhere; }
 
-.qa-q{
-  font-weight: 900;
-  color: rgba(17,24,39,.68);
-}
-
-.qa-a{
-  font-weight: 850;
-  color: rgba(17,24,39,.88);
-}
-
-/* Mobile: stack Q over A */
 @media (max-width: 520px){
-  .qa-row{ grid-template-columns: 1fr; }
+  .cmt-qa-row{ grid-template-columns: 1fr; }
 }
 
-/* 9) Little "Comments" preview line under the meta */
-.comment-preview{
-  margin-top: 6px;
-  font-weight: 800;
-  color: rgba(17,24,39,.55) !important;
+/* empty state */
+.cmt-empty-state{
+  border-radius: 18px;
+  border: 1px dashed rgba(178,58,69,.28);
+  background: rgba(178,58,69,.05);
+  padding: 18px;
+  text-align:center;
 }
-
-.chips{ margin-top: 10px; gap: 8px; }
-.chip{ padding: 8px 10px; }
-.subchips{ gap: 8px; }
-.subchip{ padding: 7px 9px; }
-
-/* =========================================
-   ORGANIZE EVENT META PILLS (2 clean rows)
-   Row 1: 3 red chips
-   Row 2: 4 white subchips
-========================================= */
-
-/* Make both rows feel centered-ish (not forced left) */
-.chips,
-.subchips{
-  justify-content: center;              /* was default left */
+.cmt-empty-ico{
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  background: rgba(178,58,69,.12);
+  border: 1px solid rgba(178,58,69,.18);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin: 0 auto 10px;
+  color: var(--brand-ink);
+  font-size: 1.2rem;
 }
+.cmt-empty-title{ font-weight: 950; color: var(--brand-ink); }
+.cmt-empty-sub{ font-weight: 800; }
 
-/* --- Row 1 (red chips): force 3 per row --- */
-.chips{
-  display: grid !important;
-  grid-template-columns: repeat(3, max-content);
-  gap: 10px;
-  margin-top: 14px;
-  justify-content: start;               /* keep aligned with content */
-}
-
-/* If you want it less left-anchored, switch to center: */
-/* .chips{ justify-content: center; } */
-
-/* --- Row 2 (white subchips): force 4 per row --- */
-.subchips{
-  display: grid !important;
-  grid-template-columns: repeat(4, max-content);
-  gap: 10px;
-  margin-top: 10px;
-  justify-content: start;               /* keep aligned with content */
-  opacity: .95;
-}
-
-/* Keep pills from stretching weirdly */
-.chip,
-.subchip{
-  width: max-content;
-  white-space: nowrap;
-}
-
-/* Prevent super long venue from blowing up the layout */
-.chips .chip:nth-child(3){
-  max-width: 420px;                     /* venue chip usually */
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Event code chip button should not expand */
-.chips .chip-btn{
-  justify-self: start;
-}
-
-/* Responsive: drop to 2 columns so it stays tidy */
-@media (max-width: 880px){
-  .chips{ grid-template-columns: repeat(2, max-content); }
-  .subchips{ grid-template-columns: repeat(2, max-content); }
-}
-
-/* Mobile: 1 per row */
-@media (max-width: 520px){
-  .chips{ grid-template-columns: 1fr; justify-content: stretch; }
-  .subchips{ grid-template-columns: 1fr; justify-content: stretch; }
-  .chip, .subchip{ width: 100%; justify-content: center; }
-}
-
-/* =========================================
-   PHOTO-1 HEADER LAYOUT (NO BLADE CHANGES)
-   - Kicker + status badges on the top line
-   - Code pill on the far right of that same line
-   - Title on its own line
-   - Red chips (date/time/venue) below
-   - White pills below that
-========================================= */
-
-/* Make title-row capable of "badge row" + "title row" */
-.title-row{
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-/* Push the H1 to its own line UNDER the badges (photo 1) */
-.title-row .event-h1{
-  order: 2;
-  flex: 0 0 100%;
-  margin-top: 2px;
-}
-
-/* Bring badges ABOVE the title */
-.title-row .status-badge,
-.title-row .mini-badge{
-  order: 1;
-}
-
-/* --- Chips row: keep FLEX (not grid) --- */
-.chips{
-  margin-top: 12px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-
-/* Make the Code chip behave like "top-right" in photo 1 */
-.chips .chip-btn{
-  order: -10;              /* appears first in chips row */
-  margin-left: auto;       /* pushes it to the far right */
-  white-space: nowrap;
-}
-
-/* Ensure the “normal” red chips stay left under the title */
-.chips .chip:not(.chip-btn){
-  order: 1;
-}
-
-/* Truncate venue gracefully so it doesn’t blow spacing */
-.chips .chip:nth-child(3){
-  max-width: min(520px, 60vw);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Subchips stay as a second compact line (photo 1) */
-.subchips{
-  margin-top: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-/* Tighten pills slightly so header stays compact */
-.chip{ padding: 8px 10px; }
-.subchip{ padding: 7px 9px; }
-.chips{ gap: 8px; }
-.subchips{ gap: 8px; }
-
-/* Responsive: on small screens, don't force code to the far right */
-@media (max-width: 768px){
-  .chips .chip-btn{
-    margin-left: 0;
-    order: 0;              /* let it flow naturally */
-  }
-  .title-row .event-h1{
-    font-size: clamp(1.9rem, 6vw, 2.6rem);
-  }
-}
-
-
-/* === GLOBAL PAGE SCROLLBAR – HIDE BUT KEEP SCROLLING === */
-html, body {
-    /* Firefox */
-    scrollbar-width: none;
-}
-
-/* WebKit (Chrome/Edge/Safari) */
-html::-webkit-scrollbar,
-body::-webkit-scrollbar {
-    width: 0;
-    height: 0;
-}
-
-/* 1) Make the top actions row a 2-row layout:
-      Row 1: title (full width)
-      Row 2: left meta (badges + chips) on the left, actions on the right */
-.top-actions-row{
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 12px 16px;
-}
-
-/* Let the left block take full width when it needs */
-.title-and-details{
-  flex: 1 1 100%;
-  min-width: 0;
-}
-
-/* 2) Force ONLY the H1 to take a whole line */
-.title-row{
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-.title-row .event-h1{
-  flex: 0 0 100%;     /* full width line */
-  width: 100%;
-  margin: 0;
-}
-
-/* 3) Keep badges on the next line, but make them compact */
-.title-row .status-badge,
-.title-row .mini-badge{
-  margin-top: 6px;
-}
-
-/* 4) Put the right actions on the same row as chips/subchips (row 2) */
-.top-right{
-  flex: 0 0 auto;
-  margin-left: auto;
-  align-self: flex-start;
-  margin-top: 6px; /* aligns visually with the badge row */
-}
-
-/* Optional: tighten vertical spacing so header doesn't get tall */
-.chips{ margin-top: 10px; }
-.subchips{ margin-top: 8px; }
-
-/* Keep actions pinned upper-right, and give the title real full width */
-.summary-top{
-  position: relative;                 /* anchor for absolute top-right */
-}
-
-/* Pin Export + View Event to the upper right */
-.summary-top .top-right{
-  position: absolute;
-  top: 18px;                          /* match your header padding */
-  right: 20px;                        /* match your header padding */
-  margin: 0 !important;
-  align-items: center;
-  z-index: 5;
-}
-
-/* Reserve space on the right so text/chips don't run under the buttons */
-.summary-top .top-left{
-  padding-right: 260px;               /* adjust if buttons wrap */
-  min-width: 0;
-}
-
-/* Make the H1 a full-width row (under the kicker) */
-.title-row{
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.title-row .event-h1{
-  flex: 0 0 100%;
-  width: 100%;
-  margin: 6px 0 0;
-}
-
-/* Keep the badges on the line below the title */
-.title-row .status-badge,
-.title-row .mini-badge{
-  margin-top: 6px;
-}
-
-/* Responsive: when screen is narrow, don't absolute-position (avoid overlap) */
-@media (max-width: 768px){
-  .summary-top .top-right{
-    position: static;
-    width: 100%;
-    justify-content: flex-end;
-    margin-top: 10px !important;
-  }
-  .summary-top .top-left{
-    padding-right: 0;
-  }
+/* Hide comments UI during export/print */
+.is-exporting .comments-overlay,
+.is-exporting .comments-panel-slide,
+.is-exporting .comments-fab{
+  display: none !important;
 }
 

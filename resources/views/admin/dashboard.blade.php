@@ -84,28 +84,31 @@
     font-size: 0.95rem;
 }
 .list-item:last-child { border-bottom: none; }
+
 .dashboard-card {
     cursor: pointer;
 }
-
 </style>
 
-
 @php
-$volunteersPerLevel = $volunteersPerLevel ?: collect(['No Data' => 0]);
-$eventsThisMonth = $eventsThisMonth ?: collect(['No Data' => 0]);
-$upcomingEvents = $upcomingEvents ?? 0;
-$completedEvents = $completedEvents ?? 0;
-$cancelledEvents = $cancelledEvents ?? 0;
-$totalVolunteers = $totalVolunteers ?? 0;
+    // Normalize data structures
+    $volunteersPerLevel      = collect($volunteersPerLevel ?? ['No Data' => 0]);
+    $eventsThisMonth         = collect($eventsThisMonth ?? ['No Data' => 0]); // still used for CSV if needed
+    $batchParticipationByMonth = collect($batchParticipationByMonth ?? []);   // NEW: month => [batch => count]
+
+    $upcomingEvents  = $upcomingEvents  ?? 0;
+    $completedEvents = $completedEvents ?? 0;
+    $cancelledEvents = $cancelledEvents ?? 0;
+    $totalVolunteers = $totalVolunteers ?? 0;
+
+    // Check if batch participation has any actual counts
+    $hasBatchParticipationData = $batchParticipationByMonth->flatten()->sum() > 0;
 @endphp
 
-
 <section id="Student-Section">
+    <div class="container mt-4">
 
-<div class="container mt-4">
-
-    <h2 class="section-title"><i class="fa fa-chart-line"></i> Dashboard Overview</h2>
+        <h2 class="section-title"><i class="fa fa-chart-line"></i> Dashboard Overview</h2>
         <div class="d-flex gap-2 mb-3">
             <button class="btn btn-danger" onclick="printDashboard()">
                 <i class="fa fa-print"></i> Print
@@ -120,172 +123,164 @@ $totalVolunteers = $totalVolunteers ?? 0;
             </button>
         </div>
 
-
-    <!-- TOP CARDS -->
-    <div class="row g-4">
+        <!-- TOP CARDS -->
+        <div class="row g-4">
 
             <div class="col-12 col-sm-6 col-lg-3">
-            <a href="{{ route('volunteers.list') }}" class="text-decoration-none">
-                <div class="dashboard-card bg-red text-center">
-                    <i class="fa fa-users fa-3x mb-2"></i>
-                    <h5>Total Volunteers</h5>
-                    <h2>{{ $totalVolunteers }}</h2>
-                </div>
-            </a>
-        </div>
-
-
-       <div class="col-12 col-sm-6 col-lg-3">
-            <a href="{{ route('events.manage') }}" class="text-decoration-none">
-                <div class="dashboard-card bg-blue text-center">
-                    <i class="fa fa-calendar-plus fa-3x mb-2"></i>
-                    <h5>Upcoming Events</h5>
-                    <h2>{{ $upcomingEvents }}</h2>
-                </div>
-            </a>
-        </div>
-
-        <div class="col-12 col-sm-6 col-lg-3">
-            <a href="{{ route('events.manage', ['tab' => 'completed']) }}" class="text-decoration-none">
-                <div class="dashboard-card bg-teal text-center">
-                    <i class="fa fa-calendar-check fa-3x mb-2"></i>
-                    <h5>Completed</h5>
-                    <h2>{{ $completedEvents }}</h2>
-                </div>
-            </a>
-        </div>
-
-        <div class="col-12 col-sm-6 col-lg-3">
-        <a href="{{ route('events.manage', ['tab' => 'cancelled']) }}" class="text-decoration-none">
-            <div class="dashboard-card bg-orange text-center">
-                <i class="fa fa-calendar-times fa-3x mb-2"></i>
-                <h5>Cancelled</h5>
-                <h2>{{ $cancelledEvents }}</h2>
-            </div>
-        </a>
-    </div>
-
-
-    </div>
-
-    <!-- =============================== -->
-    <!--        CHARTS ROW (FIXED)       -->
-    <!-- =============================== -->
-
-    <div class="row g-4 mt-3">
-
-        <!-- Left Chart: Volunteers Per Level -->
-        <div class="col-md-6 d-flex">
-            <div class="chart-card flex-fill">
-                <h4 class="section-title"><i class="fa fa-chart-bar"></i> Volunteers Per Year Level</h4>
-
-                <div class="fixed-chart">
-                    <canvas id="studentsLevelChart"
-                        class="{{ $volunteersPerLevel->sum() == 0 ? 'placeholder-chart' : '' }}">
-                    </canvas>
-                </div>
-
-                @if($volunteersPerLevel->sum() == 0)
-                    <p class="text-center text-muted mt-2">No volunteer data available.</p>
-                @endif
-            </div>
-        </div>
-
-        <!-- Right Chart: Event Status (Horizontal Bar) -->
-        <div class="col-md-6 d-flex">
-            <div class="chart-card flex-fill">
-                <h4 class="section-title"><i class="fa fa-chart-area"></i> Event Status Breakdown</h4>
-
-                <div class="fixed-chart">
-                    <canvas id="eventsStatusBar"
-                        class="{{ ($upcomingEvents+$completedEvents+$cancelledEvents)==0 ? 'placeholder-chart' : '' }}">
-                    </canvas>
-                </div>
-
-                @if(($upcomingEvents+$completedEvents+$cancelledEvents)==0)
-                    <p class="text-center text-muted mt-2">No event status available.</p>
-                @endif
-            </div>
-        </div>
-
-    </div>
-
-
-    <!-- LISTS ROW -->
-    <div class="row g-4 mt-3">
-
-        <div class="col-md-6">
-            <div class="list-card">
-                <h4 class="section-title"><i class="fa fa-fire"></i> Most Active Volunteers</h4>
-
-                @forelse ($topVolunteers as $v)
-                    <div class="list-item">
-                        <strong>{{ optional($v->profile)->name ?? 'Unknown' }}</strong>
-                        <span>{{ $v->total }} activities</span>
+                <a href="{{ route('volunteers.list') }}" class="text-decoration-none">
+                    <div class="dashboard-card bg-red text-center">
+                        <i class="fa fa-users fa-3x mb-2"></i>
+                        <h5>Total Volunteers</h5>
+                        <h2>{{ $totalVolunteers }}</h2>
                     </div>
-                @empty
-                    <p class="text-center text-muted p-3">No volunteer activity yet.</p>
-                @endforelse
+                </a>
             </div>
-        </div>
 
-        <div class="col-md-6">
-            <div class="list-card">
-                <h4 class="section-title">
-                    <i class="fa fa-user-clock"></i> Recently Registered Volunteers
-                </h4>
-
-                @forelse ($recentVolunteers as $s)
-                    <div class="list-item">
-                        <strong>{{ $s->full_name ?? $s->name ?? 'Unnamed Volunteer' }}</strong>
-                        <span>{{ $s->created_at->diffForHumans() }}</span>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <a href="{{ route('events.manage') }}" class="text-decoration-none">
+                    <div class="dashboard-card bg-blue text-center">
+                        <i class="fa fa-calendar-plus fa-3x mb-2"></i>
+                        <h5>Upcoming Events</h5>
+                        <h2>{{ $upcomingEvents }}</h2>
                     </div>
-                @empty
-                    <p class="text-center text-muted p-3">
-                        No recent volunteer registrations.
-                    </p>
-                @endforelse
+                </a>
             </div>
+
+            <div class="col-12 col-sm-6 col-lg-3">
+                <a href="{{ route('events.manage', ['tab' => 'completed']) }}" class="text-decoration-none">
+                    <div class="dashboard-card bg-teal text-center">
+                        <i class="fa fa-calendar-check fa-3x mb-2"></i>
+                        <h5>Completed</h5>
+                        <h2>{{ $completedEvents }}</h2>
+                    </div>
+                </a>
+            </div>
+
+            <div class="col-12 col-sm-6 col-lg-3">
+                <a href="{{ route('events.manage', ['tab' => 'cancelled']) }}" class="text-decoration-none">
+                    <div class="dashboard-card bg-orange text-center">
+                        <i class="fa fa-calendar-times fa-3x mb-2"></i>
+                        <h5>Cancelled</h5>
+                        <h2>{{ $cancelledEvents }}</h2>
+                    </div>
+                </a>
+            </div>
+
         </div>
 
+        <!-- =============================== -->
+        <!--        CHARTS ROW (FIXED)       -->
+        <!-- =============================== -->
+        <div class="row g-4 mt-3">
 
+            <!-- Left Chart: Volunteers Per Level -->
+            <div class="col-md-6 d-flex">
+                <div class="chart-card flex-fill">
+                    <h4 class="section-title"><i class="fa fa-chart-bar"></i> Volunteers Per Year Level</h4>
 
-    <!-- EVENTS THIS MONTH -->
-    <div class="row mt-4 mb-5">
-        <div class="col-md-12">
-            <div class="chart-card">
-                <h4 class="section-title"><i class="fa fa-chart-line"></i> Events Trend This Month</h4>
+                    <div class="fixed-chart">
+                        <canvas id="studentsLevelChart"
+                            class="{{ $volunteersPerLevel->sum() == 0 ? 'placeholder-chart' : '' }}">
+                        </canvas>
+                    </div>
 
-                <div class="fixed-chart">
-                    <canvas id="eventsMonthChart"></canvas>
+                    @if($volunteersPerLevel->sum() == 0)
+                        <p class="text-center text-muted mt-2">No volunteer data available.</p>
+                    @endif
                 </div>
+            </div>
 
-                @if($eventsThisMonth->sum() == 0)
-                    <p class="text-center text-muted mt-2">No events recorded this month.</p>
-                @endif
+            <!-- Right Chart: Event Status (Horizontal Bar) -->
+            <div class="col-md-6 d-flex">
+                <div class="chart-card flex-fill">
+                    <h4 class="section-title"><i class="fa fa-chart-area"></i> Event Status Breakdown</h4>
+
+                    <div class="fixed-chart">
+                        <canvas id="eventsStatusBar"
+                            class="{{ ($upcomingEvents + $completedEvents + $cancelledEvents) == 0 ? 'placeholder-chart' : '' }}">
+                        </canvas>
+                    </div>
+
+                    @if(($upcomingEvents + $completedEvents + $cancelledEvents) == 0)
+                        <p class="text-center text-muted mt-2">No event status available.</p>
+                    @endif
+                </div>
+            </div>
+
+        </div>
+
+        <!-- LISTS ROW -->
+        <div class="row g-4 mt-3">
+
+            <div class="col-md-6">
+                <div class="list-card">
+                    <h4 class="section-title"><i class="fa fa-fire"></i> Most Active Volunteers</h4>
+
+                    @forelse ($topVolunteers as $v)
+                        <div class="list-item">
+                            <strong>{{ optional($v->profile)->name ?? 'Unknown' }}</strong>
+                            <span>{{ $v->total }} activities</span>
+                        </div>
+                    @empty
+                        <p class="text-center text-muted p-3">No volunteer activity yet.</p>
+                    @endforelse
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="list-card">
+                    <h4 class="section-title">
+                        <i class="fa fa-user-clock"></i> Recently Registered Volunteers
+                    </h4>
+
+                    @forelse ($recentVolunteers as $s)
+                        <div class="list-item">
+                            <strong>{{ $s->full_name ?? $s->name ?? 'Unnamed Volunteer' }}</strong>
+                            <span>{{ $s->created_at->diffForHumans() }}</span>
+                        </div>
+                    @empty
+                        <p class="text-center text-muted p-3">
+                            No recent volunteer registrations.
+                        </p>
+                    @endforelse
+                </div>
+            </div>
+
+        </div> <!-- end LISTS ROW -->
+
+        <!-- BATCH PARTICIPATION BY MONTH -->
+        <div class="row mt-4 mb-5">
+            <div class="col-md-12">
+                <div class="chart-card">
+                    <h4 class="section-title"><i class="fa fa-chart-line"></i> Batch Participation by Month</h4>
+
+                    <div class="fixed-chart">
+                        <canvas id="eventsMonthChart"
+                            class="{{ $hasBatchParticipationData ? '' : 'placeholder-chart' }}">
+                        </canvas>
+                    </div>
+
+                    @unless($hasBatchParticipationData)
+                        <p class="text-center text-muted mt-2">No batch participation data available.</p>
+                    @endunless
+                </div>
             </div>
         </div>
+
     </div>
-
-</div>
-
 </section>
 
-<script>
-console.log("Chart exists:", typeof Chart);
-</script>
-
-
-<!-- ✅ LOAD CHART.JS FIRST -->
+<!-- ✅ LOAD CHART.JS -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <!-- ✅ PASS LARAVEL DATA SAFELY TO JS -->
 <script>
-const volunteersPerLevelData = @json($volunteersPerLevel ?? []);
-const eventsThisMonthData   = @json($eventsThisMonth ?? []);
-const upcomingEvents  = {{ $upcomingEvents ?? 0 }};
-const completedEvents = {{ $completedEvents ?? 0 }};
-const cancelledEvents = {{ $cancelledEvents ?? 0 }};
+const volunteersPerLevelData   = @json($volunteersPerLevel);
+const eventsThisMonthData      = @json($eventsThisMonth); // kept for CSV / reference
+const batchParticipationData   = @json($batchParticipationByMonth);
+const upcomingEvents           = {{ $upcomingEvents }};
+const completedEvents          = {{ $completedEvents }};
+const cancelledEvents          = {{ $cancelledEvents }};
 </script>
 
 <!-- ✅ MAIN CHART LOGIC -->
@@ -294,14 +289,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
     console.log("✅ Chart.js Loaded:", typeof Chart);
     console.log("✅ Volunteers:", volunteersPerLevelData);
-    console.log("✅ Events Month:", eventsThisMonthData);
+    console.log("✅ Events Month (raw):", eventsThisMonthData);
+    console.log("✅ Batch Participation Data:", batchParticipationData);
 
     /* ============================================================
        ✅ VOLUNTEERS PER YEAR LEVEL (BAR CHART)
     ============================================================ */
-
-    let labels = Object.keys(volunteersPerLevelData);
-    let values = Object.values(volunteersPerLevelData);
+    let labels = Object.keys(volunteersPerLevelData || {});
+    let values = Object.values(volunteersPerLevelData || {});
 
     if (labels.length === 0 || values.every(v => v === 0)) {
         labels = ["No Data"];
@@ -336,7 +331,6 @@ document.addEventListener("DOMContentLoaded", function () {
     /* ============================================================
        ✅ EVENT STATUS BREAKDOWN (HORIZONTAL BAR)
     ============================================================ */
-
     let eventValues = [upcomingEvents, completedEvents, cancelledEvents];
 
     if (eventValues.every(v => v === 0)) {
@@ -367,40 +361,94 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     /* ============================================================
-       ✅ EVENTS THIS MONTH (LINE CHART)
+       ✅ BATCH PARTICIPATION BY MONTH (MULTI-LINE)
+       Shape expected:
+       {
+         "January":  { "Batch 2021": 10, "Batch 2022": 5 },
+         "February": { "Batch 2021": 8,  "Batch 2022": 12 },
+         ...
+       }
     ============================================================ */
+    let monthLabels = Object.keys(batchParticipationData || {});
+    let batchNamesSet = new Set();
 
-    let monthLabels = Object.keys(eventsThisMonthData);
-    let monthValues = Object.values(eventsThisMonthData);
+    // Collect all batch names across all months
+    monthLabels.forEach(month => {
+        const monthData = batchParticipationData[month] || {};
+        Object.keys(monthData).forEach(batch => batchNamesSet.add(batch));
+    });
 
-    if (monthLabels.length === 0 || monthValues.every(v => v === 0)) {
+    let batchNames = Array.from(batchNamesSet);
+
+    // Handle case with no data
+    if (monthLabels.length === 0) {
         monthLabels = ["No Data"];
-        monthValues = [1];
     }
+    if (batchNames.length === 0) {
+        batchNames = ["No Batch"];
+    }
+
+    // Generate a dataset per batch
+    const colors = [
+        "#C0392B",
+        "#2C6EAD",
+        "#16A085",
+        "#D35400",
+        "#8E44AD",
+        "#27AE60"
+    ];
+
+    const batchDatasets = batchNames.map((batch, index) => {
+        const color = colors[index % colors.length];
+
+        return {
+            label: batch,
+            data: monthLabels.map(month => {
+                const monthData = batchParticipationData[month] || {};
+                const value = monthData[batch] ?? 0;
+                return value;
+            }),
+            borderColor: color,
+            backgroundColor: "rgba(0,0,0,0)",   // no fill
+            borderWidth: 3,
+            pointRadius: 5,
+            tension: 0.35,
+            fill: false
+        };
+    });
 
     new Chart(document.getElementById("eventsMonthChart"), {
         type: "line",
         data: {
             labels: monthLabels,
-            datasets: [{
-                label: "Events",
-                data: monthValues,
-                borderColor: "#C0392B",
-                backgroundColor: "rgba(192,57,43,0.2)",
-                borderWidth: 3,
-                pointRadius: 5,
-                tension: 0.35,
-                fill: true
-            }]
+            datasets: batchDatasets
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } }
+            plugins: {
+                legend: { display: true },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.dataset.label || "";
+                            const value = context.raw ?? 0;
+                            return `${label}: ${value} participants`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 }
+                }
+            }
         }
     });
 
 });
+
 /* ===============================
    ✅ PRINT DASHBOARD
 ================================ */
@@ -418,27 +466,43 @@ function downloadCSV() {
     csv.push([]);
 
     csv.push(["Metric", "Value"]);
-    csv.push(["Total Volunteers", {{ $totalVolunteers ?? 0 }}]);
-    csv.push(["Upcoming Events", {{ $upcomingEvents ?? 0 }}]);
-    csv.push(["Completed Events", {{ $completedEvents ?? 0 }}]);
-    csv.push(["Cancelled Events", {{ $cancelledEvents ?? 0 }}]);
+    csv.push(["Total Volunteers", {{ $totalVolunteers }}]);
+    csv.push(["Upcoming Events", {{ $upcomingEvents }}]);
+    csv.push(["Completed Events", {{ $completedEvents }}]);
+    csv.push(["Cancelled Events", {{ $cancelledEvents }}]);
     csv.push([]);
 
+    // Volunteers per year level
     csv.push(["Volunteers Per Year Level"]);
     csv.push(["Year Level", "Total"]);
 
-    const levelData = @json($volunteersPerLevel ?? []);
+    const levelData = @json($volunteersPerLevel);
     Object.entries(levelData).forEach(([key, value]) => {
         csv.push([key, value]);
     });
 
     csv.push([]);
+
+    // Events This Month (kept if you still use this data)
     csv.push(["Events This Month"]);
     csv.push(["Month", "Total"]);
 
-    const monthData = @json($eventsThisMonth ?? []);
+    const monthData = @json($eventsThisMonth);
     Object.entries(monthData).forEach(([key, value]) => {
         csv.push([key, value]);
+    });
+
+    csv.push([]);
+
+    // NEW: Batch Participation by Month
+    csv.push(["Batch Participation by Month"]);
+    csv.push(["Month", "Batch", "Total"]);
+
+    const batchData = @json($batchParticipationByMonth);
+    Object.entries(batchData).forEach(([month, batches]) => {
+        Object.entries(batches).forEach(([batch, value]) => {
+            csv.push([month, batch, value]);
+        });
     });
 
     const csvContent = csv.map(e => e.join(",")).join("\n");
@@ -460,5 +524,3 @@ function downloadNumbers() {
     downloadCSV(); // Numbers opens CSV perfectly
 }
 </script>
-
-

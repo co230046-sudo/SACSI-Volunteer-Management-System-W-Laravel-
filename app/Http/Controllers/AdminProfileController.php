@@ -14,29 +14,24 @@ class AdminProfileController extends Controller
     ================================ */
     public function index(Request $request, $id = null)
     {
-        // ✅ ALWAYS use guard directly
         if (!auth('admin')->check()) {
             return redirect()->route('admin.login');
         }
 
         $currentAdmin = auth('admin')->user();
 
-        // ✅ Load selected admin or self
         if ($id !== null) {
             $admin = AdminAccount::findOrFail($id);
         } else {
             $admin = AdminAccount::findOrFail($currentAdmin->admin_id);
         }
 
-        // ✅ Super admin check
         $isSuperAdmin = preg_match('/super/i', $currentAdmin->role);
 
-        // ✅ Load all admins only for super admins
         $allAdmins = $isSuperAdmin
             ? AdminAccount::orderBy('full_name')->get()
             : collect([]);
 
-        // ✅ SAFE log merging (prevents crashes)
         $logs = collect()
             ->merge($admin->authenticateLogs ?? collect())
             ->merge($admin->importLogs ?? collect())
@@ -55,36 +50,35 @@ class AdminProfileController extends Controller
     }
 
     /* ================================
-       UPDATE ADMIN PROFILE (AUTO LOGGING)
+       ✅ UPDATE ADMIN PROFILE (FULL FIX)
     ================================ */
     public function update(Request $request)
     {
-        auth()->setDefaultDriver('admin');
         auth()->shouldUse('admin');
-
         $currentAdmin = auth()->user();
         $isSuperAdmin = preg_match('/super/i', $currentAdmin->role);
 
-        // Super admin can update any admin
         if ($isSuperAdmin && $request->has('admin_id')) {
             $admin = AdminAccount::find($request->admin_id) ?? $currentAdmin;
         } else {
             $admin = $currentAdmin;
         }
 
-        // Validation
+        // ✅ VALIDATION
         $request->validate([
-            'full_name'      => 'required|string|max:255',
-            'email'          => 'required|email|max:255',
+            'full_name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
             'contact_number' => 'nullable|string|max:50',
-            'password'       => 'nullable|min:6',
+
+            // ✅ Password modal validation
+            'current_password' => 'nullable',
+            'new_password' => 'nullable|min:6|confirmed',
         ]);
 
         /* ================================
-           ✅ AUTO LOG CHANGES
+           ✅ AUTO CHANGE LOGGING
         ================================ */
 
-        // ✅ NAME CHANGE
         if ($admin->full_name !== $request->full_name) {
             FactLog::create([
                 'admin_id'    => $currentAdmin->admin_id,
@@ -95,7 +89,6 @@ class AdminProfileController extends Controller
             ]);
         }
 
-        // ✅ EMAIL CHANGE
         if ($admin->email !== $request->email) {
             FactLog::create([
                 'admin_id'    => $currentAdmin->admin_id,
@@ -106,7 +99,6 @@ class AdminProfileController extends Controller
             ]);
         }
 
-        // ✅ CONTACT CHANGE
         if ($admin->contact_number !== $request->contact_number) {
             FactLog::create([
                 'admin_id'    => $currentAdmin->admin_id,
@@ -117,7 +109,6 @@ class AdminProfileController extends Controller
             ]);
         }
 
-        // ✅ USERNAME CHANGE (SUPER ADMIN)
         if ($isSuperAdmin && $request->filled('username') && $admin->username !== $request->username) {
             FactLog::create([
                 'admin_id'    => $currentAdmin->admin_id,
@@ -128,7 +119,6 @@ class AdminProfileController extends Controller
             ]);
         }
 
-        // ✅ ROLE CHANGE (SUPER ADMIN)
         if ($isSuperAdmin && $request->filled('role') && $admin->role !== $request->role) {
             FactLog::create([
                 'admin_id'    => $currentAdmin->admin_id,
@@ -139,20 +129,36 @@ class AdminProfileController extends Controller
             ]);
         }
 
-        // ✅ PASSWORD UPDATE (SECURE)
-        if ($request->filled('password')) {
+        /* ================================
+           ✅ SECURE PASSWORD UPDATE (MODAL)
+        ================================ */
+        if ($request->filled('current_password') || $request->filled('new_password')) {
+
+            $request->validate([
+                'current_password' => 'required',
+                'new_password' => 'required|min:6|confirmed',
+            ]);
+
+            if (!Hash::check($request->current_password, $admin->password)) {
+                return back()->withErrors([
+                    'current_password' => 'Current password is incorrect.'
+                ]);
+            }
+
             FactLog::create([
                 'admin_id'    => $currentAdmin->admin_id,
                 'entity_type' => 'Admin Profile',
                 'entity_id'   => $admin->admin_id,
                 'action'      => 'Password Updated',
-                'details'     => 'Password was updated'
+                'details'     => 'Password was updated securely'
             ]);
 
-            $admin->password = Hash::make($request->password);
+            $admin->password = Hash::make($request->new_password);
         }
 
-        // ✅ PROFILE PHOTO UPDATE
+        /* ================================
+           ✅ PROFILE PHOTO UPDATE
+        ================================ */
         if ($request->hasFile('photo')) {
             FactLog::create([
                 'admin_id'    => $currentAdmin->admin_id,
@@ -167,10 +173,10 @@ class AdminProfileController extends Controller
         }
 
         /* ================================
-           ✅ FINAL DATA UPDATE
+           ✅ FINAL DATA SAVE
         ================================ */
-        $admin->full_name      = $request->full_name;
-        $admin->email          = $request->email;
+        $admin->full_name = $request->full_name;
+        $admin->email = $request->email;
         $admin->contact_number = $request->contact_number;
 
         if ($isSuperAdmin && $request->filled('username')) {
@@ -187,7 +193,7 @@ class AdminProfileController extends Controller
     }
 
     /* ================================
-       AJAX → GET LOGS FOR MODAL
+       ✅ AJAX → GET LOGS
     ================================ */
     public function getLogs($id)
     {
@@ -217,7 +223,7 @@ class AdminProfileController extends Controller
     }
 
     /* ================================
-       ✅ AJAX → VIEW ADMIN PROFILE (MODAL)
+       ✅ AJAX → VIEW ADMIN PROFILE
     ================================ */
     public function viewProfile($id)
     {

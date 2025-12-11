@@ -17,6 +17,8 @@ use App\Http\Controllers\EventTypeController;
 use App\Http\Controllers\EventOrganizerDirectoryController;
 use App\Models\ActivityLog;
 use App\Models\Admin;
+use App\Http\Controllers\AdminUserController;
+
 
 Route::get('/', function () {
     return redirect()->route('auth.login');
@@ -60,6 +62,10 @@ Route::middleware(['auth:admin'])->group(function () {
         // ✅ DASHBOARD
         Route::get('/dashboard', [DashboardController::class, 'index'])
             ->name('dashboard');
+               // ✅ REGISTER USER UNDER ADMIN
+        Route::post('/user/store', [AdminUserController::class, 'store'])
+            ->name('user.store');
+
 
     });
 

@@ -2,223 +2,17 @@
 @include('layouts.navbar')
 @include('layouts.page_loader')
 
+
+
 <link rel="stylesheet" href="{{ asset('assets/admin_profile/Admin_profile.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/admin_profile/admin_modal.css') }}">
 <script src="{{ asset('assets/admin_profile/admin_profile.js') }}"></script>
+
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 
 
 <section id="Student-Section" style="opacity:1;">
-
-<style>
-/* ================================
-   GLOBAL — FIX WHITE BAR & SCROLL
-================================ */
-body.modal-open {
-    overflow: hidden !important;
-}
-
-/* FULLSCREEN MODAL OVERLAY */
-.styled-modal {
-    position: fixed;
-    inset: 0;
-    width: 100vw !important;
-    height: 100vh !important;
-    background: rgba(0,0,0,0.55);
-    display: none; 
-    align-items: center;
-    justify-content: center;
-    z-index: 99999;
-    animation: fadeIn .3s ease;
-}
-
-/* (Your original styles below) */
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-}
-
-.styled-modal-content {
-    background: #fff;
-    padding: 25px;
-    width: 100%;
-    max-width: 1100px;
-    max-height: 90%;
-    overflow-y: auto;
-    border-radius: 15px;
-    position: relative;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-    animation: slideUp .35s ease;
-}
-
-@keyframes slideUp {
-    from { transform: translateY(30px); opacity: 0; }
-    to   { transform: translateY(0); opacity: 1; }
-}
-
-/* Rest of your CSS remains unchanged */
-
-
-/* ================================
-   MODAL CONTENT CONTAINER
-================================ */
-.styled-modal-content {
-    background: #fff;
-    padding: 25px;
-    width: 100%;
-    max-width: 1100px;
-    max-height: 90%;
-    overflow-y: auto;
-    border-radius: 15px;
-    position: relative;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-    animation: slideUp .35s ease;
-    table-layout: fixed;
-}
-
-@keyframes slideUp {
-    from { transform: translateY(30px); opacity: 0; }
-    to   { transform: translateY(0); opacity: 1; }
-}
-
-/* ================================
-   MODAL CLOSE BUTTON
-================================ */
-.modal-close {
-    position: absolute;
-    top: 12px;
-    right: 18px;
-    cursor: pointer;
-    font-size: 22px;
-    color: #b3263a;
-    z-index: 100000; /* Always on top */
-}
-
-.modal-close * {
-    pointer-events: none; /* Ensure the icon doesn't block clicks */
-}
-
-/* ================================
-   MODAL HEADER
-================================ */
-.modal-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 15px;
-}
-
-.modal-icon {
-    font-size: 32px;
-    color: #b3263a;
-}
-
-.modal-title {
-    font-weight: 700;
-    font-size: 26px;
-    margin: 0;
-}
-
-/* ================================
-   TABLE INSIDE MODAL
-================================ */
-.styled-table thead tr {
-    background: ##b3263a;
-    color: white;
-    text-align: center;
-}
-
-.styled-table td,
-.styled-table th {
-    padding: 12px;
-}
-
-/* Role Tag */
-.role-tag {
-    background: #e8e8e8;
-    padding: 5px 12px;
-    border-radius: 20px;
-    font-size: 13px;
-    font-weight: 600;
-}
-
-/* ================================
-   BUTTONS INSIDE MODAL
-================================ */
-.actions-cell {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-/* Logs Button */
-.btn-log {
-    background: #dc3545 !important;
-    color: #fff !important;
-    padding: 5px 12px;
-    font-size: 0.85rem;
-    border-radius: 6px;
-    border: none;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    cursor: pointer;
-    transition: 0.2s ease;
-}
-
-.btn-log:hover {
-    background: #b02a37 !important;
-}
-
-/* Profile Button */
-.btn-view {
-    background: #007bff !important;
-    color: white !important;
-    padding: 5px 12px;
-    font-size: 0.85rem;
-    border-radius: 6px;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    transition: 0.2s ease;
-}
-
-.btn-view:hover {
-    background: #0056b3 !important;
-}
-
-/* ================================
-   TOGGLE BUTTON (VIEW ADMIN LIST)
-================================ */
-.view-admin-btn {
-    background: #b3263a;
-    color: #fff;
-    padding: 12px 20px;
-    border-radius: 10px;
-    font-weight: 600;
-    border: none;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    cursor: pointer;
-    transition: 0.3s ease;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-}
-
-.view-admin-btn:hover {
-    background: #8A0000;
-    transform: translateY(-2px);
-}
-
-.view-admin-btn i {
-    font-size: 1.3rem;
-}
-
-
-</style>
 
 <div class="container-fluid main-content py-4">
 <div class="student-section-wrapper">
@@ -278,9 +72,11 @@ body.modal-open {
                                         <i class="fas fa-print"></i> Print
                                     </button>
 
-                                    <button type="button" id="editSaveBtn" class="info-card mb-2">
+
+                                   <button type="button" id="editSaveBtn" class="info-card mb-2" onclick="openEditProfileModal()">
                                         <i class="fas fa-edit"></i> Edit
                                     </button>
+
 
                                     <a href="https://facebook.com" target="_blank" class="info-card text-dark">
                                         <i class="fab fa-facebook"></i> FB
@@ -370,7 +166,7 @@ body.modal-open {
 
         <tbody>
             @if(isset($logs) && $logs->count())
-                @foreach($logs->take(8) as $log)
+                @foreach($logs->take(10) as $log)
 
                     <tr>
                         <td>
@@ -403,9 +199,13 @@ body.modal-open {
 
 
 {{-- ADMIN PROFILES MODAL --}}
+{{-- ✅ ADMIN PROFILES MODAL --}}
 <div id="adminProfilesModal" class="styled-modal">
     <div class="styled-modal-content">
-        <span class="modal-close" onclick="closeAdminProfilesModal()"><i class="fas fa-times"></i></span>
+
+        <span class="modal-close" onclick="closeAdminProfilesModal()">
+            <i class="fas fa-times"></i>
+        </span>
 
         <div class="modal-header">
             <i class="fas fa-id-card modal-icon"></i>
@@ -419,7 +219,7 @@ body.modal-open {
                     <th>Full Name</th>
                     <th>Role</th>
                     <th>Email</th>
-                    <th style="width:150px">Actions</th>
+                    <th style="width:220px">Actions</th>
                 </tr>
             </thead>
 
@@ -431,37 +231,48 @@ body.modal-open {
                     <td><span class="role-tag">{{ $acc->role }}</span></td>
                     <td>{{ $acc->email }}</td>
 
-                 
+                    <td class="actions-cell">
 
-                 <td class="actions-cell">
+                        <!-- ✅ LOGS -->
+                        <button class="btn-log"
+                            onclick="openAdminLogsModal({{ $acc->admin_id }})">
+                            <i class="fas fa-book-open"></i> Logs
+                        </button>
 
-    <!-- LOGS BUTTON -->
-    <button class="btn-log"
-            onclick="openAdminLogsModal({{ $acc->admin_id }})">
-        <i class="fas fa-book-open"></i> Logs
-    </button>
+                        <!-- ✅ PROFILE -->
+                        <button class="btn-view"
+                            data-url="{{ route('admin.profile.view', $acc->admin_id) }}"
+                            onclick="openAdminProfileModal(this)">
+                            <i class="fas fa-eye"></i> Profile
+                        </button>
 
-    <!-- PROFILE BUTTON -->
-    <button class="btn-view"
-        data-url="{{ route('admin.profile.view', $acc->admin_id) }}"
-        onclick="openAdminProfileModal(this)">
-        <i class="fas fa-eye"></i> Profile
-    </button>
-
-</td>
-
+                    </td>
+                </tr>
                 @endforeach
             </tbody>
         </table>
 
+        <!-- ✅ REGISTER BUTTON MOVED BELOW TABLE (BOTTOM-RIGHT) -->
+        <div class="register-bottom-wrapper">
+            <button class="btn-register-global"
+             onclick="openRegisterUserModal('{{ $currentAdmin->admin_id }}', '{{ $currentAdmin->full_name }}')">
+
+                <i class="fas fa-user-plus"></i> Register New Account
+            </button>
+        </div>
+
     </div>
 </div>
 
-{{-- LOGS MODAL (JS expects these IDs: modalAdminName, modalLogTable, adminLogsModal) --}}
+
+
+{{-- ✅ LOGS MODAL --}}
 <div id="adminLogsModal" class="styled-modal">
     <div class="styled-modal-content">
 
-        <span class="modal-close" onclick="closeAdminLogsModal()"><i class="fas fa-times"></i></span>
+        <span class="modal-close" onclick="closeAdminLogsModal()">
+            <i class="fas fa-times"></i>
+        </span>
 
         <div class="modal-header">
             <i class="fas fa-book-open modal-icon"></i>
@@ -482,6 +293,7 @@ body.modal-open {
 
     </div>
 </div>
+
 
 <!-- ✅ ACTIVITY LOG MODAL -->
 <!-- ✅ ALL ACTIVITY LOGS POP-UP MODAL -->
@@ -562,6 +374,236 @@ body.modal-open {
 </div>
 
 
+<!-- ✅ REGISTER ACCOUNT MODAL -->
+<div id="registerUserModal" class="styled-modal">
+    <div class="styled-modal-content register-modal-box">
+@if($errors->any())
+    <div class="alert alert-danger mb-2">
+        @foreach($errors->all() as $error)
+            <div>{{ $error }}</div>
+        @endforeach
+    </div>
+@endif
+
+        <!-- CLOSE BUTTON -->
+        <span class="modal-close" onclick="closeRegisterUserModal()">
+            <i class="fas fa-times"></i>
+        </span>
+
+        <!-- HEADER -->
+       <div class="modal-header register-header">
+            <i class="fa-solid fa-user-plus modal-icon"></i>
+            <h3 class="modal-title">Register New User</h3>
+        </div>
+
+
+        <!-- FORM -->
+        <form action="{{ route('admin.user.store') }}" 
+              method="POST" 
+              enctype="multipart/form-data">
+            @csrf
+
+            <input type="hidden" name="admin_id" id="registerAdminId">
+
+            <!-- Assigned Admin -->
+            <div class="mb-3">
+                <label class="form-label">Assigned Admin</label>
+                <input type="text" id="registerAdminName" class="form-control" readonly>
+            </div>
+
+            <!-- Full Name -->
+            <div class="mb-3">
+                <label class="form-label">Full Name</label>
+                <input type="text" name="full_name" class="form-control" required>
+            </div>
+
+            <!-- Email -->
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input type="email" name="email" class="form-control" required>
+            </div>
+
+            <!-- Username -->
+            <div class="mb-3">
+                <label class="form-label">Username</label>
+                <input type="text" name="username" class="form-control" required>
+            </div>
+
+            <!-- CONTACT NUMBER -->
+            <div class="mb-3">
+                <label class="form-label">Contact Number</label>
+                <input type="text" name="contact_number" class="form-control" placeholder="e.g. 09123456789">
+            </div>
+
+            <!-- PASSWORD -->
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" required>
+            </div>
+
+            <!-- CONFIRM PASSWORD ✅ -->
+            <div class="mb-3">
+                <label class="form-label">Confirm Password</label>
+                <input type="password" name="password_confirmation" class="form-control" required>
+            </div>
+
+            <!-- PROFILE PICTURE UPLOAD ✅ -->
+            <div class="mb-3">
+                <label class="form-label">Profile Picture</label>
+                <input type="file" 
+                       name="profile_picture" 
+                       class="form-control"
+                       accept="image/*">
+            </div>
+
+            <!-- ROLE SELECTOR -->
+            <div class="mb-3">
+                <label class="form-label">Role</label>
+                <select name="role" class="form-control" required>
+                    <option value="admin">Admin</option>
+                    <option value="super_admin">Super Admin</option>
+                </select>
+            </div>
+
+            <!-- SUBMIT BUTTON -->
+            <button type="submit" class="view-admin-btn register-submit-btn w-100">
+                <i class="fas fa-save"></i> Register Account
+            </button>
+
+        </form>
+@if($errors->any())
+    <div class="alert alert-danger mb-2">
+        @foreach($errors->all() as $error)
+            <div>{{ $error }}</div>
+        @endforeach
+    </div>
+@endif
+
+    </div>
+</div>
+
+
+@if($errors->any())
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        openRegisterUserModal(
+            "{{ old('admin_id') ?? $currentAdmin->admin_id }}",
+            "{{ $currentAdmin->full_name }}"
+        );
+    });
+</script>
+@endif
+
+
+
+<!-- ✅ EDIT PROFILE MODAL -->
+<div id="editProfileModal" class="styled-modal">
+    <div class="styled-modal-content register-modal-box">
+
+        <!-- CLOSE BUTTON -->
+        <span class="modal-close" onclick="closeEditProfileModal()">
+            <i class="fa fa-times"></i>
+        </span>
+
+        <div class="modal-header register-header">
+            <h3 class="modal-title">
+                <i class="fa fa-user-edit me-2"></i> Edit Profile
+            </h3>
+        </div>
+
+        <form action="{{ route('admin.profile.update') }}" method="POST" enctype="multipart/form-data">
+            @csrf
+            @method('PUT')
+
+            <!-- PHOTO -->
+            <div class="text-center mb-3">
+                <div class="profile-image-wrapper">
+                        <img id="modalProfileImage"
+                            src="{{ $admin->profile_picture ? asset('storage/' . $admin->profile_picture) : asset('assets/adminpic.png') }}"
+                            class="profile-image">
+                    </div>
+
+                <input type="file" id="modalProfileUpload" name="photo" accept="image/*">
+            </div>
+
+            <h5 class="text-center fw-bold mb-3">
+                <i class="fa fa-camera me-2"></i>Click the picture to change
+            </h5>
+
+            <!-- FULL NAME -->
+            <div class="mb-3 input-with-icon">
+                <i class="fa fa-user input-icon"></i>
+                <input type="text" name="full_name" class="form-control input-field" 
+                    value="{{ $admin->full_name }}" required placeholder="Full Name">
+            </div>
+
+            <!-- EMAIL -->
+            <div class="mb-3 input-with-icon">
+                <i class="fa fa-envelope input-icon"></i>
+                <input type="email" name="email" class="form-control input-field"
+                    value="{{ $admin->email }}" required placeholder="Email">
+            </div>
+
+            <!-- CONTACT -->
+            <div class="mb-3 input-with-icon">
+                <i class="fa fa-phone input-icon"></i>
+                <input type="text" name="contact_number" class="form-control input-field"
+                    value="{{ $admin->contact_number }}" placeholder="Contact Number">
+            </div>
+
+            <hr class="divider">
+
+            <!-- TOGGLE BUTTON -->
+            <button type="button" class="toggle-password-btn w-100 mb-3">
+                <i class="fa fa-key me-2"></i> Change Password
+            </button>
+
+            <!-- PASSWORD SECTION -->
+           <div id="passwordSection" style="display: none;">
+
+                <h5 class="text-center fw-bold mb-3">
+                    <i class="fa fa-lock me-2"></i> Change Password
+                </h5>
+
+                <!-- Current Password -->
+                <div class="mb-3 input-with-icon password-wrap">
+                    <i class="fa fa-lock input-icon"></i>
+                    <input type="password" name="current_password" class="form-control input-field password-input"
+                        placeholder="Current Password">
+
+                    <i class="fa fa-eye password-toggle"></i>
+                </div>
+
+                <!-- New Password -->
+                <div class="mb-3 input-with-icon password-wrap">
+                    <i class="fa fa-unlock-alt input-icon"></i>
+                    <input type="password" name="new_password" class="form-control input-field password-input"
+                        placeholder="New Password">
+
+                    <i class="fa fa-eye password-toggle"></i>
+                </div>
+
+                <!-- Confirm New Password -->
+                <div class="mb-3 input-with-icon password-wrap">
+                    <i class="fa fa-check-circle input-icon"></i>
+                    <input type="password" name="new_password_confirmation"
+                        class="form-control input-field password-input" placeholder="Confirm New Password">
+
+                    <i class="fa fa-eye password-toggle"></i>
+                </div>
+            </div>
+
+
+            <!-- SUBMIT BUTTON -->
+            <button type="submit" class="view-admin-btn w-100 mt-3 save-btn">
+                <i class="fa fa-save me-2"></i> Save Changes
+            </button>
+
+        </form>
+
+    </div>
+</div>
+
 
 
 
@@ -604,31 +646,77 @@ function openAdminProfileModal(button) {
         .then(res => res.json())
         .then(data => {
 
-            document.getElementById("adminProfileContent").innerHTML = `
-                <div class="text-center mb-3">
-                    <img src="${data.profile_picture}"
-                         class="rounded-circle mb-2"
-                         width="120" height="120">
-                    <h4>${data.full_name}</h4>
-                    <p class="text-muted">${data.role}</p>
-                </div>
+            const isActive = data.is_active ?? 1;
+            const statusText = isActive ? "Active" : "Inactive";
+            const statusClass = isActive ? "status-active" : "status-inactive";
+            const statusIcon = isActive ? "fa-check-circle" : "fa-ban";
 
-                <table class="table table-bordered">
-                    <tr><th>Admin ID</th><td>${data.admin_id}</td></tr>
-                    <tr><th>Username</th><td>${data.username}</td></tr>
-                    <tr><th>Email</th><td>${data.email}</td></tr>
-                    <tr><th>Contact</th><td>${data.contact_number}</td></tr>
-                    <tr><th>Created</th><td>${data.created_at}</td></tr>
-                </table>
+            document.getElementById("adminProfileContent").innerHTML = `
+                <div class="admin-profile-layout">
+
+                    <div class="admin-top-row">
+                        <div class="admin-center">
+                            <img src="${data.profile_picture || '/assets/adminpic.png'}" 
+                                 class="admin-avatar">
+
+                            <h3 class="admin-name">${data.full_name}</h3>
+                            <span class="admin-role">${data.role}</span>
+
+                            <div class="admin-status ${statusClass}">
+                                <i class="fas ${statusIcon}"></i> ${statusText}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="admin-action-row">
+                        <div class="admin-action-left">
+                            <button class="admin-btn print">
+                                <i class="fa fa-print me-2"></i> Print
+                            </button>
+
+                            <button class="admin-btn edit">
+                                <i class="fa fa-pen-to-square me-2"></i> Edit
+                            </button>
+                        </div>
+
+                        <div class="admin-action-right">
+                            <button class="admin-btn delete"
+                                onclick="deleteAdminProfile(${data.admin_id})">
+                                <i class="fa fa-trash me-2"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="admin-details-box">
+                        <h5 class="admin-details-title">Admin Details</h5>
+
+                        <div class="admin-grid">
+                            <div class="admin-card"><b>Admin ID</b><span>${data.admin_id}</span></div>
+                            <div class="admin-card"><b>Username</b><span>${data.username}</span></div>
+                            <div class="admin-card"><b>Email</b><span>${data.email}</span></div>
+                            <div class="admin-card"><b>Password</b><span>********</span></div>
+                            <div class="admin-card"><b>Full Name</b><span>${data.full_name}</span></div>
+                            <div class="admin-card"><b>Role</b><span>${data.role}</span></div>
+                            <div class="admin-card"><b>Contact</b><span>${data.contact_number || 'N/A'}</span></div>
+                            <div class="admin-card"><b>Created</b><span>${data.created_at}</span></div>
+                        </div>
+                    </div>
+
+                </div>
             `;
         })
         .catch(err => {
             console.error("PROFILE LOAD ERROR:", err);
             document.getElementById("adminProfileContent").innerHTML = `
-                <div class="text-danger text-center">Failed to load profile.</div>
+                <div class="text-danger text-center py-5">
+                    <i class="fas fa-exclamation-triangle fa-2x mb-2"></i><br>
+                    Failed to load profile.
+                </div>
             `;
         });
 }
+
+
 function openAdminLogsModal(id) {
 
     console.log("Opening logs for:", id); // ✅ debug proof
@@ -755,15 +843,6 @@ function openAdminProfileModal(button) {
                     <div class="admin-action-row">
 
                         <!-- LEFT BUTTONS -->
-                        <div class="admin-action-left">
-                            <button class="admin-btn print">
-                                <i class="fa fa-print me-2"></i> Print
-                            </button>
-
-                            <button class="admin-btn edit">
-                                <i class="fa fa-pen-to-square me-2"></i> Edit
-                            </button>
-                        </div>
 
                         <!-- RIGHT DELETE BUTTON -->
                         <div class="admin-action-right">
@@ -847,10 +926,46 @@ function openAdminProfileModal(button) {
 
 
 /* ✅ CLOSE ADMIN PROFILE MODAL */
+/* ============================================================
+   OPEN / CLOSE PROFILE MODAL
+============================================================ */
+function openEditProfileModal() {
+    document.body.classList.add("modal-open");
+    document.getElementById("editProfileModal").style.display = "flex";
+}
+
+function closeEditProfileModal() {
+    document.body.classList.remove("modal-open");
+    document.getElementById("editProfileModal").style.display = "none";
+}
+
+/* ============================================================
+   OPEN / CLOSE REGISTER MODAL
+============================================================ */
+function openRegisterUserModal(adminId, adminName) {
+    document.body.classList.add("modal-open");
+    document.getElementById("registerUserModal").style.display = "flex";
+
+    document.getElementById("registerAdminId").value = adminId;
+    document.getElementById("registerAdminName").value = adminName;
+}
+
+function closeRegisterUserModal() {
+    document.body.classList.remove("modal-open");
+    document.getElementById("registerUserModal").style.display = "none";
+}
+
+/* ============================================================
+   CLOSE ADMIN PROFILE VIEW MODAL
+============================================================ */
 function closeAdminProfileModal() {
     document.body.classList.remove("modal-open");
     document.getElementById("adminProfileViewModal").style.display = "none";
 }
+
+/* ============================================================
+   DELETE ADMIN ACCOUNT
+============================================================ */
 function deleteAdminProfile(adminId) {
     if (!confirm("Are you sure you want to permanently delete this admin account?")) {
         return;
@@ -873,7 +988,59 @@ function deleteAdminProfile(adminId) {
     });
 }
 
+/* ============================================================
+   PROFILE IMAGE PREVIEW (INSIDE EDIT PROFILE MODAL)
+============================================================ */
+document.addEventListener("DOMContentLoaded", function () {
+    const modalImage = document.getElementById("modalProfileImage");
+    const modalUpload = document.getElementById("modalProfileUpload");
 
+    if (modalImage && modalUpload) {
+        modalImage.addEventListener("click", function () {
+            modalUpload.click();
+        });
+
+        modalUpload.addEventListener("change", function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (evt) {
+                modalImage.src = evt.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+    const toggleBtn = document.querySelector(".toggle-password-btn");
+    const passwordSection = document.getElementById("passwordSection");
+
+    toggleBtn.addEventListener("click", () => {
+        const isHidden = passwordSection.style.display === "none";
+        passwordSection.style.display = isHidden ? "block" : "none";
+        toggleBtn.innerHTML = isHidden
+            ? '<i class="fa fa-eye-slash me-2"></i> Hide Password Fields'
+            : '<i class="fa fa-key me-2"></i> Change Password';
+    });
+});
+
+document.querySelectorAll(".password-toggle").forEach(toggle => {
+    toggle.addEventListener("click", function () {
+        let input = this.previousElementSibling;
+
+        if (input.type === "password") {
+            input.type = "text";
+            this.classList.remove("fa-eye");
+            this.classList.add("fa-eye-slash");
+        } else {
+            input.type = "password";
+            this.classList.remove("fa-eye-slash");
+            this.classList.add("fa-eye");
+        }
+    });
+});
 
 
 </script>

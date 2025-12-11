@@ -5,6 +5,7 @@
   margin: 0; 
   padding: 0; 
   box-sizing: border-box; 
+
 }
 
 html { scroll-behavior: smooth; }
@@ -68,55 +69,64 @@ section {
    LEFT SECTION
 ================================ */
 .left-section {
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 0 20px rgba(0,0,0,0.15);
-  padding: 0.8rem;
-  max-width: 1600px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.18);
+  padding: 1.2rem;            /* ✅ Balanced padding */
   width: 100%;
+  max-width: 1700px;
+  margin: 0 auto;
+  overflow: hidden;          /* ✅ IMPORTANT: kills shadow bleed */
 }
+
+
 
 /* ================================
    PROFILE SECTION
 ================================ */
 .profile-section {
-  background: #fff;
+  background: #ffffff;
   border: 1px solid #dee2e6;
-  border-radius: 10px;
-  padding: 1.2rem;
-  margin-bottom: 1rem;
-  transition: all 0.3s ease;
+  border-radius: 14px;
+  padding: 2.2rem;
+  margin-bottom: 1.2rem;
+  min-height: 340px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+  /* ✅ Remove default shadow */
+  box-shadow: none;
 }
 
 .profile-section:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 5px 16px rgba(0,0,0,0.12);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);  /* ✅ Softer, cleaner */
 }
 
+
 .profile-photo {
-  width: 200px;
-  height: 200px;
+  width: 260px;                /* ⬅️ BIGGER IMAGE */
+  height: 260px;               /* ⬅️ BIGGER IMAGE */
   object-fit: cover;
   border-radius: 50%;
   transition: 0.3s ease;
 }
 
 .profile-photo:hover {
-  box-shadow: 0 0 15px rgba(178,0,12,0.6);
-  transform: scale(1.05);
+  box-shadow: 0 0 18px rgba(178,0,12,0.6);
+  transform: scale(1.06);
 }
 
 .volunteer-name {
-  font-size: 1.5rem;
-  font-weight: 900;   /* ✅ EXTRA BOLD */
+  font-size: 2rem;             /* ⬅️ BIGGER NAME */
+  font-weight: 900;
   color: #333;
 }
 
-
 .volunteer-title {
-  font-size: 1rem;
+  font-size: 1.25rem;          /* ⬅️ BIGGER TITLE */
   color: #666;
 }
+
 
 /* ================================
    ACTION TOOLS
@@ -125,9 +135,10 @@ section {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  align-items: flex-end;
+  align-items: flex-start; /* ⬅️ LEFT SIDE */
   z-index: 10;
 }
+
 
 .action-tools .info-card {
   background: #fafafa;
@@ -484,6 +495,7 @@ section {
   gap: 8px;              /* slightly more gap between buttons */
   align-items: flex-end; 
   z-index: 5;
+  margin-top: -140px;
 }
 
 /* Info cards inside tool panel */
@@ -1056,22 +1068,15 @@ section {
 }
 
 /* BUTTON TYPES */
-.admin-btn.print {
-    color: #b3263a;
-    border: 1px solid #b3263a;
-}
-
-.admin-btn.edit {
-    color: #0d6efd;
-    border: 1px solid #0d6efd;
-}
 
 .admin-btn.delete {
     background: #b3263a;
     color: #fff;
     font-weight: 700;
     border: none;
+    margin-left: 690px;   /* ✅ pushes the button to the right */
 }
+
 
 /* ================================
    DETAILS BOX

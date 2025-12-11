@@ -464,8 +464,8 @@ body.modal-open {
 /* ✅ PROFILE IMAGE */
 /* ✅ FORCE PROFILE PICTURE TO PERFECT CIRCLE */
 #modalProfileImage {
-  width: 140px !important;
-  height: 140px !important;
+  width: 150px !important;
+  height: 150px !important;
   object-fit: cover !important;
   border-radius: 50% !important;
   border: 4px solid #b3263a;
@@ -637,5 +637,118 @@ body.modal-open {
   pointer-events: none !important;
 }
 
+.toggle-password-btn {
+    background: #b3263a;
+    color: #fff;
+    border: none;
+    padding: 10px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s ease;
+}
+
+.toggle-password-btn:hover {
+    background: #9c1f33;
+}
+
+/* Input icon container */
+.input-with-icon {
+    position: relative;
+    margin-bottom: 15px;
+}
+
+.input-icon {
+    position: absolute;
+    top: 50%;
+    left: 12px;
+    transform: translateY(-50%);
+    color: #b3263a;
+    font-size: 16px;
+}
+
+.input-field {
+    padding-left: 40px !important;
+    height: 45px;
+    border-radius: 10px;
+}
+
+/* Profile Image */
+.profile-image-wrapper {
+    display: inline-block;
+    padding: 5px;
+    border: 3px solid #b3263a;
+    border-radius: 50%;
+}
+
+.profile-image {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+}
+
+/* Divider */
+.divider {
+    border: none;
+    border-top: 1px solid #ddd;
+    margin: 25px 0;
+}
+
+/* Buttons */
+.toggle-password-btn {
+    background: #b3263a;
+    color: #fff;
+    border: none;
+    padding: 12px;
+    border-radius: 10px;
+    font-weight: bold;
+    transition: 0.3s;
+}
+
+.toggle-password-btn:hover {
+    background: #a11e32;
+}
+
+.save-btn {
+    background: #b3263a;
+    color: #fff;
+    padding: 12px;
+    border-radius: 10px;
+    font-weight: bold;
+    transition: 0.3s;
+}
+
+.save-btn:hover {
+    background: #9d1f30;
+}
 
 
+.password-wrap {
+    position: relative;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 17px;
+    cursor: pointer;
+    color: #b3263a;
+}
+
+.password-toggle:hover {
+    color: #8a1d2e;
+}
+
+.profile-image-wrapper {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    padding: 5px;
+    border: 3px solid #b3263a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;   /* VERY IMPORTANT */
+}

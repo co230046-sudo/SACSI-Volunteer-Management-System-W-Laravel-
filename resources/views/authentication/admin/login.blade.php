@@ -75,11 +75,6 @@
             <hr class="form-divider">
 
             <button type="submit" class="btn-primary">Login</button>
-
-            <p class="switch-link">
-                Register New Admin?
-                <a href="{{ route('auth.register') }}">Register</a>
-            </p>
         </form>
     </div>
   </div>

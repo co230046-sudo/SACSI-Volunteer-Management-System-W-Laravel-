@@ -17,7 +17,7 @@ use App\Models\Location;
 
 class VolunteerImportController extends Controller
 {
-    
+
     public function index()
     {
         $validEntries = session('validEntries', []);
@@ -109,14 +109,14 @@ class VolunteerImportController extends Controller
             $finfo = new \finfo(FILEINFO_MIME_TYPE);
             $mime  = $finfo->buffer($contents);
 
-            if (!in_array($mime, ['image/jpeg','image/png','image/gif'])) {
+            if (!in_array($mime, ['image/jpeg', 'image/png', 'image/gif'])) {
                 return 'defaults/default_user.png';
             }
 
             // Ensure folder exists
             Storage::disk('public')->makeDirectory('profile_pictures/volunteers');
 
-            $ext = match($mime) {
+            $ext = match ($mime) {
                 'image/png'  => 'png',
                 'image/gif'  => 'gif',
                 default      => 'jpg'
@@ -130,9 +130,8 @@ class VolunteerImportController extends Controller
             );
 
             return 'profile_pictures/volunteers/' . $fileName;
-
         } catch (\Exception $e) {
-            Log::warning('Profile picture download failed: '.$e->getMessage());
+            Log::warning('Profile picture download failed: ' . $e->getMessage());
             return 'defaults/default_user.png';
         }
     }
@@ -247,9 +246,9 @@ class VolunteerImportController extends Controller
             'invalid_count'   => count($invalid),
             'duplicate_count' => count($duplicates),
             'status'          => 'Pending',
-            'remarks'         => "Preview summary: " . count($valid) ." valid, "
-                                . count($invalid) ." invalid, "
-                                . count($duplicates) ." duplicates.",
+            'remarks'         => "Preview summary: " . count($valid) . " valid, "
+                . count($invalid) . " invalid, "
+                . count($duplicates) . " duplicates.",
         ]);
 
         if ($admin) {
@@ -259,9 +258,9 @@ class VolunteerImportController extends Controller
                 'Volunteer Import',
                 $importLog->import_id,
                 'Previewed',
-                "previewed CSV: " . count($valid) ." valid, "
-                    . count($invalid) ." invalid, "
-                    . count($duplicates) ." duplicates."
+                "Previewed CSV: " . count($valid) . " valid, "
+                    . count($invalid) . " invalid, "
+                    . count($duplicates) . " duplicates."
             );
         }
 
@@ -323,494 +322,536 @@ class VolunteerImportController extends Controller
     }
 
     /**
- * Time Range Helper
- * Supports:
- *  - Standard HH:MM-HH:MM
- *  - 12:30-1:50 style ranges (treated as 12:30-13:50)
- */
-private function parseTimeRange($range)
-{
-    $range = trim((string) $range);
-    if ($range === '' || !str_contains($range, '-')) {
-        return null;
-    }
-
-    [$start, $end] = explode('-', $range, 2);
-    $start = trim($start);
-    $end   = trim($end);
-
-    // Must be HH:MM-HH:MM
-    if (!preg_match('/^\d{1,2}:\d{2}$/', $start)) return null;
-    if (!preg_match('/^\d{1,2}:\d{2}$/', $end))   return null;
-
-    [$sh, $sm] = array_map('intval', explode(':', $start));
-    [$eh, $em] = array_map('intval', explode(':', $end));
-
-    // Basic sanity: 0–23 hours, 0–59 minutes
-    if ($sh < 0 || $sh > 23 || $eh < 0 || $eh > 23) return null;
-    if ($sm < 0 || $sm > 59 || $em < 0 || $em > 59) return null;
-
-    $startMin = $sh * 60 + $sm;
-    $endMin   = $eh * 60 + $em;
-
-    // Handle 12:30-1:50 (12-hour schedule, PM)
-    if ($endMin <= $startMin) {
-        // If start is noon or later (>=12) and end is a small hour (1–7),
-        // assume end time is PM and add 12h.
-        if ($sh >= 12 && $eh >= 1 && $eh <= 7) {
-            $eh     += 12;
-            $endMin  = $eh * 60 + $em;
+     * Time Range Helper
+     * Supports:
+     *  - Standard HH:MM-HH:MM
+     *  - 12:30-1:50 style ranges (treated as 12:30-13:50)
+     */
+    private function parseTimeRange($range)
+    {
+        $range = trim((string) $range);
+        if ($range === '' || !str_contains($range, '-')) {
+            return null;
         }
-    }
 
-    // Still invalid? Reject (end not after start)
-    if ($endMin <= $startMin) {
-        return null;
-    }
+        [$start, $end] = explode('-', $range, 2);
+        $start = trim($start);
+        $end   = trim($end);
 
-    return (object)[
-        'start' => $startMin,
-        'end'   => $endMin,
-    ];
-}
+        // Must be HH:MM-HH:MM
+        if (!preg_match('/^\d{1,2}:\d{2}$/', $start)) return null;
+        if (!preg_match('/^\d{1,2}:\d{2}$/', $end))   return null;
 
-/**
- * Schedule Overlap Checker
- */
-private function rangesOverlap($a, $b)
-{
-    // Standard open-interval overlap
-    return $a->start < $b->end && $b->start < $a->end;
-}
+        [$sh, $sm] = array_map('intval', explode(':', $start));
+        [$eh, $em] = array_map('intval', explode(':', $end));
 
-/**
- * Try to smart-match a barangay string to locations table.
- * - Ignores case
- * - Collapses extra spaces
- * - Allows small misspellings via levenshtein distance
- *
- * @return object|null  (barangay, district_id)
- */
-private function smartMatchBarangay(?string $raw)
-{
-    $raw = trim((string) $raw);
-    if ($raw === '') {
-        return null;
-    }
+        // Basic sanity: 0–23 hours, 0–59 minutes
+        if ($sh < 0 || $sh > 23 || $eh < 0 || $eh > 23) return null;
+        if ($sm < 0 || $sm > 59 || $em < 0 || $em > 59) return null;
 
-    // Normalize: lowercase, collapse spaces
-    $needle = strtolower(preg_replace('/\s+/', ' ', $raw));
+        $startMin = $sh * 60 + $sm;
+        $endMin   = $eh * 60 + $em;
 
-    // Cache locations in static variable to avoid repeated queries
-    static $locationCache = null;
-
-    if ($locationCache === null) {
-        $rows = DB::table('locations')
-            ->select('barangay', 'district_id')
-            ->get();
-
-        $locationCache = [];
-        foreach ($rows as $row) {
-            // skip rows with empty barangay to avoid weird matches
-            if (!trim((string) $row->barangay)) {
-                continue;
+        // Handle 12:30-1:50 (12-hour schedule, PM)
+        if ($endMin <= $startMin) {
+            // If start is noon or later (>=12) and end is a small hour (1–7),
+            // assume end time is PM and add 12h.
+            if ($sh >= 12 && $eh >= 1 && $eh <= 7) {
+                $eh     += 12;
+                $endMin  = $eh * 60 + $em;
             }
-
-            $normalizedName = strtolower(preg_replace(
-                '/\s+/',
-                ' ',
-                trim((string) $row->barangay)
-            ));
-
-            $locationCache[] = (object)[
-                'barangay'     => $row->barangay,
-                'district_id'  => $row->district_id,
-                'normalized'   => $normalizedName,
-            ];
-        }
-    }
-
-    if (empty($locationCache)) {
-        return null;
-    }
-
-    $best = null;
-    $bestDist = PHP_INT_MAX;
-
-    foreach ($locationCache as $loc) {
-        // Exact normalized match → immediate win
-        if ($loc->normalized === $needle) {
-            return (object)[
-                'barangay'    => $loc->barangay,
-                'district_id' => $loc->district_id,
-            ];
         }
 
-        // Approximate match
-        $dist = levenshtein($needle, $loc->normalized);
-
-        if ($dist < $bestDist) {
-            $bestDist = $dist;
-            $best = $loc;
+        // Still invalid? Reject (end not after start)
+        if ($endMin <= $startMin) {
+            return null;
         }
-    }
 
-    // Decide if "close enough"
-    $len = strlen($needle);
-    $threshold = max(2, (int) floor($len / 4)); // tune if needed
-
-    if ($best && $bestDist <= $threshold) {
         return (object)[
-            'barangay'    => $best->barangay,
-            'district_id' => $best->district_id,
+            'start' => $startMin,
+            'end'   => $endMin,
         ];
     }
 
-    return null;
-}
-
-/**
- * normalizeRow
- */
-private function normalizeRow(array $row, array $header): array
-{
     /**
-     * Flexible Header Mapping
+     * Schedule Overlap Checker
      */
-    $mapping = [
-        // --- FULL NAME ---
-        'full_name' => 'full_name','fullname' => 'full_name','full name' => 'full_name',
-        'first name' => 'first_name','firstname' => 'first_name',
-        'middle name' => 'middle_name','middlename' => 'middle_name',
-        'last name' => 'last_name','lastname' => 'last_name','surname' => 'last_name',
-
-        // --- SCHOOL ID ---
-        'id number' => 'id_number','school id' => 'id_number',
-        'school id number' => 'id_number','id' => 'id_number',
-
-        // --- CONTACT NUMBER ---
-        'contact number' => 'contact_number','contact_number' => 'contact_number',
-        'phone' => 'contact_number','phone number' => 'contact_number',
-        'contact no' => 'contact_number','contact #' => 'contact_number',
-
-        // --- EMERGENCY CONTACT ---
-        'emergency number' => 'emergency_contact',
-        'emergency_contact' => 'emergency_contact',
-        'emergency contact' => 'emergency_contact',
-        'emergency contact number' => 'emergency_contact',
-        'emergency no' => 'emergency_contact',
-        'emergency #' => 'emergency_contact',
-
-        // --- EMAIL ---
-        'email address' => 'email','email' => 'email',
-        'school email address' => 'email','school email' => 'email',
-        'adzu email' => 'email','email add' => 'email',
-
-        // --- FB ---
-        'fb link' => 'fb_messenger','facebook profile link' => 'fb_messenger',
-        'messenger' => 'fb_messenger','fb' => 'fb_messenger',
-
-        // --- BARANGAY ---
-        'barangay' => 'barangay','brgy' => 'barangay',
-        'district' => 'district',
-
-        // --- COURSE ---
-        'course' => 'course','strand' => 'course','program' => 'course',
-
-        // --- YEAR LEVEL ---
-        'year' => 'year_level','year level' => 'year_level','yearlevel' => 'year_level',
-        'year_level' => 'year_level',
-
-        // --- SCHEDULES ---
-        'monday schedule' => 'monday','monday' => 'monday',
-        'tuesday schedule' => 'tuesday','tuesday' => 'tuesday',
-        'wednesday schedule' => 'wednesday','wednesday' => 'wednesday',
-        'thursday schedule' => 'thursday','thursday' => 'thursday',
-        'friday schedule' => 'friday','friday' => 'friday',
-        'saturday schedule' => 'saturday','saturday' => 'saturday',
-
-        // --- CERTIFICATES ---
-        'certificates' => 'certificates',
-        'certificate uploads' => 'certificates',
-
-        // --- PROFILE PICTURE ---
-        'profile picture' => 'profile_picture',
-        'profile_photo' => 'profile_picture',
-        'google drive link to your profile picture (jpg or png)' => 'profile_picture',
-    ];
-
-    $normalized = [];
+    private function rangesOverlap($a, $b)
+    {
+        // Standard open-interval overlap
+        return $a->start < $b->end && $b->start < $a->end;
+    }
 
     /**
-     * Helpers
+     * Try to smart-match a barangay string to locations table.
+     * - Ignores case
+     * - Collapses extra spaces
+     * - Allows small misspellings via levenshtein distance
+     *
+     * @return object|null  (barangay, district_id)
      */
-    $fixTime = function ($t) {
-        $t = trim($t);
-        return preg_match('/^\d{1,2}$/', $t) ? $t . ":00" : $t;
-    };
-
-    $cleanSchedule = function ($raw) use ($fixTime) {
-        if (!$raw) return [];
-
-        $raw = preg_replace('/\[[MAE]\]/i', '', $raw);           // strip [M], [A], [E]
-        $raw = str_replace(['–',';',','], ['-',' ',' '], $raw);  // normalize separators
-        $raw = preg_replace('/\s+/', ' ', trim($raw));
-
-        if ($raw === "" || stripos($raw, "no class") !== false) return [];
-
-        $parts = explode(' ', $raw);
-
-        return array_values(array_filter(array_map(function($slot) use ($fixTime) {
-            if (!str_contains($slot, '-')) return null;
-            [$a,$b] = explode('-', $slot);
-            return $fixTime($a) . "-" . $fixTime($b);
-        }, $parts)));
-    };
-
-    $scheduleDays = ['monday','tuesday','wednesday','thursday','friday','saturday'];
-    foreach ($scheduleDays as $d) $normalized[$d] = [];
-
-    /**
-     * Process headers
-     */
-    foreach ($header as $i => $colRaw) {
-
-        $keyRaw = strtolower(trim((string) $colRaw));
-        $value  = isset($row[$i]) ? trim((string)$row[$i]) : '';
-
-        // Ignore timestamp/date columns
-        if (in_array($keyRaw, ['timestamp','time submitted','date'], true)) continue;
-
-        // Ignore yes/no helper questions like "Do you have a Monday class?"
-        if (preg_match('/do you have.*class\?/i', $keyRaw)) {
-            continue;
+    private function smartMatchBarangay(?string $raw)
+    {
+        $raw = trim((string) $raw);
+        if ($raw === '') {
+            return null;
         }
 
-        // Map header → internal field
-        $mapped =
-            ($mapping[$keyRaw] ?? null)
-            ?? ($mapping[preg_replace('/\s+/', ' ', $keyRaw)] ?? null)
-            ?? ($mapping[str_replace([' ', '-'], '_', $keyRaw)] ?? null);
+        // Normalize: lowercase, collapse spaces
+        $needle = strtolower(preg_replace('/\s+/', ' ', $raw));
 
-        // Schedule columns
-        if (in_array($mapped, $scheduleDays, true)) {
-            // Skip if there are absolutely no digits (e.g. all text)
-            if (!preg_match('/\d/', $value)) continue;
+        // Cache locations in static variable to avoid repeated queries
+        static $locationCache = null;
 
-            $slots = $cleanSchedule($value);
-            if (!empty($slots)) {
-                $normalized[$mapped] = array_values(array_unique(
-                    array_merge($normalized[$mapped], $slots)
+        if ($locationCache === null) {
+            $rows = DB::table('locations')
+                ->select('barangay', 'district_id')
+                ->get();
+
+            $locationCache = [];
+            foreach ($rows as $row) {
+                // skip rows with empty barangay to avoid weird matches
+                if (!trim((string) $row->barangay)) {
+                    continue;
+                }
+
+                $normalizedName = strtolower(preg_replace(
+                    '/\s+/',
+                    ' ',
+                    trim((string) $row->barangay)
                 ));
-            }
-            continue;
-        }
 
-        // Profile picture
-        if ($mapped === 'profile_picture') {
-            if ($value !== '') {
-                $converted = $this->convertDriveLinkToDownloadUrl($value);
-                $localPath = $this->downloadDriveImage($converted);
-                $normalized['profile_picture'] = $value;
-                $normalized['profile_picture_local'] = $localPath;
-            }
-            continue;
-        }
-
-        // Normal mapped fields
-        if ($mapped) {
-            $normalized[$mapped] = $value;
-        }
-    }
-
-    /**
-     * Merge names → full_name
-     */
-    $fn = $normalized['first_name'] ?? '';
-    $mn = $normalized['middle_name'] ?? '';
-    $ln = $normalized['last_name'] ?? '';
-
-    if (empty($normalized['full_name']) && ($fn || $ln)) {
-        $normalized['full_name'] =
-            trim(
-                ucwords(strtolower($fn)) . ' ' .
-                ($mn ? strtoupper($mn[0]) . '. ' : '') .
-                ucwords(strtolower($ln))
-            );
-    }
-
-    /**
-     * Normalize Barangay (fuzzy match)
-     */
-    if (!empty($normalized['barangay'])) {
-        $cleanBrgy = ucwords(strtolower(trim($normalized['barangay'])));
-        $match = $this->smartMatchBarangay($cleanBrgy);
-        if ($match) {
-            $normalized['barangay'] = $match->barangay;
-            $normalized['district'] = $match->district_id; // this is district_id semantically
-        }
-    }
-
-    /**
-     * Normalize Course
-     */
-    if (!empty($normalized['course'])) {
-        $c = trim($normalized['course']);
-        $db = DB::table('courses')
-            ->whereRaw('LOWER(course_name)=?', [strtolower($c)])
-            ->value('course_name');
-        $normalized['course'] = $db ?? ucwords(strtolower($c));
-    }
-
-    /**
-     * Normalize year level
-     */
-    if (!empty($normalized['year_level'])) {
-        $yl = strtolower($normalized['year_level']);
-        foreach (['1','2','3','4'] as $n) {
-            if (str_contains($yl, $n)) {
-                $normalized['year_level'] = $n;
-                break;
+                $locationCache[] = (object)[
+                    'barangay'     => $row->barangay,
+                    'district_id'  => $row->district_id,
+                    'normalized'   => $normalizedName,
+                ];
             }
         }
+
+        if (empty($locationCache)) {
+            return null;
+        }
+
+        $best = null;
+        $bestDist = PHP_INT_MAX;
+
+        foreach ($locationCache as $loc) {
+            // Exact normalized match → immediate win
+            if ($loc->normalized === $needle) {
+                return (object)[
+                    'barangay'    => $loc->barangay,
+                    'district_id' => $loc->district_id,
+                ];
+            }
+
+            // Approximate match
+            $dist = levenshtein($needle, $loc->normalized);
+
+            if ($dist < $bestDist) {
+                $bestDist = $dist;
+                $best = $loc;
+            }
+        }
+
+        // Decide if "close enough"
+        $len = strlen($needle);
+        $threshold = max(2, (int) floor($len / 4)); // tune if needed
+
+        if ($best && $bestDist <= $threshold) {
+            return (object)[
+                'barangay'    => $best->barangay,
+                'district_id' => $best->district_id,
+            ];
+        }
+
+        return null;
     }
 
     /**
-     * Build final class schedule string
+     * normalizeRow
      */
-    $out = [];
-    foreach (['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'] as $day) {
-        $slots = $normalized[strtolower($day)] ?? [];
-        $out[] = $day . ': ' . (empty($slots) ? 'No Class' : implode(' ', $slots));
-    }
-    $normalized['class_schedule'] = implode(' ', $out);
+    private function normalizeRow(array $row, array $header): array
+    {
+        /**
+         * Flexible Header Mapping
+         */
+        $mapping = [
+            // --- FULL NAME ---
+            'full_name' => 'full_name', 'fullname' => 'full_name', 'full name' => 'full_name',
+            'first name' => 'first_name', 'firstname' => 'first_name',
+            'middle name' => 'middle_name', 'middlename' => 'middle_name',
+            'last name' => 'last_name', 'lastname' => 'last_name', 'surname' => 'last_name',
 
-    /**
-     * Ensure required keys exist
-     */
-    foreach ([
-        'full_name','id_number','email','contact_number','emergency_contact',
-        'fb_messenger','barangay','district','course','year_level',
-        'class_schedule','certificates','profile_picture','profile_picture_local'
-    ] as $k) {
-        if (!array_key_exists($k, $normalized)) {
-            $normalized[$k] = '';
-        }
-    }
+            // --- SCHOOL ID ---
+            'id number' => 'id_number', 'school id' => 'id_number',
+            'school id number' => 'id_number', 'id' => 'id_number',
 
-    /**
-     * Normalize PH numbers
-     */
-    foreach (['contact_number', 'emergency_contact'] as $field) {
-        if (!empty($normalized[$field])) {
-            $normalized[$field] = preg_replace('/[^\d+]/', '', $normalized[$field]);
-        }
-    }
+            // --- CONTACT NUMBER ---
+            'contact number' => 'contact_number', 'contact_number' => 'contact_number',
+            'phone' => 'contact_number', 'phone number' => 'contact_number',
+            'contact no' => 'contact_number', 'contact #' => 'contact_number',
 
-    return $normalized;
-}
+            // --- EMERGENCY CONTACT ---
+            'emergency number' => 'emergency_contact',
+            'emergency_contact' => 'emergency_contact',
+            'emergency contact' => 'emergency_contact',
+            'emergency contact number' => 'emergency_contact',
+            'emergency no' => 'emergency_contact',
+            'emergency #' => 'emergency_contact',
 
-/**
- * Validate ONE normalized row
- */
-private function validateRow(array $data)
-{
-    $errors = [];
+            // --- EMAIL ---
+            'email address' => 'email', 'email' => 'email',
+            'school email address' => 'email', 'school email' => 'email',
+            'adzu email' => 'email', 'email add' => 'email',
 
-    // Full Name
-    if (empty($data['full_name']) ||
-        !preg_match("/^[A-Za-zÑñ\s\.\'-]+$/u", $data['full_name'])) {
-        $errors['full_name'] = 'Full Name is required and only letters allowed.';
-    }
+            // --- FB ---
+            'fb link' => 'fb_messenger', 'facebook profile link' => 'fb_messenger',
+            'messenger' => 'fb_messenger', 'fb' => 'fb_messenger',
 
-    // School ID
-    if (empty($data['id_number']) ||
-        !preg_match('/^\d{6,7}$/', (string)$data['id_number'])) {
-        $errors['id_number'] = 'School ID must be 6 or 7 digits.';
-    }
+            // --- BARANGAY ---
+            'barangay' => 'barangay', 'brgy' => 'barangay',
+            'district' => 'district',
 
-    // Course
-    if (empty($data['course']) ||
-        !preg_match('/^[A-Za-z\s]+$/u', $data['course'])) {
-        $errors['course'] = 'Course is required.';
-    }
+            // --- COURSE ---
+            'course' => 'course', 'strand' => 'course', 'program' => 'course',
 
-    // Year
-    if (empty($data['year_level']) ||
-        !in_array((string)$data['year_level'], ['1','2','3','4'], true)) {
-        $errors['year_level'] = 'Year must be 1–4.';
-    }
+            // --- YEAR LEVEL ---
+            'year' => 'year_level', 'year level' => 'year_level', 'yearlevel' => 'year_level',
+            'year_level' => 'year_level',
 
-    // Numbers
-    $cn = $data['contact_number'] ?? '';
-    $ec = $data['emergency_contact'] ?? '';
+            // --- BATCH / COHORT ---
+            'batch' => 'batch_year',
+            'batch number' => 'batch_year',
+            'batch no' => 'batch_year',
+            'cohort' => 'batch_year',
+            
+            // --- SCHEDULES ---
+            'monday schedule' => 'monday', 'monday' => 'monday',
+            'tuesday schedule' => 'tuesday', 'tuesday' => 'tuesday',
+            'wednesday schedule' => 'wednesday', 'wednesday' => 'wednesday',
+            'thursday schedule' => 'thursday', 'thursday' => 'thursday',
+            'friday schedule' => 'friday', 'friday' => 'friday',
+            'saturday schedule' => 'saturday', 'saturday' => 'saturday',
 
-    if (!preg_match('/^(09\d{9}|\+639\d{9})$/', $cn)) {
-        $errors['contact_number'] = 'Contact Number must be a valid PH number.';
-    }
+            // --- CERTIFICATES ---
+            'certificates' => 'certificates',
+            'certificate uploads' => 'certificates',
 
-    if (!preg_match('/^(09\d{9}|\+639\d{9})$/', $ec)) {
-        $errors['emergency_contact'] = 'Emergency Contact must be a valid PH number.';
-    }
+            // --- PROFILE PICTURE ---
+            'profile picture' => 'profile_picture',
+            'profile_photo' => 'profile_picture',
+            'google drive link to your profile picture (jpg or png)' => 'profile_picture',
+        ];
 
-    if ($cn && $ec && $cn === $ec) {
-        $errors['emergency_contact'] =
-            'Emergency Contact must be DIFFERENT from Contact Number.';
-    }
+        $normalized = [];
 
-    // Email
-    if (empty($data['email']) ||
-        !filter_var($data['email'], FILTER_VALIDATE_EMAIL) ||
-        !preg_match('/@(gmail\.com|adzu\.edu\.ph)$/i', $data['email'])) {
-        $errors['email'] = 'Email must end with @gmail.com or @adzu.edu.ph.';
-    }
+        /**
+         * Helpers
+         */
+        $fixTime = function ($t) {
+            $t = trim($t);
+            return preg_match('/^\d{1,2}$/', $t) ? $t . ":00" : $t;
+        };
 
-    // Barangay
-    if (empty(trim($data['barangay'] ?? ''))) {
-        $errors['barangay'] = 'Barangay is required.';
-    } else {
-        $match = $this->smartMatchBarangay($data['barangay']);
-        if (!$match) {
-            $errors['barangay'] = "Invalid barangay: '{$data['barangay']}'";
-        }
-    }
+        $cleanSchedule = function ($raw) use ($fixTime) {
+            if (!$raw) return [];
 
-    // Schedules
-    foreach (['monday','tuesday','wednesday','thursday','friday','saturday'] as $day) {
-        $slots = $data[$day] ?? [];
+            $raw = preg_replace('/\[[MAE]\]/i', '', $raw);           // strip [M], [A], [E]
+            $raw = str_replace(['–', ';', ','], ['-', ' ', ' '], $raw);  // normalize separators
+            $raw = preg_replace('/\s+/', ' ', trim($raw));
 
-        // Safety: if somehow a string sneaks in, turn into single slot array
-        if (!is_array($slots)) {
-            $slots = trim((string)$slots) !== '' ? [trim((string)$slots)] : [];
-        }
+            if ($raw === "" || stripos($raw, "no class") !== false) return [];
 
-        $parsed = [];
+            $parts = explode(' ', $raw);
 
-        foreach ($slots as $slot) {
-            $slot = trim((string)$slot);
-            if ($slot === '') continue;
+            return array_values(array_filter(array_map(function ($slot) use ($fixTime) {
+                if (!str_contains($slot, '-')) return null;
+                [$a, $b] = explode('-', $slot);
+                return $fixTime($a) . "-" . $fixTime($b);
+            }, $parts)));
+        };
 
-            $range = $this->parseTimeRange($slot);
-            if (!$range) {
-                $errors[$day][] = "Invalid time format '$slot'";
+        $scheduleDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        foreach ($scheduleDays as $d) $normalized[$d] = [];
+
+        /**
+         * Process headers
+         */
+        foreach ($header as $i => $colRaw) {
+            $keyRaw = strtolower(trim((string) $colRaw));
+            $value  = isset($row[$i]) ? trim((string)$row[$i]) : '';
+
+            // Ignore timestamp/date columns
+            if (in_array($keyRaw, ['timestamp', 'time submitted', 'date'], true)) continue;
+
+            // Ignore yes/no helper questions like "Do you have a Monday class?"
+            if (preg_match('/do you have.*class\?/i', $keyRaw)) {
                 continue;
             }
 
-            foreach ($parsed as $p) {
-                if ($this->rangesOverlap($range, $p['range'])) {
-                    $errors[$day][] = "Conflict: '$slot' overlaps '{$p['raw']}'";
+            // Map header → internal field
+            $mapped =
+                ($mapping[$keyRaw] ?? null)
+                ?? ($mapping[preg_replace('/\s+/', ' ', $keyRaw)] ?? null)
+                ?? ($mapping[str_replace([' ', '-'], '_', $keyRaw)] ?? null);
+
+            // Schedule columns
+            if (in_array($mapped, $scheduleDays, true)) {
+                // Skip if there are absolutely no digits (e.g. all text)
+                if (!preg_match('/\d/', $value)) continue;
+
+                $slots = $cleanSchedule($value);
+                if (!empty($slots)) {
+                    $normalized[$mapped] = array_values(array_unique(
+                        array_merge($normalized[$mapped], $slots)
+                    ));
                 }
+                continue;
             }
 
-            $parsed[] = ['raw'=>$slot,'range'=>$range];
+            // Profile picture
+            if ($mapped === 'profile_picture') {
+                if ($value !== '') {
+                    $converted = $this->convertDriveLinkToDownloadUrl($value);
+                    $localPath = $this->downloadDriveImage($converted);
+                    $normalized['profile_picture'] = $value;
+                    $normalized['profile_picture_local'] = $localPath;
+                }
+                continue;
+            }
+
+            // Normal mapped fields
+            if ($mapped) {
+                $normalized[$mapped] = $value;
+            }
         }
+
+        /**
+         * Merge names → full_name
+         */
+        $fn = $normalized['first_name'] ?? '';
+        $mn = $normalized['middle_name'] ?? '';
+        $ln = $normalized['last_name'] ?? '';
+
+        if (empty($normalized['full_name']) && ($fn || $ln)) {
+            $normalized['full_name'] =
+                trim(
+                    ucwords(strtolower($fn)) . ' ' .
+                    ($mn ? strtoupper($mn[0]) . '. ' : '') .
+                    ucwords(strtolower($ln))
+                );
+        }
+
+        /**
+         * Normalize Barangay (fuzzy match)
+         */
+        if (!empty($normalized['barangay'])) {
+            $cleanBrgy = ucwords(strtolower(trim($normalized['barangay'])));
+            $match = $this->smartMatchBarangay($cleanBrgy);
+            if ($match) {
+                $normalized['barangay'] = $match->barangay;
+                $normalized['district'] = $match->district_id; // this is district_id semantically
+            }
+        }
+
+        /**
+         * Normalize Course
+         */
+        if (!empty($normalized['course'])) {
+            $c = trim($normalized['course']);
+            $db = DB::table('courses')
+                ->whereRaw('LOWER(course_name)=?', [strtolower($c)])
+                ->value('course_name');
+            $normalized['course'] = $db ?? ucwords(strtolower($c));
+        }
+
+        /**
+         * Normalize year level
+         */
+        if (!empty($normalized['year_level'])) {
+            $yl = strtolower($normalized['year_level']);
+            foreach (['1', '2', '3', '4'] as $n) {
+                if (str_contains($yl, $n)) {
+                    $normalized['year_level'] = $n;
+                    break;
+                }
+            }
+        }
+        
+        /**
+         * Derive batch_year if missing or messy
+         * Priority:
+         *   1) Use explicit "Batch" field from CSV if present
+         *   2) Else derive from School ID Number (first 2 digits → 20xx)
+        */
+        if (!empty($normalized['batch_year'])) {
+            // Clean up whatever user typed: "Batch 2023", "2023", etc.
+            $digits = preg_replace('/\D+/', '', (string)$normalized['batch_year']);
+            if (strlen($digits) === 4) {
+                $normalized['batch_year'] = (int)$digits;        // e.g. 2023
+            } elseif (strlen($digits) === 2) {
+                // assume 20xx (you can tweak logic if school uses different style)
+                $normalized['batch_year'] = 2000 + (int)$digits; // e.g. "23" → 2023
+            } else {
+                $normalized['batch_year'] = null; // weird input, we just drop it
+            }
+        }
+
+        // If still empty, derive from id_number
+        if (empty($normalized['batch_year']) && !empty($normalized['id_number'])) {
+            $id = preg_replace('/\D+/', '', (string)$normalized['id_number']);
+
+            // pattern: YYxxxxx, e.g. 230279, 210232
+            if (preg_match('/^(\d{2})\d{4,5}$/', $id, $m)) {
+                $yy = (int)$m[1];      // 23 → 23, 21 → 21
+                $normalized['batch_year'] = 2000 + $yy;  // 23 → 2023, 21 → 2021
+            }
+        }
+
+        /**
+         * Build final class schedule string
+         */
+        $out = [];
+        foreach (['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as $day) {
+            $slots = $normalized[strtolower($day)] ?? [];
+            $out[] = $day . ': ' . (empty($slots) ? 'No Class' : implode(' ', $slots));
+        }
+        $normalized['class_schedule'] = implode(' ', $out);
+
+        /**
+         * Ensure required keys exist
+         */
+        foreach ([
+            'full_name','id_number','email','contact_number','emergency_contact',
+            'fb_messenger','barangay','district','course','year_level',
+            'batch_year',
+            'class_schedule','certificates','profile_picture','profile_picture_local'
+        ] as $k) {
+            if (!array_key_exists($k, $normalized)) {
+                $normalized[$k] = '';
+            }
+        }
+
+
+        /**
+         * Normalize PH numbers
+         */
+        foreach (['contact_number', 'emergency_contact'] as $field) {
+            if (!empty($normalized[$field])) {
+                $normalized[$field] = preg_replace('/[^\d+]/', '', $normalized[$field]);
+            }
+        }
+
+        return $normalized;
     }
 
-    return empty($errors) ? null : $errors;
-}
-
-
     /**
+     * Validate ONE normalized row
+     */
+    private function validateRow(array $data)
+    {
+        $errors = [];
+
+        // Full Name
+        if (empty($data['full_name']) ||
+            !preg_match("/^[A-Za-zÑñ\s\.\'-]+$/u", $data['full_name'])) {
+            $errors['full_name'] = 'Full Name is required and only letters allowed.';
+        }
+
+        // Batch Number
+        if (!empty($data['batch_year']) &&
+            !preg_match('/^20\d{2}$/', (string)$data['batch_year'])) {
+            $errors['batch_year'] = 'Batch year must be a 4-digit year like 2023.';
+        }
+
+        // School ID
+        if (empty($data['id_number']) ||
+            !preg_match('/^\d{6,7}$/', (string)$data['id_number'])) {
+            $errors['id_number'] = 'School ID must be 6 or 7 digits.';
+        }
+
+        // Course
+        if (empty($data['course']) ||
+            !preg_match('/^[A-Za-z\s]+$/u', $data['course'])) {
+            $errors['course'] = 'Course is required.';
+        }
+
+        // Year
+        if (empty($data['year_level']) ||
+            !in_array((string)$data['year_level'], ['1', '2', '3', '4'], true)) {
+            $errors['year_level'] = 'Year must be 1–4.';
+        }
+
+        // Numbers
+        $cn = $data['contact_number'] ?? '';
+        $ec = $data['emergency_contact'] ?? '';
+
+        if (!preg_match('/^(09\d{9}|\+639\d{9})$/', $cn)) {
+            $errors['contact_number'] = 'Contact Number must be a valid PH number.';
+        }
+
+        if (!preg_match('/^(09\d{9}|\+639\d{9})$/', $ec)) {
+            $errors['emergency_contact'] = 'Emergency Contact must be a valid PH number.';
+        }
+
+        if ($cn && $ec && $cn === $ec) {
+            $errors['emergency_contact'] =
+                'Emergency Contact must be DIFFERENT from Contact Number.';
+        }
+
+        // Email
+        if (empty($data['email']) ||
+            !filter_var($data['email'], FILTER_VALIDATE_EMAIL) ||
+            !preg_match('/@(gmail\.com|adzu\.edu\.ph)$/i', $data['email'])) {
+            $errors['email'] = 'Email must end with @gmail.com or @adzu.edu.ph.';
+        }
+
+        // Barangay
+        if (empty(trim($data['barangay'] ?? ''))) {
+            $errors['barangay'] = 'Barangay is required.';
+        } else {
+            $match = $this->smartMatchBarangay($data['barangay']);
+            if (!$match) {
+                $errors['barangay'] = "Invalid barangay: '{$data['barangay']}'";
+            }
+        }
+
+        // Schedules
+        foreach (['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as $day) {
+            $slots = $data[$day] ?? [];
+
+            // Safety: if somehow a string sneaks in, turn into single slot array
+            if (!is_array($slots)) {
+                $slots = trim((string)$slots) !== '' ? [trim((string)$slots)] : [];
+            }
+
+            $parsed = [];
+
+            foreach ($slots as $slot) {
+                $slot = trim((string)$slot);
+                if ($slot === '') continue;
+
+                $range = $this->parseTimeRange($slot);
+                if (!$range) {
+                    $errors[$day][] = "Invalid time format '$slot'";
+                    continue;
+                }
+
+                foreach ($parsed as $p) {
+                    if ($this->rangesOverlap($range, $p['range'])) {
+                        $errors[$day][] = "Conflict: '$slot' overlaps '{$p['raw']}'";
+                    }
+                }
+
+                $parsed[] = ['raw' => $slot, 'range' => $range];
+            }
+        }
+
+        return empty($errors) ? null : $errors;
+    }
+
+   /**
      * Update / Correct Volunteer Fields
      */
     public function updateVolunteerEntry(Request $request, $index, $type)
@@ -844,6 +885,20 @@ private function validateRow(array $data)
             $input['id_number'] = strtoupper($input['id_number']);
         }
 
+        // 🔹 NEW: Normalize batch_year like in normalizeRow()
+        if (!empty($input['batch_year'])) {
+            $digits = preg_replace('/\D+/', '', (string) $input['batch_year']);
+
+            if (strlen($digits) === 4) {
+                $input['batch_year'] = (int) $digits;          // e.g. 2023
+            } elseif (strlen($digits) === 2) {
+                $input['batch_year'] = 2000 + (int) $digits;   // e.g. "23" → 2023
+            } else {
+                // weird input, treat as null so validation can catch if needed
+                $input['batch_year'] = null;
+            }
+        }
+
         /* ============================================================
         VALIDATION
         ============================================================ */
@@ -858,13 +913,19 @@ private function validateRow(array $data)
             'fb_messenger'     => ['nullable'],
             'barangay'         => ['required'],
             'district'         => ['required'],
-            'class_schedule'   => ['required','string','regex:/^[\w\s,:()\.\-\/]+$/']
+            'class_schedule'   => ['required','string','regex:/^[\w\s,:()\.\-\/]+$/'],
+
+            // 🔹 NEW: make batch_year optional but sane
+            'batch_year'       => ['nullable','digits:4','integer','min:2000','max:2100'],
         ],[
-            'year_level.in' => 'Year must be 1, 2, 3, or 4.',
-            'district.required' => 'No district selected.',
-            'barangay.required' => 'No barangay selected.',
+            'year_level.in'        => 'Year must be 1, 2, 3, or 4.',
+            'district.required'    => 'No district selected.',
+            'barangay.required'    => 'No barangay selected.',
             'class_schedule.required' => 'Class schedule is required.',
             'class_schedule.regex' => 'Class schedule contains invalid characters.',
+            'batch_year.digits'    => 'Batch year must be a 4-digit year like 2023.',
+            'batch_year.min'       => 'Batch year is too early.',
+            'batch_year.max'       => 'Batch year is too far in the future.',
         ]);
 
         $errors = $validator->fails() ? $validator->errors()->toArray() : [];
@@ -872,7 +933,7 @@ private function validateRow(array $data)
         if (!empty($input['fb_messenger'])) {
             $fb = $input['fb_messenger'];
             if (!filter_var($fb, FILTER_VALIDATE_URL) ||
-                stripos(parse_url($fb, PHP_URL_HOST) ?: '', 'facebook.com') === false) 
+                stripos(parse_url($fb, PHP_URL_HOST) ?: '', 'facebook.com') === false)
             {
                 $errors['fb_messenger'] = ['FB/Messenger must be a valid Facebook link'];
             }
@@ -943,17 +1004,18 @@ private function validateRow(array $data)
         ============================================================ */
         $adminId = Auth::guard('admin')->id();
         $labels = [
-            'full_name' => 'Full Name',
-            'id_number' => 'School ID',
-            'course' => 'Course',
-            'year_level' => 'Year Level',
-            'contact_number' => 'Contact #',
-            'emergency_contact' => 'Emergency #',
-            'email' => 'Email',
-            'fb_messenger' => 'FB/Messenger',
-            'barangay' => 'Barangay',
-            'district' => 'District',
-            'class_schedule' => 'Class Schedule'
+            'full_name'        => 'Full Name',
+            'id_number'        => 'School ID',
+            'course'           => 'Course',
+            'year_level'       => 'Year Level',
+            'contact_number'   => 'Contact #',
+            'emergency_contact'=> 'Emergency #',
+            'email'            => 'Email',
+            'fb_messenger'     => 'FB/Messenger',
+            'barangay'         => 'Barangay',
+            'district'         => 'District',
+            'class_schedule'   => 'Class Schedule',
+            'batch_year'       => 'Batch Year',   // ✅ already good
         ];
 
         if ($adminId && !empty($updatedFields)) {
@@ -965,8 +1027,8 @@ private function validateRow(array $data)
                 }
             }
 
-            $entityId = $entries[$index]['volunteer_id'] 
-                    ?? $entries[$index]['row_number'] 
+            $entityId = $entries[$index]['volunteer_id']
+                    ?? $entries[$index]['row_number']
                     ?? ($index + 1);
 
             $this->logFact(
@@ -975,7 +1037,7 @@ private function validateRow(array $data)
                 isset($entries[$index]['volunteer_id']) ? 'VolunteerProfile' : 'Volunteer Import',
                 $entityId,
                 'Updated',
-                "updated Entry #".($index+1).": " . implode(', ', $fieldDetails)
+                "Updated Entry #".($index+1).": " . implode(', ', $fieldDetails)
             );
         }
 
@@ -1057,17 +1119,18 @@ private function validateRow(array $data)
         FLASH MESSAGE
         ============================================================ */
 
-    $flash = "
-        <strong style='color:#28a745;'>✔ No Changes Made #{$row}</strong>
-        <span style='color:#28a745; font-weight:600;'> – {$name}</span>
-        &nbsp;|&nbsp;
-        <span class='update-details-link'
-            data-details=\"{$encodedDetails}\"
-            style='color:#007bff; cursor:pointer; text-decoration:none;'>
-            Show Details
-        </span>
-    ";
-
+        // (Optional: you may want to change this text if changes were actually made,
+        // but I'm keeping your original message here.)
+        $flash = "
+            <strong style='color:#28a745;'>✔ No Changes Made #{$row}</strong>
+            <span style='color:#28a745; font-weight:600;'> – {$name}</span>
+            &nbsp;|&nbsp;
+            <span class='update-details-link'
+                data-details=\"{$encodedDetails}\"
+                style='color:#007bff; cursor:pointer; text-decoration:none;'>
+                Show Details
+            </span>
+        ";
 
         return redirect()->route('volunteer.import.index')
             ->with('success', $flash)
@@ -1076,7 +1139,8 @@ private function validateRow(array $data)
             ->with('last_updated_index', $index);
     }
 
-   /**
+
+    /**
      * Move selected INVALID entries → VALID
      */
     public function moveInvalidToValid(Request $request)
@@ -1100,7 +1164,7 @@ private function validateRow(array $data)
                 'VolunteerImport',
                 null,
                 'Move Invalid → Valid — Failed',
-                'attempted to move entries but no rows were selected'
+                'No rows selected'
             );
 
             $flash = "
@@ -1180,7 +1244,7 @@ private function validateRow(array $data)
                     'VolunteerImport',
                     $id,
                     'Moved Invalid → Valid',
-                    "moved Entry #{$fromNo} — {$name}"
+                    "Moved Entry #{$fromNo} — {$name}"
                 );
             }
 
@@ -1256,7 +1320,7 @@ private function validateRow(array $data)
                 'VolunteerImport',
                 $id,
                 'Moved Invalid → Valid',
-                "moved Entry #{$fromNo} — {$name}"
+                "Moved Entry #{$fromNo} — {$name}"
             );
         }
 
@@ -1283,7 +1347,7 @@ private function validateRow(array $data)
             $from = (int)($e['origin_entry_no'] ?? 0);
 
             $html .= "
-                <div style='margin-bottom:10px; display:flex; gap:6px; align-items:center;'}>
+                <div style='margin-bottom:10px; display:flex; gap:6px; align-items:center;'>
                     <span style='color:#28a745;'>✔</span>
                     <span style='font-weight:600;'>Entry #{$from} — {$safe}</span>
                 </div>
@@ -1320,7 +1384,7 @@ private function validateRow(array $data)
                 'VolunteerImport',
                 null,
                 'Move Valid → Invalid — Failed',
-                'attempted to move a valid entry but the index was not found'
+                'Entry not found'
             );
 
             $flash = "
@@ -1378,7 +1442,7 @@ private function validateRow(array $data)
             'VolunteerImport',
             $id,
             'Moved Valid → Invalid',
-            "moved Entry #{$fromNo} — {$name}"
+            "Moved Entry #{$fromNo} — {$name}"
         );
 
         $flash = "
@@ -1409,7 +1473,6 @@ private function validateRow(array $data)
             ->with('success_modal_message', $html)
             ->with('redirect_anchor', '#import-Section-invalid');
     }
-
 
     /**
      * Delete Entries
@@ -1449,7 +1512,7 @@ private function validateRow(array $data)
                             'Volunteer Import',
                             $volunteerId,
                             'Deleted',
-                            "deleted Volunteer Entry #" . ($index + 1) . " {$name}"
+                            "Deleted Volunteer Entry #" . ($index + 1) . " {$name}"
                         );
                     }
                 }
@@ -1468,7 +1531,7 @@ private function validateRow(array $data)
                         'Volunteer Import',
                         $entry->import_id,
                         'Deleted',
-                        "deleted Import Log '{$name}' (ID {$entry->import_id})"
+                        "Deleted Import Log '{$name}' (ID {$entry->import_id})"
                     );
                 }
                 ImportLog::whereIn('import_id', $selected)->delete();
@@ -1591,7 +1654,7 @@ private function validateRow(array $data)
                         'Volunteer Import',
                         $volunteerId,
                         'Restored',
-                        "restored Volunteer Entry #" . ($index + 1) . " {$name}"
+                        "Restored Volunteer Entry #" . ($index + 1) . " {$name}"
                     );
                 }
                 session([$tableType . 'Entries' => array_values($entries)]);
@@ -1613,7 +1676,7 @@ private function validateRow(array $data)
                             'Volunteer Import',
                             $entityId,
                             'Restored',
-                            "restored Import Log '{$name}' (ID {$entityId})"
+                            "Restored Import Log '{$name}' (ID {$entityId})"
                         );
                     }
                 }
@@ -1829,6 +1892,7 @@ private function validateRow(array $data)
                         'id_number'      => $entry['id_number'] ?? "TEMP-" . uniqid(),
                         'course_id'      => $courseId,
                         'year_level'     => $entry['year_level'],
+                        'batch_year'     => !empty($entry['batch_year']) ? (int)$entry['batch_year'] : null,
                         'contact_number' => $entry['contact_number'],
                         'emergency_contact' => $entry['emergency_contact'],
                         'email'          => $entry['email'],
@@ -1842,13 +1906,14 @@ private function validateRow(array $data)
                         'status' => 'active',
                     ]);
 
+
                     $this->logFact(
                         'Import Verified',
                         $adminId,
                         'VolunteerProfile',
                         $volunteer->volunteer_id,
                         'Imported',
-                        "imported Volunteer Entry #" . ($index + 1) . " – {$entry['full_name']}"
+                        "Imported Volunteer Entry #" . ($index + 1) . " – {$entry['full_name']}"
                     );
                 }
             });
@@ -2018,7 +2083,7 @@ private function validateRow(array $data)
             </div>
         ";
 
-       $encoded = base64_encode($modal);
+        $encoded = base64_encode($modal);
 
         /** FLASH BAR */
         $flash = "
@@ -2041,7 +2106,7 @@ private function validateRow(array $data)
         /* -----------------------------------------------------------
         FACT LOG — Reset Import Preview (formatted summary)
         ----------------------------------------------------------- */
-        $formattedSummary = "reset Import Preview: {$validCount} valid, {$invalidCount} invalid, {$duplicateCount} duplicates (Total: {$totalCleared}).";
+        $formattedSummary = "Reset Import Preview: {$validCount} valid, {$invalidCount} invalid, {$duplicateCount} duplicates (Total: {$totalCleared}).";
 
         $this->logFact(
             'Reset Import Preview',
@@ -2057,9 +2122,7 @@ private function validateRow(array $data)
             ->with('success', $flash)
             ->with('resetSuccess', $modal)
             ->with('resetDetails', $encoded);
-
     }
-
     /**
      * Check if Entries Already Exist in Database (table:volunteer_profile)
      */
@@ -2343,8 +2406,6 @@ private function validateRow(array $data)
         }
     }
 
-
-    
     /**
      * UNIVERSAL entry resolver — handles any CSV header
      */
@@ -2359,8 +2420,8 @@ private function validateRow(array $data)
 
         // Possible name fields
         $nameFields = [
-            'full name', 'fullname', 'full', 
-            'name', 
+            'full name', 'fullname', 'full',
+            'name',
             'first name', 'firstname', 'first',
             'last name', 'lastname', 'last'
         ];
@@ -2489,7 +2550,7 @@ private function validateRow(array $data)
                 'Volunteer Import',
                 $volunteerId ?? $rowNum,
                 'Updated',
-                "reset Profile Picture for Entry #{$rowNum} – {$name}"
+                "Reset Profile Picture for Entry #{$rowNum} – {$name}"
             );
 
             return back()
@@ -2542,7 +2603,7 @@ private function validateRow(array $data)
             'Volunteer Import',
             $volunteerId ?? $rowNum,
             'Updated',
-            "updated Profile Picture for Entry #{$rowNum} – {$name}"
+            "Updated Profile Picture for Entry #{$rowNum} – {$name}"
         );
 
         return back()
@@ -2555,7 +2616,6 @@ private function validateRow(array $data)
             ->with('last_updated_table', $type)
             ->with('last_updated_index', $index);
     }
-
 
     /**
      * Set Default Profile Picture
@@ -2620,7 +2680,7 @@ private function validateRow(array $data)
             'Volunteer Import',
             $volunteerId ?? $rowNum,
             'Updated',
-            "reset Profile Picture for Entry #{$rowNum} – {$name}"
+            "Reset Profile Picture for Entry #{$rowNum} – {$name}"
         );
 
         return back()
@@ -2633,11 +2693,11 @@ private function validateRow(array $data)
             ->with('last_updated_index', $index);
     }
 
-     
     /**
-     * Centralized FactLog helper with normalized payload
+     * Centralized FactLog helper using existing fact_logs schema.
+     * Stores a structured JSON payload in `details`.
      */
-    private function logFact(
+        private function logFact(
         string $factType,
         $adminId = null,
         $entity = null,
@@ -2647,65 +2707,81 @@ private function validateRow(array $data)
     ): FactLog {
         // Resolve admin
         $admin = Auth::guard('admin')->user();
-        $resolvedAdminId = is_numeric($adminId) ? (int)$adminId : ($admin->admin_id ?? null);
-        $username        = $admin->username ?? null;
-        $displayName     = $admin->name ?? $username ?? ($resolvedAdminId ? ('Admin #' . $resolvedAdminId) : 'Unknown Admin');
+
+        $resolvedAdminId = is_numeric($adminId)
+            ? (int)$adminId
+            : ($admin->admin_id ?? null);
+
+        $actor = [
+            'admin_id' => $resolvedAdminId,
+            'name'     => $admin->name ?? null,
+            'username' => $admin->username ?? null,
+        ];
 
         // Resolve entity type + id
-        $entityType = 'Unknown';
         if (is_object($entity)) {
             $entityType = class_basename($entity);
             $modelKey   = method_exists($entity, 'getKey') ? $entity->getKey() : null;
-            $entityId   = $entityId ?? $modelKey;
+            if ($entityId === null && $modelKey !== null) {
+                $entityId = $modelKey;
+            }
         } elseif (is_string($entity)) {
             $entityType = $entity;
+        } else {
+            $entityType = 'Unknown';
         }
 
-        $summaryBase = null;
-        $extraData   = null;
-
-        if (is_string($details)) {
-            // Treat as verb / description, e.g. "deleted 5 invalid entries"
-            $summaryBase = trim($details);
-        } elseif (is_array($details) || is_object($details)) {
-            $extraData   = $details;
-        }
-
-        // Build final summary, always including actor when possible
-        $summary = $summaryBase;
-        if ($summaryBase !== null && $displayName) {
-            // Avoid double prefix if summary already starts with the name
-            if (stripos($summaryBase, $displayName) === 0) {
-                $summary = $summaryBase;
-            } else {
-                $summary = $displayName . ' ' . $summaryBase;
+        // Try to infer import_id (for JSON context only)
+        $importId = null;
+        if ($entity instanceof ImportLog) {
+            $importId = $entityId ?? $entity->import_id ?? null;
+        } else {
+            $etLower = strtolower((string)$entityType);
+            if (str_contains($etLower, 'import')) {
+                $importId = $entityId;
             }
+        }
+
+        $timestamp = now();
+
+        // Interpret $details: string → summary, array/object → data
+        if (is_array($details) || is_object($details)) {
+            $summary = is_array($details) && isset($details['summary'])
+                ? (string)$details['summary']
+                : null;
+            $data = $details;
+        } else {
+            $summary = $details !== null ? (string)$details : null;
+            $data = null;
         }
 
         $payload = [
             'version' => 1,
             'type'    => $factType,
             'summary' => $summary,
-            'actor'   => [
-                'admin_id' => $resolvedAdminId,
-                'username' => $username,
-            ],
+            'actor'   => $actor,
             'entity'  => [
                 'type' => $entityType,
                 'id'   => $entityId,
             ],
-            'action'  => $action,
-            'data'    => $extraData,
-            'at'      => now()->toIso8601String(),
+            'action' => $action,
+            'data'   => $data,
+            'at'     => $timestamp->toIso8601String(),
         ];
 
+        if ($importId !== null) {
+            $payload['context']['import_id'] = $importId;
+        }
+
         return FactLog::create([
-            'fact_type'   => $factType,
             'admin_id'    => $resolvedAdminId,
             'entity_type' => $entityType,
             'entity_id'   => $entityId,
             'action'      => $action,
-            'details'     => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'details'     => json_encode($payload, JSON_UNESCAPED_UNICODE),
+            'timestamp'   => $timestamp,
+            // ❌ removed 'import_id' here because DB column doesn't exist
         ]);
     }
+
 }

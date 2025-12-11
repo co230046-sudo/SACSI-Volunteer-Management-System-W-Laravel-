@@ -227,6 +227,7 @@
                                             <th>School ID</th>
                                             <th>Course</th>
                                             <th>Year</th>
+                                            <th>Batch</th> 
                                             <th>Contact #</th>
                                             <th>Email</th>
                                             <th>Emergency #</th>
@@ -251,6 +252,7 @@
                                                         'id_number' => 'School ID',
                                                         'course' => 'Course',
                                                         'year_level' => 'Year',
+                                                        'batch_year' => 'Batch Year',
                                                         'contact_number' => 'Contact #',
                                                         'email' => 'Email',
                                                         'barangay' => 'Barangay',
@@ -259,6 +261,7 @@
                                                         if (empty(trim($entry[$k] ?? ''))) $missingFields[] = $label;
                                                     }
 
+                                                    $fieldsOk = !$hasErrors && empty($missingFields);
                                                     $scheduleOk = !$scheduleLooksEmpty($entry);
                                                     $hasPic     = $hasRealPhoto($entry);
 
@@ -285,6 +288,7 @@
                                                         'id_number' => 'School ID',
                                                         'course' => 'Course',
                                                         'year_level' => 'Year',
+                                                        'batch_year' => 'Batch',   
                                                         'contact_number' => 'Contact #',
                                                         'email' => 'Email',
                                                         'emergency_contact' => 'Emergency #',
@@ -369,6 +373,16 @@
                                                                 data-bs-display="static"
                                                                 aria-expanded="false">
                                                                 <i class="fa-solid fa-ellipsis-vertical me-1"></i> Actions
+
+                                                                {{-- 🟢 NEW: Fields indicator --}}
+                                                                <span class="ind-pill {{ $fieldsOk ? 'ok' : 'warn' }}"
+                                                                    data-bs-toggle="tooltip"
+                                                                    data-bs-title="{{ $fieldsOk ? 'All required fields OK' : 'Missing / invalid fields' }}"
+                                                                    data-action="open-edit"
+                                                                    data-entry-type="invalid"
+                                                                    data-entry-index="{{ $index }}">
+                                                                    <i class="fa-solid fa-user-pen"></i>
+                                                                </span>
 
                                                                 {{-- ✅ NOTE: entry-type MUST be invalid here --}}
                                                                 <span class="ind-pill {{ $missingSchedule ? 'warn' : 'ok' }}"
@@ -562,6 +576,7 @@
                                                 <th>School ID</th>
                                                 <th>Course</th>
                                                 <th>Year</th>
+                                                <th>Batch</th>
                                                 <th>Contact #</th>
                                                 <th>Email</th>
                                                 <th>Emergency #</th>
@@ -577,7 +592,8 @@
                                                 @foreach ($validEntries as $index => $entry)
                                                     @php
                                                         $name = trim($entry['full_name'] ?? '') ?: 'Unknown';
-
+                             
+                                                        $fieldsOk = empty($validMissingFields);
                                                         $scheduleOk = !$scheduleLooksEmpty($entry);
                                                         $hasPic     = $hasRealPhoto($entry);
 
@@ -590,6 +606,7 @@
                                                             'id_number' => 'School ID',
                                                             'course' => 'Course',
                                                             'year_level' => 'Year',
+                                                            'batch_year' => 'Batch',
                                                             'contact_number' => 'Contact #',
                                                             'email' => 'Email',
                                                             'emergency_contact' => 'Emergency #',
@@ -648,7 +665,7 @@
                                                         {{-- ✅ ACTIONS dropdown --}}
                                                         <td class="actions-cell">
                                                             <div class="dropdown entry-actions">
-                                                                <button
+                                                                 <button
                                                                     class="btn btn-sm btn-outline-secondary entry-actions-btn"
                                                                     type="button"
                                                                     data-bs-toggle="dropdown"
@@ -656,6 +673,16 @@
                                                                     data-bs-display="static"
                                                                     aria-expanded="false">
                                                                     <i class="fa-solid fa-ellipsis-vertical me-1"></i> Actions
+
+                                                                    {{-- 🟢 NEW: Fields indicator --}}
+                                                                    <span class="ind-pill {{ $fieldsOk ? 'ok' : 'warn' }}"
+                                                                        data-bs-toggle="tooltip"
+                                                                        data-bs-title="{{ $fieldsOk ? 'All required fields OK' : 'Missing fields' }}"
+                                                                        data-action="open-edit"
+                                                                        data-entry-type="valid"
+                                                                        data-entry-index="{{ $index }}">
+                                                                        <i class="fa-solid fa-user-pen"></i>
+                                                                    </span>
 
                                                                     <span class="ind-pill {{ $missingSchedule ? 'warn' : 'ok' }}"
                                                                         data-bs-toggle="tooltip"
@@ -933,213 +960,237 @@
     <script src="{{ asset('assets/volunteer_import/js/table_actions.js') }}"></script>
 
     {{-- ✅ Dropdown pop-out + tooltips (fixed + portal) --}}
-    <script>
-      function initBootstrapTooltips(root = document) {
-          const els = [].slice.call(root.querySelectorAll('[data-bs-toggle="tooltip"]'));
-          els.forEach(el => {
-              const existing = bootstrap.Tooltip.getInstance(el);
-              if (existing) existing.dispose();
-              new bootstrap.Tooltip(el, {
-                  trigger: 'hover focus',
-                  container: 'body',
-                  html: el.getAttribute('data-bs-html') === 'true',
-                  boundary: 'window'
-              });
-          });
-      }
-
-      // NOTE: keep the "last" refs only for positioning, not for closing everything.
-      let lastDropdownToggle = null;
-      let lastDropdownMenu = null;
-      let reopenAfterModal = false;
-
-      function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
-
-      function portalMenuToBody(toggleBtn){
-          const wrap = toggleBtn?.closest?.('.entry-actions');
-          const menu = wrap?.querySelector?.('.entry-actions-menu');
-          if (!wrap || !menu) return null;
-          if (menu.dataset.portaled === '1') return menu;
-
-          const ph = document.createElement('span');
-          ph.className = 'entry-actions-placeholder';
-          wrap.appendChild(ph);
-
-          menu.dataset.portaled = '1';
-          menu.dataset.placeholderId = (crypto?.randomUUID?.() || ('ph_' + Math.random().toString(16).slice(2)));
-          ph.dataset.placeholderId = menu.dataset.placeholderId;
-
-          document.body.appendChild(menu);
-          toggleBtn.dataset.placeholderId = menu.dataset.placeholderId;
-
-          return menu;
-      }
-
-      function restoreMenuFromBody(toggleBtn){
-          const wrap = toggleBtn?.closest?.('.entry-actions');
-          if (!wrap) return;
-          const pid = toggleBtn?.dataset?.placeholderId;
-          if (!pid) return;
-
-          const menu = document.querySelector(`.entry-actions-menu[data-portaled="1"][data-placeholder-id="${pid}"]`)
-                    || document.querySelector(`.entry-actions-menu[data-portaled="1"]`);
-          const ph = wrap.querySelector(`.entry-actions-placeholder[data-placeholder-id="${pid}"]`);
-          if (!menu || !ph) return;
-
-          wrap.appendChild(menu);
-          menu.removeAttribute('data-portaled');
-          menu.style.position = '';
-          menu.style.left = '';
-          menu.style.top = '';
-          menu.style.zIndex = '';
-          ph.remove();
-      }
-
-      function positionMenuFixedOnce(toggleBtn) {
-          const pid = toggleBtn?.dataset?.placeholderId;
-          const menu = pid
-              ? document.querySelector(`.entry-actions-menu.show[data-placeholder-id="${pid}"]`)
-              : null;
-
-          const fallback = toggleBtn?.closest?.('.entry-actions')?.querySelector?.('.entry-actions-menu');
-          const m = menu || fallback;
-          if (!toggleBtn || !m) return;
-          if (!m.classList.contains('show')) return;
-
-          const btnRect = toggleBtn.getBoundingClientRect();
-          const menuRect = m.getBoundingClientRect();
-          const margin = 10;
-          const vw = window.innerWidth;
-          const vh = window.innerHeight;
-
-          let left = btnRect.right - menuRect.width;
-          left = clamp(left, margin, vw - menuRect.width - margin);
-
-          let top = btnRect.bottom + 8;
-          if (top + menuRect.height > vh - margin) {
-              top = btnRect.top - menuRect.height - 8;
-          }
-          top = clamp(top, margin, vh - menuRect.height - margin);
-
-          m.style.position = 'fixed';
-          m.style.left = left + 'px';
-          m.style.top = top + 'px';
-          m.style.zIndex = '99999';
-
-          lastDropdownToggle = toggleBtn;
-          lastDropdownMenu = m;
-      }
-
-      // ✅ close ONLY ONE dropdown (the one you clicked)
-      function closeOneEntryDropdown(toggleBtn){
-          const inst = bootstrap.Dropdown.getInstance(toggleBtn) || bootstrap.Dropdown.getOrCreateInstance(toggleBtn, { autoClose: 'outside' });
-          inst.hide();
-      }
-      window.closeOneEntryDropdown = closeOneEntryDropdown;
-
-      // keep this for when you MUST close all (ex: open modal)
-      function closeAllEntryDropdowns() {
-          document.querySelectorAll('.entry-actions .entry-actions-btn[aria-expanded="true"]').forEach(btn => {
-              const inst = bootstrap.Dropdown.getInstance(btn);
-              if (inst) inst.hide();
-          });
-          lastDropdownToggle = null;
-          lastDropdownMenu = null;
-      }
-      window.closeAllEntryDropdowns = closeAllEntryDropdowns;
-
-      document.addEventListener('DOMContentLoaded', function () {
-          initBootstrapTooltips();
-
-          document.addEventListener('shown.bs.dropdown', function (e) {
-              const toggleBtn = e.relatedTarget || e.target?.querySelector?.('.entry-actions-btn');
-              if (!toggleBtn) return;
-
-              const menu = portalMenuToBody(toggleBtn);
-              if (menu) menu.dataset.placeholderId = toggleBtn.dataset.placeholderId;
-
-              positionMenuFixedOnce(toggleBtn);
-              initBootstrapTooltips();
-          });
-
-          document.addEventListener('hidden.bs.dropdown', function (e) {
-              const toggleBtn = e.relatedTarget || e.target?.querySelector?.('.entry-actions-btn');
-              if (!toggleBtn) return;
-              restoreMenuFromBody(toggleBtn);
-          });
-
-          window.addEventListener('resize', () => {
-              if (lastDropdownToggle && lastDropdownMenu?.classList.contains('show')) {
-                  positionMenuFixedOnce(lastDropdownToggle);
-              }
-          });
-
-          // Close dropdowns before any bootstrap modal opens, then restore if needed
-          document.querySelectorAll('.modal').forEach(modalEl => {
-              modalEl.addEventListener('show.bs.modal', () => {
-                  reopenAfterModal = !!(lastDropdownMenu && lastDropdownMenu.classList.contains('show'));
-                  closeAllEntryDropdowns();
-              });
-
-              modalEl.addEventListener('hidden.bs.modal', () => {
-                  if (reopenAfterModal && lastDropdownToggle) {
-                      const inst = bootstrap.Dropdown.getOrCreateInstance(lastDropdownToggle, { autoClose: 'outside' });
-                      inst.show();
-                  }
-                  reopenAfterModal = false;
-              });
+<script>
+  function initBootstrapTooltips(root = document) {
+      const els = [].slice.call(root.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      els.forEach(el => {
+          const existing = bootstrap.Tooltip.getInstance(el);
+          if (existing) existing.dispose();
+          new bootstrap.Tooltip(el, {
+              trigger: 'hover focus',
+              container: 'body',
+              html: el.getAttribute('data-bs-html') === 'true',
+              boundary: 'window'
           });
       });
+  }
 
-      // ✅ CLOSE BUTTON INSIDE DROPDOWN: only closes that dropdown
-      document.addEventListener('click', function (e) {
-          const btn = e.target.closest('[data-action="close-dropdown"]');
-          if (!btn) return;
-          e.preventDefault();
-          e.stopPropagation();
-          const menu = btn.closest('.entry-actions-menu');
-          const wrap = menu ? document.querySelector(`.entry-actions-menu.show[data-placeholder-id="${menu.dataset.placeholderId}"]`) : null;
-          const toggle = document.querySelector(`.entry-actions-btn[data-placeholder-id="${menu?.dataset?.placeholderId || ''}"]`)
-                    || btn.closest('.entry-actions')?.querySelector('.entry-actions-btn');
-          if (toggle) closeOneEntryDropdown(toggle);
-      }, true);
+  // NOTE: keep the "last" refs only for positioning, not for closing everything.
+  let lastDropdownToggle = null;
+  let lastDropdownMenu = null;
+  let reopenAfterModal = false;
 
-      // ✅ Mini icon click => open schedule/photo modals without fighting dropdown portal
-      document.addEventListener('click', function (e) {
-        const pill = e.target.closest('.ind-pill[data-action]');
-        if (!pill) return;
+  function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
 
-        e.preventDefault();
-        e.stopPropagation();
+  function portalMenuToBody(toggleBtn){
+      const wrap = toggleBtn?.closest?.('.entry-actions');
+      const menu = wrap?.querySelector?.('.entry-actions-menu');
+      if (!wrap || !menu) return null;
+      if (menu.dataset.portaled === '1') return menu;
 
-        try {
-          // only close its dropdown, not all
-          const toggle = pill.closest('.entry-actions')?.querySelector('.entry-actions-btn');
-          if (toggle) closeOneEntryDropdown(toggle);
+      const ph = document.createElement('span');
+      ph.className = 'entry-actions-placeholder';
+      wrap.appendChild(ph);
 
-          const action = pill.dataset.action;
+      menu.dataset.portaled = '1';
+      menu.dataset.placeholderId = (crypto?.randomUUID?.() || ('ph_' + Math.random().toString(16).slice(2)));
+      ph.dataset.placeholderId = menu.dataset.placeholderId;
 
-          if (action === 'open-schedule') {
-            const html = pill.dataset.scheduleHtml || '';
-            const type = pill.dataset.entryType || '';
-            const idx  = pill.dataset.entryIndex || '';
-            if (typeof window.openScheduleModal === 'function') {
-              window.openScheduleModal(html, type, idx);
-            }
-            return;
+      document.body.appendChild(menu);
+      toggleBtn.dataset.placeholderId = menu.dataset.placeholderId;
+
+      return menu;
+  }
+
+  function restoreMenuFromBody(toggleBtn){
+      const wrap = toggleBtn?.closest?.('.entry-actions');
+      if (!wrap) return;
+      const pid = toggleBtn?.dataset?.placeholderId;
+      if (!pid) return;
+
+      const menu = document.querySelector(`.entry-actions-menu[data-portaled="1"][data-placeholder-id="${pid}"]`)
+                || document.querySelector(`.entry-actions-menu[data-portaled="1"]`);
+      const ph = wrap.querySelector(`.entry-actions-placeholder[data-placeholder-id="${pid}"]`);
+      if (!menu || !ph) return;
+
+      wrap.appendChild(menu);
+      menu.removeAttribute('data-portaled');
+      menu.style.position = '';
+      menu.style.left = '';
+      menu.style.top = '';
+      menu.style.zIndex = '';
+      ph.remove();
+  }
+
+  function positionMenuFixedOnce(toggleBtn) {
+      const pid = toggleBtn?.dataset?.placeholderId;
+      const menu = pid
+          ? document.querySelector(`.entry-actions-menu.show[data-placeholder-id="${pid}"]`)
+          : null;
+
+      const fallback = toggleBtn?.closest?.('.entry-actions')?.querySelector?.('.entry-actions-menu');
+      const m = menu || fallback;
+      if (!toggleBtn || !m) return;
+      if (!m.classList.contains('show')) return;
+
+      const btnRect = toggleBtn.getBoundingClientRect();
+      const menuRect = m.getBoundingClientRect();
+      const margin = 10;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      let left = btnRect.right - menuRect.width;
+      left = clamp(left, margin, vw - menuRect.width - margin);
+
+      let top = btnRect.bottom + 8;
+      if (top + menuRect.height > vh - margin) {
+          top = btnRect.top - menuRect.height - 8;
+      }
+      top = clamp(top, margin, vh - menuRect.height - margin);
+
+      m.style.position = 'fixed';
+      m.style.left = left + 'px';
+      m.style.top = top + 'px';
+      m.style.zIndex = '99999';
+
+      lastDropdownToggle = toggleBtn;
+      lastDropdownMenu = m;
+  }
+
+  // ✅ close ONLY ONE dropdown (the one you clicked)
+  function closeOneEntryDropdown(toggleBtn){
+      const inst = bootstrap.Dropdown.getInstance(toggleBtn) || bootstrap.Dropdown.getOrCreateInstance(toggleBtn, { autoClose: 'outside' });
+      inst.hide();
+  }
+  window.closeOneEntryDropdown = closeOneEntryDropdown;
+
+  // ✅ keep this for when you MUST close all (ex: open modal, scroll, etc.)
+  function closeAllEntryDropdowns() {
+      document.querySelectorAll('.entry-actions .entry-actions-btn[aria-expanded="true"]').forEach(btn => {
+          const inst = bootstrap.Dropdown.getInstance(btn);
+          if (inst) inst.hide();
+      });
+      lastDropdownToggle = null;
+      lastDropdownMenu = null;
+  }
+  window.closeAllEntryDropdowns = closeAllEntryDropdowns;
+
+  document.addEventListener('DOMContentLoaded', function () {
+      initBootstrapTooltips();
+
+      document.addEventListener('shown.bs.dropdown', function (e) {
+          const toggleBtn = e.relatedTarget || e.target?.querySelector?.('.entry-actions-btn');
+          if (!toggleBtn) return;
+
+          const menu = portalMenuToBody(toggleBtn);
+          if (menu) menu.dataset.placeholderId = toggleBtn.dataset.placeholderId;
+
+          positionMenuFixedOnce(toggleBtn);
+          initBootstrapTooltips();
+      });
+
+      document.addEventListener('hidden.bs.dropdown', function (e) {
+          const toggleBtn = e.relatedTarget || e.target?.querySelector?.('.entry-actions-btn');
+          if (!toggleBtn) return;
+          restoreMenuFromBody(toggleBtn);
+      });
+
+      window.addEventListener('resize', () => {
+          if (lastDropdownToggle && lastDropdownMenu?.classList.contains('show')) {
+              positionMenuFixedOnce(lastDropdownToggle);
           }
+      });
 
-          if (action === 'open-photo') {
-            if (typeof window.openImageModalFromButton === 'function') {
-              window.openImageModalFromButton(pill);
-            }
-            return;
+      // 🔴 NEW: close all Actions dropdowns whenever the page scrolls
+      window.addEventListener('scroll', () => {
+          closeAllEntryDropdowns();
+      }, { passive: true });
+
+      // 🔴 NEW: close Actions dropdowns when clicking anywhere outside them
+      document.addEventListener('click', (e) => {
+          const insideMenu    = e.target.closest('.entry-actions-menu');
+          const insideTrigger = e.target.closest('.entry-actions-btn');
+          const insideWrap    = e.target.closest('.entry-actions');
+          if (!insideMenu && !insideTrigger && !insideWrap) {
+              closeAllEntryDropdowns();
           }
-        } catch (err) {
-          console.error('Mini icon modal open failed:', err);
+      });
+
+      // Close dropdowns before any bootstrap modal opens, then restore if needed
+      document.querySelectorAll('.modal').forEach(modalEl => {
+          modalEl.addEventListener('show.bs.modal', () => {
+              reopenAfterModal = !!(lastDropdownMenu && lastDropdownMenu.classList.contains('show'));
+              closeAllEntryDropdowns();
+          });
+
+          modalEl.addEventListener('hidden.bs.modal', () => {
+              if (reopenAfterModal && lastDropdownToggle) {
+                  const inst = bootstrap.Dropdown.getOrCreateInstance(lastDropdownToggle, { autoClose: 'outside' });
+                  inst.show();
+              }
+              reopenAfterModal = false;
+          });
+      });
+  });
+
+  // ✅ CLOSE BUTTON INSIDE DROPDOWN: only closes that dropdown
+  document.addEventListener('click', function (e) {
+      const btn = e.target.closest('[data-action="close-dropdown"]');
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const menu = btn.closest('.entry-actions-menu');
+      const wrap = menu ? document.querySelector(`.entry-actions-menu.show[data-placeholder-id="${menu.dataset.placeholderId}"]`) : null;
+      const toggle = document.querySelector(`.entry-actions-btn[data-placeholder-id="${menu?.dataset?.placeholderId || ''}"]`)
+                || btn.closest('.entry-actions')?.querySelector('.entry-actions-btn');
+      if (toggle) closeOneEntryDropdown(toggle);
+  }, true);
+
+  // ✅ Mini icon click => open schedule/photo/edit modals without fighting dropdown portal
+  document.addEventListener('click', function (e) {
+    const pill = e.target.closest('.ind-pill[data-action]');
+    if (!pill) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    try {
+        const toggle = pill.closest('.entry-actions')?.querySelector('.entry-actions-btn');
+        if (toggle) closeOneEntryDropdown(toggle);
+
+        const action = pill.dataset.action;
+
+        // 🟢 Fields pill -> Edit modal
+        if (action === 'open-edit') {
+          const type = pill.dataset.entryType || '';
+          const idx  = pill.dataset.entryIndex || '';
+          if (typeof window.openEditVolunteerModal === 'function') {
+              window.openEditVolunteerModal(type, idx);
+          }
+          return;
         }
-      }, true);
-    </script>
+
+        if (action === 'open-schedule') {
+          const html = pill.dataset.scheduleHtml || '';
+          const type = pill.dataset.entryType || '';
+          const idx  = pill.dataset.entryIndex || '';
+          if (typeof window.openScheduleModal === 'function') {
+              window.openScheduleModal(html, type, idx);
+          }
+          return;
+        }
+
+        if (action === 'open-photo') {
+          if (typeof window.openImageModalFromButton === 'function') {
+              window.openImageModalFromButton(pill);
+          }
+          return;
+        }
+    } catch (err) {
+        console.error('Mini icon modal open failed:', err);
+    }
+  }, true);
+</script>
 
 </body>
 </html>

@@ -1,5 +1,7 @@
 <style>
-/* Modal Base */
+/* ===========================================================
+   BASE MODAL
+=========================================================== */
 .edit-volunteer-modal {
   position: fixed;
   inset: 0;
@@ -24,24 +26,132 @@
 /* Modal Content */
 .edit-volunteer-modal .modal-content {
   background: #fff;
-  border-radius: 16px;
+  border-radius: 14px;
   width: 100%;
-  max-width: 850px;
+  max-width: 820px;
   max-height: 90vh;
-  padding: 2rem;
+  padding: 1.5rem 1.75rem;
   box-shadow: 0 12px 40px rgba(0,0,0,0.25);
-  overflow-y: auto;
-  animation: slideIn 0.3s ease forwards;
+  animation: slideIn 0.25s ease forwards;
 }
 
-/* Autofill default (no class) */
+/* Slimmer scrollbars */
+.edit-volunteer-modal .modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+.edit-volunteer-modal .modal-content::-webkit-scrollbar-track {
+  background: #f3f3f3;
+}
+.edit-volunteer-modal .modal-content::-webkit-scrollbar-thumb {
+  background: #c4c4c4;
+  border-radius: 999px;
+}
+
+
+/* ===========================================================
+   HEADER
+=========================================================== */
+.modal-header {
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:0.5rem;
+  margin-bottom:1rem;
+}
+.modal-header h2 {
+  font-size:1.4rem;
+  color:#B2000C;
+  margin:0;
+  font-weight:700;
+}
+.modal-icon {
+  font-size:1.8rem;
+  color:#B2000C;
+  transition: transform 0.25s ease, color 0.25s ease;
+}
+.modal-icon:hover {
+  transform: rotate(-10deg) scale(1.03);
+}
+
+/* ===========================================================
+   GRID LAYOUT (more compact)
+=========================================================== */
+.input-grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  column-gap:0.9rem;
+  row-gap:0.75rem;
+  margin-bottom:0.5rem;
+}
+
+/* Each field wrapper */
+.volunteer-info {
+  position:relative;
+  display:flex;
+  flex-direction:column;
+}
+
+/* Label */
+.volunteer-info label {
+  font-size:0.8rem;
+  color:#555;
+  margin-bottom:0.15rem;
+  font-weight:600;
+}
+
+/* Shared wrapper so icon can sit inside */
+.input-wrapper {
+  position:relative;
+}
+
+/* ===========================================================
+   INPUTS & SELECTS (more compact)
+=========================================================== */
+.volunteer-info input,
+.volunteer-info select {
+  width:100%;
+  padding:0.45rem 0.7rem 0.45rem 2.1rem;
+  border-radius:7px;
+  border:1px solid #cfcfcf;
+  font-size:0.9rem;
+  line-height:1.2;
+  transition: all 0.2s ease;
+  background:#fff;
+  color:#111;
+}
+
+/* Slightly slimmer for mobile */
+@media (max-width: 576px) {
+  .volunteer-info input,
+  .volunteer-info select {
+    padding:0.4rem 0.6rem 0.4rem 2rem;
+    font-size:0.88rem;
+  }
+}
+
+/* Native select tweaks */
+.volunteer-info select {
+  -webkit-appearance:none;
+  -moz-appearance:none;
+  appearance:none;
+  cursor:pointer;
+  padding-right:2rem;
+}
+
+/* Disabled district input */
+#district {
+  cursor:not-allowed;
+  background-color:#f7f7f7 !important;
+  color:#555 !important;
+}
+
+/* Autofill default */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
-  -webkit-box-shadow: 0 0 0px 1000px #fff inset !important; /* default white */
-  -webkit-text-fill-color: #000 !important;
-  transition: background-color 5000s ease-in-out 0s;
+  -webkit-box-shadow: 0 0 0px 1000px #fff inset !important;
+  -webkit-text-fill-color:#000 !important;
 }
 
 /* Autofill when valid */
@@ -50,7 +160,6 @@ input.valid:-webkit-autofill:hover,
 input.valid:-webkit-autofill:focus,
 input.valid:-webkit-autofill:active {
   -webkit-box-shadow: 0 0 0px 1000px #e6f9ea inset !important;
-  -webkit-text-fill-color: #000 !important;
 }
 
 /* Autofill when invalid */
@@ -59,401 +168,458 @@ input.invalid:-webkit-autofill:hover,
 input.invalid:-webkit-autofill:focus,
 input.invalid:-webkit-autofill:active {
   -webkit-box-shadow: 0 0 0px 1000px #ffe6e6 inset !important;
-  -webkit-text-fill-color: #000 !important;
-}
-
-/* Header */
-.modal-header {
-    display:flex;
-    align-items:center;
-    gap:0.5rem;
-    margin-bottom:1.5rem;
-}
-
-.modal-header h2 { 
-  font-size:1.6rem; 
-  color:#B2000C; 
-  margin:0; 
-}
-
-.modal-icon { 
-  font-size:2rem; 
-  color:#B2000C; 
-  transition: transform 0.25s ease, color 0.25s ease; 
-}
-
-.modal-icon:hover { 
-  transform: rotate(-15deg); 
-}
-
-/* Input Grid */
-.input-grid {
-  display: grid;
-  grid-template-columns: repeat(2,1fr);
-  gap:1rem;
-  margin-bottom:1.5rem;
-}
-
-/* Input Container */
-.volunteer-info {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 1.2rem;
-}
-.volunteer-info label {
-  font-size:0.9rem;
-  color:#555;
-  margin-top:1rem;
-  font-weight:500;
-}
-
-.input-wrapper { 
-  position: relative; 
-}
-
-/* Inputs & Selects */
-.volunteer-info input,
-.volunteer-info select {
-  width: 100%;
-  padding: 0.6rem 0.75rem 0.6rem 2.5rem;
-  border-radius:8px;
-  border:1px solid #ccc;
-  font-size:1rem;
-  transition: all 0.25s ease;
-  background: #fff;
-  color: #000;
-}
-
-/* Select specific styling */
-.volunteer-info select {
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  cursor: pointer;
-  background-size: 12px;
-  padding-right: 2rem;
-}
-
-/* Disabled District */
-#district {
-  cursor: not-allowed;
-  background-color: #f7f7f7 !important;
-  color: #555 !important;
-}
-
-/* Move input-icon */
-#barangay + .input-icon {
-  left: 0.75rem;
-  right: auto;
 }
 
 /* Focus states */
 .volunteer-info input:focus,
 .volunteer-info select:focus {
-  outline: none;
-  border-color: #B2000C;
+  outline:none;
+  border-color:#B2000C;
+  box-shadow:0 0 0 1px rgba(178,0,12,0.15);
 }
 
-/* Valid / Invalid */
+/* Valid / Invalid colors */
 .volunteer-info input.invalid,
 .volunteer-info select.invalid {
-  border-color: #dc3545 !important;
-  background: #ffe6e6 !important;
+  border-color:#dc3545 !important;
+  background:#ffe6e6 !important;
 }
 .volunteer-info input.valid,
 .volunteer-info select.valid {
-  border-color: #28a745 !important;
-  background: #e6f9ea !important;
+  border-color:#28a745 !important;
+  background:#e6f9ea !important;
 }
 
-/* Input Icon */
-.input-icon {
-  position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #942a2a;
-  font-size: 1.2rem;
-  pointer-events: none;
-  transition: transform 0.25s ease, color 0.25s ease;
+/* Explicit for select-like fields */
+#barangay.valid, #course.valid, #district.valid, #batch_year.valid {
+  border-color:#28a745 !important;
+  background:#e6f9ea !important;
+}
+#barangay.invalid, #course.invalid, #district.invalid, #batch_year.invalid {
+  border-color:#dc3545 !important;
+  background:#ffe6e6 !important;
 }
 
-/* Error tooltip */
-.error-tooltip {
-  display: block;
-  font-size: 0.75rem;
-  color: #fff;
-  background: #dc3545;
-  padding: 0.35rem 0.5rem;
-  border-radius: 5px;
-  position: absolute;
-  top: 110%;
-  left: 0;
-  z-index: 10;
-  opacity: 0; /* will fade in via JS */
-  transition: opacity 0.25s ease;
-}
-
-.volunteer-info select.invalid ~ .error-tooltip,
-.volunteer-info input.invalid ~ .error-tooltip {
-  opacity: 1;
-}
-
-/* --- Course, Barangay, District visual consistency --- */
-#barangay.valid, #course.valid, #district.valid {
-  border-color: #28a745 !important;
-  background: #e6f9ea !important;
-}
-#barangay.invalid, #course.invalid, #district.invalid {
-  border-color: #dc3545 !important;
-  background: #ffe6e6 !important;
-}
-
-/* District is readonly but will still show valid/invalid color */
+/* District is readonly but still shows colors */
 #district[readonly] {
-  cursor: not-allowed;
-  color: #555;
-}
-
-/* Footer Buttons */
-.modal-footer { 
-  display:flex; 
-  justify-content:center; 
-  gap:1rem; flex-wrap:wrap; 
-  margin-top:1rem; 
-}
-
-.modal-btn { 
-  display:flex; 
-  align-items:center; 
-  justify-content:center; 
-  gap:0.5rem; 
-  padding:0.65rem 1.8rem; 
-  font-size:1rem; 
-  font-weight:600; 
-  border-radius:8px; 
-  cursor:pointer; 
-  border:none; 
-  transition: all 0.25s ease; 
-  height:50px; 
-}
-
-.modal-btn.cancel { 
-  background:#f1f1f1; 
-  color:#333; 
-}
-
-.modal-btn.cancel:hover { 
-  background:#e0e0e0; 
-  transform:scale(1.05); 
-}
-
-.modal-btn.save { 
-  background:#B2000C; 
-  color:#fff; 
-}
-
-.modal-btn.save:hover { 
-  background:#7F0008; 
-  transform:scale(1.05); 
-}
-
-.modal-btn.save:disabled { 
-  background: #B2000C; 
-  opacity: 0.5; 
-  cursor: not-allowed; 
-  box-shadow: none; 
-  transform: none; 
-}
-
-.modal-btn.save.enabled { 
-  box-shadow: 0 8px 24px rgba(178,0,12,0.28); 
-  transform: translateY(-2px); 
-  background: linear-gradient(180deg,#c41a1a,#B2000C); 
-  opacity: 1; 
-  cursor: pointer; 
+  cursor:not-allowed;
 }
 
 /* ===========================================================
-   SUCCESS MODAL (GREEN THEME, SAME STYLE AS EDIT MODAL)
+   INPUT ICON
+=========================================================== */
+.input-icon {
+  position:absolute;
+  left:0.65rem;
+  top:50%;
+  transform:translateY(-50%);
+  color:#942a2a;
+  font-size:1rem;
+  pointer-events:none;
+  transition:transform 0.2s ease, color 0.2s ease;
+}
+.volunteer-info input:focus + .input-icon,
+.volunteer-info select:focus + .input-icon {
+  color:#B2000C;
+  transform:translateY(-50%) scale(1.03);
+}
+
+/* Barangay icon sits correctly even with custom dropdown */
+#barangay + .input-icon,
+.select-search[data-target="barangay"] .input-icon {
+  left:0.65rem;
+}
+
+/* ===========================================================
+   ERROR TOOLTIP
+=========================================================== */
+.error-tooltip {
+  display:block;
+  font-size:0.7rem;
+  color:#fff;
+  background:#dc3545;
+  padding:0.25rem 0.45rem;
+  border-radius:4px;
+  position:absolute;
+  top:100%;
+  left:0;
+  margin-top:0.15rem;
+  z-index:10;
+  opacity:0;
+  pointer-events:none;
+  white-space:normal;
+  max-width:100%;
+  box-shadow:0 3px 8px rgba(0,0,0,0.18);
+  transition:opacity 0.2s ease;
+}
+.volunteer-info select.invalid ~ .error-tooltip,
+.volunteer-info input.invalid ~ .error-tooltip {
+  opacity:1;
+}
+
+/* ===========================================================
+   FOOTER BUTTONS
+=========================================================== */
+.modal-footer {
+  display:flex;
+  justify-content:center;
+  gap:0.75rem;
+  flex-wrap:wrap;
+  margin-top:0.75rem;
+}
+.modal-btn {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:0.4rem;
+  padding:0.55rem 1.6rem;
+  font-size:0.95rem;
+  font-weight:600;
+  border-radius:8px;
+  cursor:pointer;
+  border:none;
+  transition: all 0.2s ease;
+  height:44px;
+}
+.modal-btn i {
+  font-size:0.9rem;
+}
+.modal-btn.cancel {
+  background:#f3f3f3;
+  color:#333;
+}
+.modal-btn.cancel:hover {
+  background:#e0e0e0;
+  transform:translateY(-1px);
+}
+.modal-btn.save {
+  background:#B2000C;
+  color:#fff;
+}
+.modal-btn.save:hover {
+  background:#7F0008;
+  transform:translateY(-1px);
+}
+.modal-btn.save:disabled {
+  background:#B2000C;
+  opacity:0.55;
+  cursor:not-allowed;
+  transform:none;
+  box-shadow:none;
+}
+.modal-btn.save.enabled {
+  box-shadow:0 8px 22px rgba(178,0,12,0.28);
+  background:linear-gradient(180deg,#c41a1a,#B2000C);
+  opacity:1;
+}
+
+/* ===========================================================
+   SUCCESS MODAL (unchanged theme, slightly compact)
+=========================================================== */
+.edit-success-modal {
+  position:fixed;
+  inset:0;
+  display:none;
+  z-index:99999;
+  font-family:'Segoe UI', Roboto, sans-serif;
+}
+.edit-success-modal.active {
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+.edit-success-overlay {
+  width:100%;
+  height:100%;
+  background:rgba(0,0,0,0.55);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+.edit-success-content {
+  position:relative;
+  background:#fff;
+  border-radius:18px;
+  width:100%;
+  max-width:440px;
+  max-height:88vh;
+  padding:1.8rem 2.1rem;
+  font-size:0.98rem;
+  box-shadow:0 14px 45px rgba(0,0,0,0.28);
+  overflow-y:auto;
+  animation:slideIn .25s ease forwards;
+}
+.edit-success-header {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  gap:0.55rem;
+  margin-bottom:0.8rem;
+}
+.edit-success-title {
+  font-size:1.45rem;
+  color:#28a745;
+  margin:0;
+  font-weight:700;
+}
+.edit-success-icon {
+  font-size:1.7rem;
+  color:#28a745;
+}
+.edit-success-separator {
+  width:88%;
+  height:1px;
+  background:#ececec;
+  margin:0.6rem auto 0.8rem;
+}
+.edit-success-text {
+  font-size:0.97rem;
+  color:#222;
+  line-height:1.5;
+  padding-right:6px;
+}
+.edit-success-footer {
+  margin-top:1.2rem;
+  display:flex;
+  justify-content:center;
+}
+.edit-success-btn {
+  background:#8B0000;
+  color:#fff;
+  padding:.55rem 1.7rem;
+  border-radius:10px;
+  font-size:0.95rem;
+  font-weight:600;
+  border:none;
+  cursor:pointer;
+  transition:all 0.2s ease;
+}
+.edit-success-btn:hover {
+  background:#7F0008;
+  transform:translateY(-1px);
+  box-shadow:0 6px 14px rgba(139,0,0,0.45);
+}
+
+/* ===========================================================
+   SEARCHABLE DROPDOWN (Course + Barangay)
+   (match event manager feel – toggle + panel + search)
 =========================================================== */
 
-.edit-success-modal {
-  position: fixed;
-  inset: 0;
-  display: none;
-  z-index: 99999;
-  font-family: 'Segoe UI', Roboto, sans-serif;
+/* wrapper replaces the plain select visually */
+.select-search {
+  position:relative;
 }
-
-.edit-success-modal.active {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.edit-success-overlay {
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.55);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.edit-success-content {
-  position: relative;
-  background: #fff;
-  border-radius: 20px;
-  width: 100%;
-  max-width: 450px;              /* wider + smoother */
-  max-height: 90vh;
-  padding: 2.1rem 2.4rem;
-  font-size: 1.05rem;
-  box-shadow: 0 14px 45px rgba(0,0,0,0.28);
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-gutter: stable both-edges;
-  animation: slideIn .3s ease forwards;
-}
-
-/* Smooth rounded scrollbars */
-.edit-success-content::-webkit-scrollbar {
-  width: 9px;
-}
-.edit-success-content::-webkit-scrollbar-track {
-  background: #f5f5f5;
-  border-radius: 10px;
-}
-.edit-success-content::-webkit-scrollbar-thumb {
-  background: #c2c2c2;
-  border-radius: 10px;
-}
-.edit-success-content::-webkit-scrollbar-thumb:hover {
-  background: #a5a5a5;
-}
-
-/* Header: icon + text on a single line, centered */
-.edit-success-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  gap: 0.6rem;
-  margin-bottom: 1.1rem;
-}
-
-.edit-success-title {
-  font-size: 1.6rem;
-  color: #28a745;
+/* Fully hide the native <select> inside our custom select-search wrappers
+   (course, barangay, batch year) so no grey box peeks through */
+.select-search.hidden-native select {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  border: 0;
+  padding: 0;
   margin: 0;
-  font-weight: 700;
 }
-
-.edit-success-icon {
-  font-size: 1.8rem;
-  color: #28a745;
-}
-
-.edit-success-separator {
-  width: 88%;
-  height: 1px;
-  background: #ececec;
-  margin: 0.9rem auto 1.1rem;
-}
-
-.edit-success-text {
-  font-size: 1.05rem;
-  color: #222;
-  line-height: 1.55;
-  padding-right: 10px; /* keep text away from scrollbar */
-}
-
-/* Footer with green OK button */
-.edit-success-footer {
-  margin-top: 1.5rem;
-  display: flex;
-  justify-content: center;
-}
-
-.edit-success-btn {
-  background: #8B0000;          /* deep red */
-  color: #fff;
-  padding: .65rem 1.9rem;
-  border-radius: 10px;          /* smoother corners like screenshot */
-  font-size: 1rem;
-  font-weight: 600;
-  border: none;
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.edit-success-btn:hover {
-  background: #7F0008;          /* slightly darker hover */
-  transform: scale(1.05);
-  box-shadow: 0 6px 14px rgba(139,0,0,0.45);
+.select-search[data-target="batch_year"] .select-search-toggle .label-text,
+.select-search[data-target="batch_year"] .select-search-toggle .label-text .placeholder {
+  background: transparent !important;
 }
 
 
+/* visible toggle */
+.select-search-toggle {
+  width:100%;
+  padding:0.45rem 2.1rem 0.45rem 2.1rem;
+  border-radius:7px;
+  border:1px solid #cfcfcf;
+  font-size:0.9rem;
+  line-height:1.2;
+  background:#fff;
+  color:#111;
+  text-align:left;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:0.5rem;
+  cursor:pointer;
+  transition: all 0.2s ease;
+}
+.select-search-toggle span.label-text {
+  flex:1;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.select-search-toggle span.placeholder {
+  color:#888;
+}
+.select-search-toggle .chevron {
+  font-size:0.85rem;
+  color:#777;
+}
+
+/* states */
+.select-search-toggle:focus-visible {
+  outline:none;
+  border-color:#B2000C;
+  box-shadow:0 0 0 1px rgba(178,0,12,0.15);
+}
+.select-search.is-invalid .select-search-toggle {
+  border-color:#dc3545 !important;
+  background:#ffe6e6 !important;
+}
+.select-search.is-valid .select-search-toggle {
+  border-color:#28a745 !important;
+  background:#e6f9ea !important;
+}
+
+/* dropdown panel */
+.select-search-panel {
+  position:absolute;
+  top:calc(100% + 4px);
+  left:0;
+  right:0;
+  background:#fff;
+  border-radius:10px;
+  box-shadow:0 16px 40px rgba(0,0,0,0.18);
+  padding:0.5rem 0.5rem 0.4rem;
+  z-index:100000;
+  display:none;
+}
+.select-search.is-open .select-search-panel {
+  display:block;
+}
+
+/* search box inside panel */
+.select-search-input {
+  width:100%;
+  border-radius:7px;
+  border:1px solid #d0d0d0;
+  font-size:0.85rem;
+  padding:0.35rem 0.6rem;
+  margin-bottom:0.35rem;
+}
+.select-search-input:focus {
+  outline:none;
+  border-color:#B2000C;
+  box-shadow:0 0 0 1px rgba(178,0,12,0.12);
+}
+
+/* list */
+.select-search-list {
+  max-height:210px;
+  overflow-y:auto;
+  margin:0;
+  padding:0;
+  list-style:none;
+}
+.select-search-option {
+  padding:0.35rem 0.5rem;
+  font-size:0.85rem;
+  cursor:pointer;
+  border-radius:6px;
+  display:flex;
+  align-items:center;
+  gap:0.4rem;
+}
+.select-search-option:hover {
+  background:#f5f5f5;
+}
+.select-search-option.is-active {
+  background:#FFE5E9;
+  color:#B2000C;
+  font-weight:600;
+}
+
+
+
+/* small pill for college grouping in course dropdown */
+.select-search-option .badge-pill {
+  margin-left:auto;
+  font-size:0.7rem;
+  padding:0.1rem 0.35rem;
+  border-radius:999px;
+  background:#f1f1f1;
+  color:#666;
+}
+
+/* "no results" text */
+.select-search-empty {
+  font-size:0.8rem;
+  color:#999;
+  padding:0.25rem 0.5rem 0.3rem;
+}
+
+/* Batch year dropdown: use same panel style but no visible search bar */
+.select-search[data-target="batch_year"] .select-search-input {
+  display: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Tighter padding on the panel because no search row on top */
+.select-search[data-target="batch_year"] .select-search-panel {
+  padding-top: 0.35rem;
+}
+
+/* ===========================================================
+   RESPONSIVE
+=========================================================== */
+@media(max-width:700px){
+  .edit-volunteer-modal .modal-content {
+    max-width:96vw;
+    padding:1.25rem 1.2rem;
+  }
+}
+@media(max-width:540px){
+  .input-grid {
+    grid-template-columns:1fr;
+  }
+}
+
+/* ===========================================================
+   ANIMATION
+=========================================================== */
 @keyframes slideIn {
-  from { opacity:0; transform: translateY(-20px) scale(0.96); }
-  to { opacity:1; transform: translateY(0) scale(1); }
-}
-
-/* Small screens */
-@media(max-height:600px){ 
-  .edit-volunteer-modal .modal-content { 
-    max-height: 95vh; padding: 1.5rem; 
-  } 
-}
-
-@media(max-width:500px){ 
-  .input-grid { 
-    grid-template-columns: 1fr; 
-  } 
+  from { opacity:0; transform: translateY(-16px) scale(0.97); }
+  to   { opacity:1; transform: translateY(0) scale(1); }
 }
 </style>
 
 @php
-// Fetch courses
-$courses = DB::table('courses')
-    ->orderBy('college')
-    ->orderBy('course_name')
-    ->get();
+    use Illuminate\Support\Facades\DB;
 
-// Fetch locations
-$locations = DB::table('locations')
-    ->orderBy('barangay')
-    ->get();
+    // Fetch courses
+    $courses = DB::table('courses')
+        ->orderBy('college')
+        ->orderBy('course_name')
+        ->get();
 
-// Map barangay -> district_id
-$locationsMap = $locations->pluck('district_id', 'barangay');
+    // Fetch locations
+    $locations = DB::table('locations')
+        ->orderBy('barangay')
+        ->get();
+
+    // Map barangay -> district_id
+    $locationsMap = $locations->pluck('district_id', 'barangay');
+
+    $currentYear = now()->year;
 @endphp
 
 <script>
-window.volunteersData = {
-    invalid: @json(session('invalidEntries', [])),
-    valid: [
-        @foreach ($validEntries as $entry)
-        {
-            full_name: "{{ $entry['full_name'] }}",
-            id_number: "{{ $entry['id_number'] }}",
-            course: "{{ $entry['course'] }}",
-            year_level: "{{ $entry['year_level'] }}",
-            contact_number: "{{ $entry['contact_number'] }}",
-            email: "{{ $entry['email'] }}",
-            emergency_contact: "{{ $entry['emergency_contact'] }}",
-            fb_messenger: "{{ $entry['fb_messenger'] }}",
-            barangay: "{{ $entry['barangay'] }}",
-            district: "{{ $entry['district'] }}",
-            class_schedule: {!! json_encode($entry['class_schedule'] ?? '') !!}
-        },
-        @endforeach
-    ]
-};
+    // Session data for modal
+    window.volunteersData = {
+        invalid: @json(session('invalidEntries', [])),
+        valid: @json($validEntries ?? [])
+    };
 
-const locationsMap = @json($locationsMap);
+    // barangay => district_id
+    const locationsMap = @json($locationsMap);
 </script>
 
 <div class="edit-volunteer-modal" id="editVolunteerModal">
@@ -467,63 +633,185 @@ const locationsMap = @json($locationsMap);
             <form id="editVolunteerForm" method="POST">
                 @csrf
                 @method('PUT')
+
                 <div class="modal-body input-grid">
                     @php
-                    $fields = [
-                        'full_name' => ['label'=>'Full Name','icon'=>'fa-user','type'=>'text','required'=>true],
-                        'id_number' => ['label'=>'School ID','icon'=>'fa-id-card','type'=>'text','required'=>true],
-                        'course' => ['label'=>'Course','icon'=>'fa-graduation-cap','type'=>'select','required'=>true],
-                        'year_level' => ['label'=>'Year Level','icon'=>'fa-calendar','type'=>'select','required'=>true],
-                        'contact_number' => ['label'=>'Contact Number','icon'=>'fa-phone','type'=>'text','required'=>true],
-                        'emergency_contact' => ['label'=>'Emergency Contact','icon'=>'fa-phone-volume','type'=>'text','required'=>true],
-                        'email' => ['label'=>'Email','icon'=>'fa-envelope','type'=>'text','required'=>true],
-                        'fb_messenger' => ['label'=>'FB Messenger','icon'=>'fa-comment','type'=>'text','required'=>false],
-                        'barangay' => ['label'=>'Barangay','icon'=>'fa-house','type'=>'select','required'=>true],
-                        'district' => ['label'=>'District','icon'=>'fa-map-location-dot','type'=>'text','required'=>true],
-                    ];
+                        $fields = [
+                            'full_name'         => ['label' => 'Full Name',         'icon' => 'fa-user',             'type' => 'text',   'required' => true],
+                            'id_number'         => ['label' => 'School ID',         'icon' => 'fa-id-card',          'type' => 'text',   'required' => true],
+                            'course'            => ['label' => 'Course',            'icon' => 'fa-graduation-cap',   'type' => 'select', 'required' => true],
+                            'year_level'        => ['label' => 'Year Level',        'icon' => 'fa-calendar',         'type' => 'select', 'required' => true],
+                            'batch_year'        => ['label' => 'Batch Year',        'icon' => 'fa-calendar-days',    'type' => 'select', 'required' => false],
+                            'contact_number'    => ['label' => 'Contact Number',    'icon' => 'fa-phone',            'type' => 'text',   'required' => true],
+                            'emergency_contact' => ['label' => 'Emergency Contact', 'icon' => 'fa-phone-volume',     'type' => 'text',   'required' => true],
+                            'email'             => ['label' => 'Email',             'icon' => 'fa-envelope',         'type' => 'text',   'required' => true],
+                            'fb_messenger'      => ['label' => 'FB Messenger',      'icon' => 'fa-comment',          'type' => 'text',   'required' => false],
+                            'barangay'          => ['label' => 'Barangay',          'icon' => 'fa-house',            'type' => 'select', 'required' => true],
+                            'district'          => ['label' => 'District',          'icon' => 'fa-map-location-dot', 'type' => 'text',   'required' => true],
+                        ];
                     @endphp
 
                     @foreach ($fields as $key => $info)
-                    <div class="volunteer-info">
-                        <label>{{ $info['label'] }} @if($info['required'])* @endif</label>
-                        <div class="input-wrapper">
-                            @if($info['type'] === 'select' && $key === 'barangay')
-                                <select id="barangay" name="barangay">
-                                    <option value="">-- Select Barangay --</option>
-                                    @foreach($locations as $loc)
-                                        <option value="{{ $loc->barangay }}">{{ $loc->barangay }}</option>
-                                    @endforeach
-                                </select>
-                            @elseif($info['type'] === 'select' && $key === 'course')
-                                <select id="course" name="course">
-                                    <option value="">-- Select Course --</option>
-                                    @foreach($courses as $course)
-                                        <option value="{{ $course->course_name }}" data-college="{{ $course->college }}">
-                                            {{ $course->course_name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                <input type="hidden" id="college" name="college">
-                            @elseif($key === 'year_level')
-                                <select id="year_level" name="year_level">
-                                    <option value="">-- Select Year Level --</option>
-                                    @for($i=1; $i<=4; $i++)
-                                        <option value="{{ $i }}">{{ $i }}</option>
-                                    @endfor
-                                </select>
-                            @elseif($key === 'district')
-                                <input type="text" id="district" name="district" placeholder="District" readonly>
-                                <input type="hidden" id="district_id" name="district_id">
-                            @else
-                                <input type="text" id="{{ $key }}" name="{{ $key }}" placeholder="{{ $info['label'] }}">
-                            @endif
-                            <i class="fa-solid {{ $info['icon'] }} input-icon"></i>
-                            <span class="error-tooltip" id="{{ $key }}-error"></span>
+                        <div class="volunteer-info">
+                            <label>
+                                {{ $info['label'] }}
+                                @if($info['required'])* @endif
+                            </label>
+
+                            <div class="input-wrapper">
+                                {{-- SEARCHABLE COURSE --}}
+                                @if($key === 'course')
+                                    <div class="select-search hidden-native" data-target="course">
+                                        <button type="button" class="select-search-toggle" data-role="toggle">
+                                            <span class="label-text">
+                                                <span class="placeholder">-- Select Course --</span>
+                                            </span>
+                                            <span class="chevron"><i class="fa-solid fa-chevron-down"></i></span>
+                                        </button>
+
+                                        <div class="select-search-panel">
+                                            <input type="text" class="select-search-input"
+                                                   placeholder="Search course or college...">
+                                            <ul class="select-search-list">
+                                                @foreach($courses as $course)
+                                                    <li class="select-search-option"
+                                                        data-value="{{ $course->course_name }}"
+                                                        data-label="{{ $course->course_name }}"
+                                                        data-college="{{ $course->college }}">
+                                                        <span>{{ $course->course_name }}</span>
+                                                        @if($course->college)
+                                                            <span class="badge-pill">{{ $course->college }}</span>
+                                                        @endif
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                            <div class="select-search-empty d-none">
+                                                No courses found
+                                            </div>
+                                        </div>
+
+                                        {{-- hidden native select (for form + validation) --}}
+                                        <select id="course" name="course">
+                                            <option value="">-- Select Course --</option>
+                                            @foreach($courses as $course)
+                                                <option value="{{ $course->course_name }}"
+                                                        data-college="{{ $course->college }}">
+                                                    {{ $course->course_name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <input type="hidden" id="college" name="college">
+                                    </div>
+
+                                {{-- YEAR LEVEL --}}
+                                @elseif($key === 'year_level')
+                                    <select id="year_level" name="year_level">
+                                        <option value="">-- Select Year Level --</option>
+                                        @for($i = 1; $i <= 4; $i++)
+                                            <option value="{{ $i }}">{{ $i }}</option>
+                                        @endfor
+                                    </select>
+
+                                {{-- BATCH YEAR --}}
+                                @elseif($key === 'batch_year')
+                                <div class="select-search hidden-native" data-target="batch_year">
+                                    <button type="button" class="select-search-toggle" data-role="toggle">
+                                        <span class="label-text">
+                                            <span class="placeholder">-- Select Batch Year (optional) --</span>
+                                        </span>
+                                        <span class="chevron"><i class="fa-solid fa-chevron-down"></i></span>
+                                    </button>
+
+                                    <div class="select-search-panel">
+                                        {{-- search input will be hidden via CSS, but JS still uses it safely --}}
+                                        <input type="text"
+                                              class="select-search-input select-search-input-batch"
+                                              placeholder="Search batch year...">
+
+                                        <ul class="select-search-list">
+                                            @for($y = $currentYear + 1; $y >= $currentYear - 10; $y--)
+                                                <li class="select-search-option"
+                                                    data-value="{{ $y }}"
+                                                    data-label="{{ $y }}">
+                                                    <span>{{ $y }}</span>
+                                                </li>
+                                            @endfor
+                                        </ul>
+
+                                        <div class="select-search-empty d-none">
+                                            No years found
+                                        </div>
+                                    </div>
+
+                                    {{-- hidden native select (used by form + validation JS) --}}
+                                    <select id="batch_year" name="batch_year">
+                                        <option value="">-- Select Batch Year (optional) --</option>
+                                        @for($y = $currentYear + 1; $y >= $currentYear - 10; $y--)
+                                            <option value="{{ $y }}">{{ $y }}</option>
+                                        @endfor
+                                    </select>
+                                </div>
+
+
+                                {{-- SEARCHABLE BARANGAY --}}
+                                @elseif($key === 'barangay')
+                                    <div class="select-search hidden-native" data-target="barangay">
+                                        <button type="button" class="select-search-toggle" data-role="toggle">
+                                            <span class="label-text">
+                                                <span class="placeholder">-- Select Barangay --</span>
+                                            </span>
+                                            <span class="chevron"><i class="fa-solid fa-chevron-down"></i></span>
+                                        </button>
+
+                                        <div class="select-search-panel">
+                                            <input type="text" class="select-search-input"
+                                                   placeholder="Search barangay...">
+                                            <ul class="select-search-list">
+                                                @foreach($locations as $loc)
+                                                    <li class="select-search-option"
+                                                        data-value="{{ $loc->barangay }}"
+                                                        data-label="{{ $loc->barangay }}"
+                                                        data-district="{{ $loc->district_id }}">
+                                                        <span>{{ $loc->barangay }}</span>
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                            <div class="select-search-empty d-none">
+                                                No barangays found
+                                            </div>
+                                        </div>
+
+                                        {{-- hidden native select (for form + validation) --}}
+                                        <select id="barangay" name="barangay">
+                                            <option value="">-- Select Barangay --</option>
+                                            @foreach($locations as $loc)
+                                                <option value="{{ $loc->barangay }}"
+                                                        data-district="{{ $loc->district_id }}">
+                                                    {{ $loc->barangay }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+
+                                {{-- DISTRICT (readonly text + hidden id) --}}
+                                @elseif($key === 'district')
+                                    <input type="text" id="district" name="district"
+                                           placeholder="District" readonly>
+                                    <input type="hidden" id="district_id" name="district_id">
+
+                                {{-- normal text inputs --}}
+                                @else
+                                    <input type="text" id="{{ $key }}" name="{{ $key }}"
+                                           placeholder="{{ $info['label'] }}">
+                                @endif
+
+                                <i class="fa-solid {{ $info['icon'] }} input-icon"></i>
+                                <span class="error-tooltip" id="{{ $key }}-error"></span>
+                            </div>
                         </div>
-                    </div>
                     @endforeach
 
-                    <!-- Hidden class schedule -->
+                    {{-- Hidden class schedule (not editable here) --}}
                     <input type="hidden" id="class_schedule" name="class_schedule">
                     <span class="error-tooltip" id="class_schedule-error"></span>
                 </div>
@@ -542,7 +830,7 @@ const locationsMap = @json($locationsMap);
 </div>
 
 <!-- ===========================================================
-     UPDATE SUCCESS MODAL — MATCHES EDIT MODAL
+     UPDATE SUCCESS MODAL
 =========================================================== -->
 <div id="updateSuccessModal" class="edit-success-modal">
     <div id="updateSuccessOverlay" class="edit-success-overlay">
@@ -574,11 +862,10 @@ const locationsMap = @json($locationsMap);
 @endif
 
 <script>
+/* ===========================================================
+   SUCCESS MODAL JS
+=========================================================== */
 document.addEventListener("DOMContentLoaded", () => {
-
-    /* ===========================================================
-       UPDATE SUCCESS MODAL ELEMENTS
-    =========================================================== */
     const updateModal   = document.getElementById("updateSuccessModal");
     const updateOverlay = document.getElementById("updateSuccessOverlay");
     const updateMsg     = document.getElementById("updateSuccessMessage");
@@ -588,7 +875,6 @@ document.addEventListener("DOMContentLoaded", () => {
         updateMsg.innerHTML = html;
         updateModal.classList.add("active");
     }
-
     function closeUpdateModal() {
         updateModal.classList.remove("active");
     }
@@ -598,102 +884,49 @@ document.addEventListener("DOMContentLoaded", () => {
         if (e.target === updateOverlay) closeUpdateModal();
     });
 
-    /* AUTO OPEN (controller sets updateDetails) */
+    // auto-open when controller flashes updateDetails
     if (window.serverUpdateDetails) {
         const decoded = atob(window.serverUpdateDetails);
         openUpdateModal(decoded);
     }
 
-    /* FLASH MESSAGE "SHOW DETAILS" HANDLER */
+    // "Show Details" links in flash message
     document.addEventListener("click", e => {
         const link = e.target.closest(".update-details-link");
         if (!link) return;
-
         e.preventDefault();
         const encoded = link.getAttribute("data-details");
         if (!encoded) return;
-
         const decoded = atob(encoded);
         openUpdateModal(decoded);
     });
-
 });
-
 </script>
 
 <script>
-(function(){
-    const modal = document.getElementById('editVolunteerModal');
-    const form = document.getElementById('editVolunteerForm');
-    const saveBtn = form.querySelector('.modal-btn.save');
+/* ===========================================================
+   EDIT MODAL + VALIDATION + SEARCHABLE SELECTS
+=========================================================== */
+(function () {
+    const modal          = document.getElementById('editVolunteerModal');
+    const overlay        = modal.querySelector('.modal-overlay');
+    const form           = document.getElementById('editVolunteerForm');
+    const saveBtn        = form.querySelector('.modal-btn.save');
     const barangaySelect = document.getElementById('barangay');
-    const districtInput = document.getElementById('district');
-    const districtIdInput = document.getElementById('district_id');
-    const courseSelect = document.getElementById('course');
-    const collegeInput = document.getElementById('college');
+    const districtInput  = document.getElementById('district');
+    const districtIdInput= document.getElementById('district_id');
+    const courseSelect   = document.getElementById('course');
+    const collegeInput   = document.getElementById('college');
+    const batchYearSelect= document.getElementById('batch_year');
 
-    /* ------------------------------------------------------------------
-       ⭐ STRICT + SMART CLASS SCHEDULE NORMALIZER (NEW PATCH)
-       ------------------------------------------------------------------ */
-    function normalizeClassSchedule(raw) {
-        if (!raw) return "";
-
-        let val = raw.toString().trim();
-
-        // Clean sloppy input
-        val = val.replace(/\s*/g, "");
-        val = val.replace(/–/g, "-");
-        val = val.replace(/to/gi, "-");
-
-        let parts = val.split("-");
-        if (parts.length !== 2) return raw;
-
-        function norm(t) {
-            if (/^\d{1,2}$/.test(t)) return `${t}:00`;
-            if (/^\d{3,4}$/.test(t)) {
-                let h = t.slice(0, -2);
-                let m = t.slice(-2);
-                return `${parseInt(h)}:${m}`;
-            }
-            if (/^\d{1,2}:$/.test(t)) return `${t}00`;
-            return t;
-        }
-
-        let start = norm(parts[0]);
-        let end   = norm(parts[1]);
-
-        function toMin(str) {
-            let [h, m] = str.split(":").map(Number);
-            return h * 60 + m;
-        }
-
-        let sMin = toMin(start);
-        let eMin = toMin(end);
-        let diff = eMin - sMin;
-
-        // Allowed durations: 80min or 180min
-        if (diff === 80 || diff === 180) {
-            return `${start}-${end}`;
-        }
-
-        // Snap to nearest valid block (80 or 180)
-        const d80  = sMin + 80;
-        const d180 = sMin + 180;
-
-        let target = Math.abs(d80 - eMin) < Math.abs(d180 - eMin) ? d80 : d180;
-
-        let endH = Math.floor(target / 60);
-        let endM = String(target % 60).padStart(2, "0");
-
-        return `${start}-${endH}:${endM}`;
-    }
-    /* ------------------------------------------------------------------ */
-
+    /* -------------------------------------------------------
+       BARANGAY -> DISTRICT
+    ------------------------------------------------------- */
     function updateDistrict() {
-        const selected = barangaySelect.value.trim();
+        const selected = (barangaySelect.value || '').trim();
         const errorSpan = document.getElementById('district-error');
 
-        if(!selected){
+        if (!selected) {
             districtInput.value = '';
             districtIdInput.value = '';
             errorSpan.textContent = 'District depends on Barangay selection';
@@ -703,7 +936,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const districtId = locationsMap[selected];
-        if(districtId){
+        if (districtId) {
             districtInput.value = "District " + districtId;
             districtIdInput.value = districtId;
             errorSpan.textContent = '';
@@ -718,162 +951,410 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    /* -------------------------------------------------------
+       VALIDATION RULES
+    ------------------------------------------------------- */
     const rules = {
-      full_name: v => v.trim()!=='' && /^[A-Za-z\s\-.,]+$/.test(v) ? true : 'Invalid full name',
-      id_number: v => /^\d{6,7}$/.test(v.trim()) ? true : 'ID must be 6-7 digits',
-      course: v => v!=='' ? true : 'Please select a course',
-      year_level: v => /^[1-4]$/.test(v.trim()) ? true : 'Year must be 1-4',
+        full_name: v => v.trim() !== '' && /^[A-Za-zÑñ\s\.\'-]+$/.test(v)
+            ? true
+            : 'Invalid full name',
+        id_number: v => /^\d{6,7}$/.test(v.trim())
+            ? true
+            : 'ID must be 6-7 digits',
+        course: v => v !== ''
+            ? true
+            : 'Please select a course',
+        year_level: v => /^[1-4]$/.test(v.trim())
+            ? true
+            : 'Year must be 1-4',
+        batch_year: v => {
+            const value = v.trim();
+            if (!value) return true; // optional
+            if (!/^\d{4}$/.test(value)) return 'Batch year must be 4 digits';
+            const year = parseInt(value, 10);
+            const nowY = (new Date()).getFullYear();
+            if (year < 2000 || year > nowY + 1) return 'Batch year looks invalid';
+            return true;
+        },
+        // Contact Number – PH only
+        contact_number: v => {
+            const value = v.trim();
+            if (!/^(09|\+639)\d{9}$/.test(value)) {
+                return 'Invalid PH number';
+            }
+            const emergency = (document.getElementById('emergency_contact')?.value || '').trim();
+            if (emergency && emergency === value) {
+                return 'Contact # and emergency # must be different';
+            }
+            return true;
+        },
+        emergency_contact: v => {
+            const value = v.trim();
+            if (!/^(09|\+639)\d{9}$/.test(value)) {
+                return 'Invalid PH number';
+            }
+            const contact = (document.getElementById('contact_number')?.value || '').trim();
+            if (contact && contact === value) {
+                return 'Contact # and emergency # must be different';
+            }
+            return true;
+        },
+        email: v => /^[A-Za-z0-9._%+-]+@(gmail\.com|adzu\.edu\.ph)$/i.test(v.trim())
+            ? true
+            : 'Must be @gmail.com or @adzu.edu.ph',
+        fb_messenger: v => {
+            const value = v.trim();
+            if (!value) return true;
+            try {
+                const url = new URL(value);
+                if (!['http:', 'https:'].includes(url.protocol)) {
+                    return 'URL must start with http:// or https://';
+                }
+                if (!url.hostname.includes('facebook.com')) {
+                    return 'URL should be a Facebook link';
+                }
+                return true;
+            } catch {
+                return 'Must be a valid URL like https://www.facebook.com/username';
+            }
+        },
+        barangay: v => {
+            const value = v.trim();
+            if (!value) return 'Please select a barangay';
+            if (!locationsMap[value]) return 'Invalid barangay';
+            return true;
+        },
+        district: v => {
+            const barangay = (barangaySelect.value || '').trim();
+            const districtId = (districtIdInput.value || '').trim();
+            if (!barangay) return 'District depends on Barangay selection';
+            if (!districtId) return 'Invalid district for selected barangay';
+            return true;
+        },
+        class_schedule: v => true // not edited here
+    };
 
-      // Contact Number – valid PH only
-      contact_number: v => {
-          const value = v.trim();
-          if (!/^(09|\+639)\d{9}$/.test(value)) {
-              return 'Invalid PH number';
-          }
-          // Also check difference if emergency already filled
-          const emergency = (document.getElementById('emergency_contact')?.value || '').trim();
-          if (emergency && emergency === value) {
-              return 'Contact number and emergency contact must be different';
-          }
-          return true;
-      },
+    function syncSelectSearchValidity(input, isValid, hasError) {
+        const wrapper = document.querySelector('.select-search[data-target="' + input.id + '"]');
+        if (!wrapper) return;
+        wrapper.classList.remove('is-valid', 'is-invalid');
+        if (hasError) wrapper.classList.add('is-invalid');
+        else if (isValid) wrapper.classList.add('is-valid');
+    }
 
-      // Emergency Contact – valid PH + must differ from contact_number
-      emergency_contact: v => {
-          const value = v.trim();
-          if (!/^(09|\+639)\d{9}$/.test(value)) {
-              return 'Invalid PH number';
-          }
-          const contact = (document.getElementById('contact_number')?.value || '').trim();
-          if (contact && contact === value) {
-              return 'Contact number and emergency contact must be different';
-          }
-          return true;
-      },
+    function validateField(input) {
+        if (!rules[input.id]) return true;
 
-      email: v => /^[a-zA-Z0-9._%+-]+@(gmail\.com|adzu\.edu\.ph)$/.test(v.trim()) ? true : 'Must be @gmail.com or @adzu.edu.ph',
-      fb_messenger: v => {
-          if(!v || !v.trim()) return true;
-          try {
-              const url = new URL(v.trim());
-              if(!['http:','https:'].includes(url.protocol)) return 'URL must start with http:// or https://';
-              if(!url.hostname.includes('facebook.com')) return 'URL should be a Facebook link';
-              return true;
-          } catch { 
-              return 'Must be a valid URL like https://www.facebook.com/username'; 
-          }
-      },
-      barangay: v => {
-          if(!v || v.trim()==='') return 'Please select a barangay';
-          if(!locationsMap[v.trim()]) return 'Invalid barangay';
-          return true;
-      },
-      district: v => {
-          const barangay = barangaySelect.value.trim();
-          const districtId = districtIdInput.value.trim();
-          if(!barangay) return 'District depends on Barangay selection';
-          if(!districtId) return 'Invalid district for selected barangay';
-          return true;
-      },
-      class_schedule: v => true // hidden
-  };
-
-
-    function validateField(input){
-        if(!rules[input.id]) return true;
         const res = rules[input.id](input.value);
-        const errorSpan = document.getElementById(input.id+'-error');
-        if(res!==true){
+        const errorSpan = document.getElementById(input.id + '-error');
+        const hasError = res !== true;
+
+        if (hasError) {
             input.classList.add('invalid');
             input.classList.remove('valid');
-            if(errorSpan) { errorSpan.textContent=res; errorSpan.style.display='block'; }
-            return false;
+            if (errorSpan) {
+                errorSpan.textContent = res;
+                errorSpan.style.display = 'block';
+            }
         } else {
             input.classList.remove('invalid');
             input.classList.add('valid');
-            if(errorSpan){ errorSpan.textContent=''; errorSpan.style.display='none'; }
-            return true;
+            if (errorSpan) {
+                errorSpan.textContent = '';
+                errorSpan.style.display = 'none';
+            }
         }
+
+        if (['course', 'barangay', 'batch_year'].includes(input.id)) {
+            syncSelectSearchValidity(input, !hasError, hasError);
+        }
+
+        return !hasError;
     }
 
-    function validateAll(){
+    function validateAll() {
         let allValid = true;
-        document.querySelectorAll('.volunteer-info input, .volunteer-info select').forEach(input=>{
-            if(rules[input.id] && !validateField(input)) allValid=false;
+        document.querySelectorAll('.volunteer-info input, .volunteer-info select').forEach(input => {
+            if (rules[input.id] && !validateField(input)) {
+                allValid = false;
+            }
         });
         saveBtn.disabled = !allValid;
         saveBtn.classList.toggle('enabled', allValid);
         return allValid;
     }
 
-    document.querySelectorAll('.volunteer-info input, .volunteer-info select').forEach(input=>{
-        ['input','change','blur'].forEach(evt=>input.addEventListener(evt, validateAll));
+    document.querySelectorAll('.volunteer-info input, .volunteer-info select').forEach(input => {
+        ['input', 'change', 'blur'].forEach(evt =>
+            input.addEventListener(evt, validateAll)
+        );
     });
 
-    barangaySelect.addEventListener('change', ()=>{ updateDistrict(); validateAll(); });
-    courseSelect.addEventListener('change', ()=>{
-        const opt = courseSelect.options[courseSelect.selectedIndex];
-        collegeInput.value = opt ? opt.dataset.college||'' : '';
+    barangaySelect.addEventListener('change', () => {
+        updateDistrict();
         validateAll();
     });
 
-    window.openEditVolunteerModal = function(type, index){
-        const volunteer = (window.volunteersData[type]||[])[index]||{};
-        Object.keys(rules).forEach(key=>{
-            const input=document.getElementById(key);
-            if(!input) return;
-            if(key==='barangay'){
-                input.value = volunteer[key] && locationsMap[volunteer[key]] ? volunteer[key] : '';
-            } else input.value = volunteer[key] || '';
-            if(input.tagName==='SELECT'){
-                const opt = Array.from(input.options).find(o=>o.value===input.value);
-                if(opt) input.value = opt.value;
+    courseSelect.addEventListener('change', () => {
+        const opt = courseSelect.options[courseSelect.selectedIndex];
+        collegeInput.value = opt ? (opt.dataset.college || '') : '';
+        validateAll();
+    });
+
+    if (batchYearSelect) {
+        batchYearSelect.addEventListener('change', validateAll);
+    }
+
+    /* -------------------------------------------------------
+       SEARCHABLE SELECT (Course + Barangay)
+    ------------------------------------------------------- */
+    function syncSelectSearchFromSelect(targetId) {
+      const wrapper = document.querySelector('.select-search[data-target="' + targetId + '"]');
+      if (!wrapper) return;
+
+      const select   = wrapper.querySelector('select');
+      const toggle   = wrapper.querySelector('.select-search-toggle');
+      const labelSpan = toggle.querySelector('.label-text');
+      const value    = select.value;
+      const optionsEls = wrapper.querySelectorAll('.select-search-option');
+
+      // use placeholder stored by initSelectSearch (fallback is generic)
+      const placeholderText = wrapper.dataset.placeholder || '-- Select --';
+
+      optionsEls.forEach(li => {
+          li.classList.toggle('is-active', li.dataset.value === value);
+      });
+
+      if (!value) {
+          labelSpan.innerHTML = '<span class="placeholder">' + placeholderText + '</span>';
+      } else {
+          const opt = Array.from(select.options).find(o => o.value === value);
+          labelSpan.textContent = opt ? opt.textContent : value;
+      }
+  }
+
+
+    function initSelectSearch(wrapper) {
+        const target = wrapper.dataset.target;
+        const toggle = wrapper.querySelector('[data-role="toggle"]');
+        const panel = wrapper.querySelector('.select-search-panel');
+        const searchInput = wrapper.querySelector('.select-search-input');
+        const list = wrapper.querySelector('.select-search-list');
+        const emptyText = wrapper.querySelector('.select-search-empty');
+        const select = wrapper.querySelector('select');
+
+        if (!toggle || !panel || !searchInput || !list || !select) return;
+
+        // save the initial placeholder text so syncSelectSearchFromSelect can reuse it
+        const labelSpan = toggle.querySelector('.label-text');
+        const placeholderSpan = labelSpan.querySelector('.placeholder');
+        const initialPlaceholder = placeholderSpan ? placeholderSpan.textContent : '-- Select --';
+        wrapper.dataset.placeholder = initialPlaceholder;
+
+        function openPanel() {
+            document.querySelectorAll('.select-search.is-open').forEach(w => {
+                if (w !== wrapper) w.classList.remove('is-open');
+            });
+            wrapper.classList.add('is-open');
+            searchInput.value = '';
+            filterOptions('');
+            setTimeout(() => searchInput.focus(), 10);
+        }
+        function closePanel() {
+            wrapper.classList.remove('is-open');
+        }
+
+        function filterOptions(term) {
+            const t = term.toLowerCase();
+            let visibleCount = 0;
+            list.querySelectorAll('.select-search-option').forEach(li => {
+                const label = (li.dataset.label || '').toLowerCase();
+                const college = (li.dataset.college || '').toLowerCase();
+                const hay = label + ' ' + college;
+                const match = !t || hay.includes(t);
+                li.style.display = match ? '' : 'none';
+                if (match) visibleCount++;
+            });
+            if (emptyText) {
+                emptyText.classList.toggle('d-none', visibleCount > 0);
+            }
+        }
+
+        toggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (wrapper.classList.contains('is-open')) closePanel();
+            else openPanel();
+        });
+
+        searchInput.addEventListener('input', () => {
+            filterOptions(searchInput.value);
+        });
+
+        list.addEventListener('click', (e) => {
+            const optionEl = e.target.closest('.select-search-option');
+            if (!optionEl) return;
+            const value = optionEl.dataset.value || '';
+
+            select.value = value;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+
+            syncSelectSearchFromSelect(target);
+            validateField(select);
+            closePanel();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!wrapper.contains(e.target)) {
+                closePanel();
             }
         });
 
-        const selectedCourse = Array.from(courseSelect.options).find(o=>o.value===volunteer.course);
-        if(selectedCourse){ 
-            courseSelect.value = selectedCourse.value; 
-            collegeInput.value = selectedCourse.dataset.college||''; 
-        }
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closePanel();
+        });
 
-        updateDistrict();
-        validateAll();
+        // initial sync
+        syncSelectSearchFromSelect(target);
+    }
 
-        const routeTemplate = "{{ route('volunteer.import.update-entry', ['index' => '__INDEX__', 'type' => '__TYPE__']) }}";
-        form.action = routeTemplate.replace('__INDEX__', index).replace('__TYPE__', type);
+    document.querySelectorAll('.select-search').forEach(initSelectSearch);
 
-        modal.classList.add('is-open');
-        document.documentElement.style.overflow='hidden';
-        document.body.style.overflow='hidden';
+    /* -------------------------------------------------------
+       OPEN / CLOSE MODAL FROM TABLE
+    ------------------------------------------------------- */
+    /* -------------------------------------------------------
+   OPEN / CLOSE MODAL FROM TABLE
+------------------------------------------------------- */
+window._lastActionsToggleAfterEdit = window._lastActionsToggleAfterEdit || null;
+
+window.openEditVolunteerModal = function (type, index) {
+    // ✅ 1. Remember which Actions dropdown was open
+    //     (this is set by your main Actions script)
+    if (typeof lastDropdownToggle !== 'undefined' && lastDropdownToggle) {
+        window._lastActionsToggleAfterEdit = lastDropdownToggle;
+    } else {
+        window._lastActionsToggleAfterEdit = null;
+    }
+
+    // ✅ 2. Close all Actions dropdowns so nothing stays open behind the modal
+    if (typeof window.closeAllEntryDropdowns === 'function') {
+        window.closeAllEntryDropdowns();
+    } else if (window._lastActionsToggleAfterEdit && typeof bootstrap !== 'undefined') {
+        const inst = bootstrap.Dropdown.getInstance(window._lastActionsToggleAfterEdit) ||
+                     bootstrap.Dropdown.getOrCreateInstance(window._lastActionsToggleAfterEdit, { autoClose: 'outside' });
+        inst.hide();
+    }
+
+    // 🔽 3. From here down, keep exactly the same code you already had
+    const group = window.volunteersData[type] || [];
+    const volunteer = group[index] || {};
+
+    // simple fields
+    const simpleKeys = [
+        'full_name',
+        'id_number',
+        'year_level',
+        'batch_year',
+        'contact_number',
+        'emergency_contact',
+        'email',
+        'fb_messenger',
+        'class_schedule'
+    ];
+    simpleKeys.forEach(key => {
+        const input = document.getElementById(key);
+        if (!input) return;
+        input.value = volunteer[key] || '';
+    });
+
+    // make sure the three custom dropdowns reflect the underlying select
+    syncSelectSearchFromSelect('course');
+    syncSelectSearchFromSelect('barangay');
+    syncSelectSearchFromSelect('batch_year');
+
+    // course
+    if (volunteer.course && courseSelect) {
+        courseSelect.value = volunteer.course;
+    } else if (courseSelect) {
+        courseSelect.value = '';
+    }
+    const courseOpt = courseSelect.options[courseSelect.selectedIndex];
+    collegeInput.value = courseOpt ? (courseOpt.dataset.college || '') : '';
+    syncSelectSearchFromSelect('course');
+
+    // barangay (may be invalid -> fall back to empty)
+    if (volunteer.barangay && locationsMap[volunteer.barangay]) {
+        barangaySelect.value = volunteer.barangay;
+    } else {
+        barangaySelect.value = '';
+    }
+    syncSelectSearchFromSelect('barangay');
+    updateDistrict(); // also fills district_id
+
+    // district override if we have stored district_id
+    if (volunteer.district_id) {
+        districtIdInput.value = volunteer.district_id;
+        districtInput.value = 'District ' + volunteer.district_id;
+    }
+
+    // run validation once to paint fields
+    validateAll();
+
+    // wire action URL
+    const routeTemplate = "{{ route('volunteer.import.update-entry', ['index' => '__INDEX__', 'type' => '__TYPE__']) }}";
+    form.action = routeTemplate.replace('__INDEX__', index).replace('__TYPE__', type);
+
+    // show modal
+    modal.classList.add('is-open');
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+};
+
+
+    window.closeEditVolunteerModal = function () {
+      modal.classList.remove('is-open');
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+      // 🔴 EDIT ACTIONS DROPDOWN RESTORE: reopen the Actions dropdown we had before
+      if (window._lastActionsToggleAfterEdit) {
+          try {
+              if (typeof bootstrap !== 'undefined') {
+                  const inst = bootstrap.Dropdown.getOrCreateInstance(
+                      window._lastActionsToggleAfterEdit,
+                      { autoClose: 'outside' }
+                  );
+                  inst.show();
+              }
+          } catch (err) {
+              console.error('Failed to reopen Actions dropdown after edit modal:', err);
+          }
+          window._lastActionsToggleAfterEdit = null;
+      }
     };
 
-    window.closeEditVolunteerModal = function(){
-        modal.classList.remove('is-open');
-        document.documentElement.style.overflow=''; 
-        document.body.style.overflow='';
-    };
 
-    modal.querySelector('.modal-overlay').addEventListener('click', e=>{
-        if(e.target===modal.querySelector('.modal-overlay')) closeEditVolunteerModal();
-    });
-
-    document.addEventListener('keydown', e=>{
-        if(modal.classList.contains('is-open') && e.key==='Escape') closeEditVolunteerModal();
-    });
-
-    /* ------------------------------------------------------------------
-       ⭐ INJECT NORMALIZATION BEFORE SUBMIT (NEW PATCH)
-       ------------------------------------------------------------------ */
-    form.addEventListener('submit', e=>{
-        const sched = document.getElementById('class_schedule');
-        if (sched) {
-            sched.value = normalizeClassSchedule(sched.value);
+    overlay.addEventListener('click', e => {
+        if (e.target === overlay) {
+            closeEditVolunteerModal();
         }
-
-        if(!validateAll()) e.preventDefault();
     });
-    /* ------------------------------------------------------------------ */
+
+    document.addEventListener('keydown', e => {
+        if (modal.classList.contains('is-open') && e.key === 'Escape') {
+            closeEditVolunteerModal();
+        }
+    });
+
+    /* -------------------------------------------------------
+       SUBMIT HANDLER
+    ------------------------------------------------------- */
+    form.addEventListener('submit', (e) => {
+        if (!validateAll()) {
+            e.preventDefault();
+        }
+        // class_schedule is just forwarded as-is (editing is in separate modal)
+    });
 
 })();
 </script>

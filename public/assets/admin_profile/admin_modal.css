@@ -1,0 +1,641 @@
+/* ================================
+   GLOBAL — FIX WHITE BAR & SCROLL
+================================ */
+body.modal-open {
+    overflow: hidden !important;
+}
+
+/* ================================
+   FULLSCREEN MODAL OVERLAY
+================================ */
+.styled-modal {
+    position: fixed;
+    inset: 0;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    animation: fadeIn .3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* ================================
+   MODAL CONTENT CONTAINER
+================================ */
+.styled-modal-content {
+    background: #fff;
+    padding: 25px;
+    width: 100%;
+    max-width: 1100px;
+    max-height: 90%;
+    overflow-y: auto;
+    border-radius: 15px;
+    position: relative;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    animation: slideUp .35s ease;
+    table-layout: fixed;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(30px); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+}
+
+/* ================================
+   MODAL CLOSE BUTTON
+================================ */
+.modal-close {
+    position: absolute;
+    top: 12px;
+    right: 18px;
+    cursor: pointer;
+    font-size: 22px;
+    color: #b3263a;
+    z-index: 100000;
+}
+
+.modal-close * {
+    pointer-events: none;
+}
+
+/* ================================
+   MODAL HEADER
+================================ */
+.modal-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 15px;
+}
+
+.modal-icon {
+    font-size: 32px;
+    color: #b3263a;
+}
+
+.modal-title {
+    font-weight: 700;
+    font-size: 26px;
+    margin: 0;
+}
+
+/* ================================
+   TABLE INSIDE MODAL
+================================ */
+.styled-table thead tr {
+    background: #b3263a;   /* ✅ FIXED */
+    color: white;
+    text-align: center;
+}
+
+.styled-table td,
+.styled-table th {
+    padding: 12px;
+}
+
+/* Role Tag */
+.role-tag {
+    background: #e8e8e8;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* ================================
+   BUTTONS INSIDE TABLE
+================================ */
+.actions-cell {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    white-space: nowrap;
+}
+
+/* Logs Button */
+.btn-log {
+    background: #dc3545 !important;
+    color: #fff !important;
+    padding: 5px 12px;
+    font-size: 0.85rem;
+    border-radius: 6px;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.btn-log:hover {
+    background: #b02a37 !important;
+}
+
+/* Profile Button */
+.btn-view {
+    background: #007bff !important;
+    color: white !important;
+    padding: 5px 12px;
+    font-size: 0.85rem;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: 0.2s ease;
+}
+
+.btn-view:hover {
+    background: #0056b3 !important;
+}
+
+.btn-log,
+.btn-view,
+.btn-register {
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ================================
+   VIEW ADMIN LIST BUTTON
+================================ */
+.view-admin-btn {
+    background: #b3263a;
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-weight: 600;
+    border: none;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: 0.3s ease;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+.view-admin-btn:hover {
+    background: #8A0000;
+    transform: translateY(-2px);
+}
+
+/* ================================
+   ✅ REGISTER MODAL (FINAL FIX)
+================================ */
+#registerUserModal {
+    font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif !important;
+}
+
+
+/* Register Box */
+#registerUserModal .styled-modal-content {
+    max-width: 550px !important;
+    border-radius: 18px;
+    padding: 30px 35px;
+}
+
+/* Header */
+#registerUserModal .modal-header {
+    background: #b3263a10;
+    padding: 12px 16px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+#registerUserModal .modal-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #b3263a;
+}
+
+/* Labels */
+#registerUserModal .form-label {
+    font-weight: 700;
+    font-size: 14px;
+    color: #333;
+}
+
+/* Inputs */
+#registerUserModal .form-control {
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+    border: 1px solid #cfcfcf;
+    transition: 0.25s ease;
+    font-weight: 600;
+}
+
+#registerUserModal .form-control:focus {
+    border-color: #b3263a;
+    box-shadow: 0 0 6px rgba(179, 38, 58, 0.35);
+}
+
+/* Readonly field */
+#registerAdminName {
+    background: #f4f4f4;
+    font-weight: 700;
+}
+
+/* Submit Button */
+#registerUserModal .view-admin-btn {
+    background: #b3263a !important;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    border-radius: 10px;
+}
+
+#registerUserModal .view-admin-btn:hover {
+    background: #8A0000 !important;
+    transform: translateY(-2px);
+}
+
+/* ================================
+   ✅ VIEW PROFILE MODAL STYLE
+================================ */
+.admin-profile-modal {
+    max-width: 900px !important;
+    padding: 30px;
+    border-radius: 18px;
+    font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif !important;
+}
+
+.admin-profile-modal .modal-header {
+    background: #b3263a10;
+    padding: 14px 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.admin-profile-modal .modal-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: #b3263a;
+}
+
+.admin-avatar {
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    border: 4px solid #b3263a;
+    object-fit: cover;
+}
+
+.admin-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+}
+
+.admin-detail-box {
+    background: #f8f8f8;
+    padding: 15px;
+    border-radius: 12px;
+    text-align: center;
+    font-weight: 600;
+}
+
+.admin-detail-box i {
+    color: #b3263a;
+    font-size: 20px;
+}
+/* ================================
+   REGISTER NEW ACCOUNT BUTTON
+================================ */
+.btn-register-global {
+    background: linear-gradient(135deg, #28a745, #1e7e34);
+    color: #fff;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: 0.25s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.btn-register-global i {
+    font-size: 0.95rem;
+}
+
+.btn-register-global:hover {
+    background: linear-gradient(135deg, #1e7e34, #145523);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+}
+
+.btn-register-global:active {
+    transform: scale(0.97);
+}
+.register-bottom-wrapper {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 14px;
+}
+/* ==========================================
+   FINAL REGISTER FORM LAYOUT FIX
+========================================== */
+#registerUserModal form {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Proper spacing between fields */
+#registerUserModal .mb-3 {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* Force all inputs & selects to align perfectly */
+#registerUserModal input,
+#registerUserModal select {
+    width: 100% !important;
+    box-sizing: border-box;
+}
+
+/* Contact number placeholder fix */
+#registerUserModal input::placeholder {
+    font-weight: 500;
+    color: #999;
+}
+
+/* Fix select height to match inputs */
+#registerUserModal select.form-control {
+    height: 42px;
+    padding: 8px 12px;
+}
+
+/* Push submit button nicely */
+#registerUserModal .register-submit-btn {
+    margin-top: 18px;
+}
+
+/* Prevent modal from shrinking on small screens */
+@media (max-width: 520px) {
+    #registerUserModal .styled-modal-content {
+        width: 95% !important;
+        padding: 22px;
+    }
+}
+/* ✅ FORCE FONT AWESOME TO NEVER BE OVERRIDDEN */
+.fa,
+.fa-solid,
+.fa-regular,
+.fa-brands {
+    font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important;
+    font-weight: 900 !important;
+}
+
+
+/* ================================
+   EDIT PROFILE MODAL STYLING
+================================ */
+
+#editProfileModal {
+  position: fixed;                 /* ✅ ensures full-screen overlay */
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 9999;
+}
+
+/* ✅ MODAL BOX */
+#editProfileModal .styled-modal-content {
+  width: 100%;
+  max-width: 460px;
+  background: #fff;
+  border-radius: 14px;
+  padding: 22px 24px;
+  box-shadow: 0 10px 35px rgba(0,0,0,0.25);
+  animation: modalZoom 0.25s ease;
+  position: relative;
+}
+
+/* ✅ CLOSE BUTTON */
+#editProfileModal .modal-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  font-size: 22px;
+  font-weight: bold;
+  cursor: pointer;
+  color: #888;
+  transition: 0.2s ease;
+}
+
+#editProfileModal .modal-close:hover {
+  color: #b3263a;
+  transform: scale(1.15);
+}
+
+/* ✅ HEADER */
+#editProfileModal .modal-header {
+  text-align: center;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 18px;
+  padding-bottom: 10px;
+}
+
+#editProfileModal .modal-title {
+  font-weight: 900;
+  font-size: 20px;
+  color: #b3263a;
+  letter-spacing: 0.5px;
+}
+
+/* ✅ PROFILE IMAGE */
+/* ✅ FORCE PROFILE PICTURE TO PERFECT CIRCLE */
+#modalProfileImage {
+  width: 140px !important;
+  height: 140px !important;
+  object-fit: cover !important;
+  border-radius: 50% !important;
+  border: 4px solid #b3263a;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* ✅ Hover animation */
+#modalProfileImage:hover {
+  transform: scale(1.06);
+  box-shadow: 0 10px 22px rgba(178, 0, 12, 0.45);
+}
+
+
+/* ✅ INPUT LABELS */
+#editProfileModal .form-label {
+  font-weight: 700;
+  font-size: 14px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 6px; /* ✅ spacing for FA icons */
+}
+
+/* ✅ INPUT FIELDS */
+#editProfileModal .form-control {
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  transition: 0.2s ease;
+}
+
+#editProfileModal .form-control:focus {
+  border-color: #b3263a;
+  box-shadow: 0 0 0 2px rgba(179, 38, 58, 0.12);
+}
+
+/* ✅ CHANGE PASSWORD TITLE */
+#editProfileModal h5 {
+  color: #b3263a;
+  letter-spacing: 0.3px;
+}
+
+/* ✅ SAVE BUTTON */
+#editProfileModal .view-admin-btn {
+  background: linear-gradient(135deg, #b3263a, #8a0000);
+  border: none;
+  border-radius: 12px;
+  padding: 12px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  color: #fff;
+  transition: 0.2s ease;
+}
+
+#editProfileModal .view-admin-btn:hover {
+  background: linear-gradient(135deg, #8f1f2d, #b3263a);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.25);
+}
+
+#editProfileModal .view-admin-btn:active {
+  transform: scale(0.97);
+}
+
+/* ✅ ANIMATION */
+@keyframes modalZoom {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ✅ MOBILE SAFETY */
+@media (max-width: 576px) {
+  #editProfileModal .styled-modal-content {
+    max-width: 95%;
+    padding: 20px;
+  }
+}
+/* ================================
+   ✅ EDIT PROFILE MODAL — FINAL LAYOUT FIX
+================================ */
+
+/* Center modal content properly */
+#editProfileModal .styled-modal-content {
+  max-width: 520px !important;
+  width: 100%;
+  padding: 26px 28px;
+}
+
+/* Make the form a clean vertical layout */
+#editProfileModal form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* Center profile image section */
+#editProfileModal .text-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Fix file input alignment */
+#editProfileModal input[type="file"] {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+/* Ensure all form groups span full width */
+#editProfileModal .mb-3 {
+  width: 100%;
+}
+
+/* Improve input sizing consistency */
+#editProfileModal .form-control {
+  width: 100%;
+  height: 44px;
+  font-size: 14px;
+  border-radius: 10px;
+}
+
+/* Section divider spacing */
+#editProfileModal hr {
+  margin: 22px 0 14px;
+}
+
+/* Change password title spacing */
+#editProfileModal h5 {
+  margin-bottom: 12px;
+}
+
+/* Save button full width + centered */
+#editProfileModal .view-admin-btn {
+  width: 100%;
+  margin-top: 18px;
+  height: 46px;
+  font-size: 15px;
+  border-radius: 14px;
+}
+
+/* Prevent giant empty right side */
+#editProfileModal .styled-modal-content > * {
+  max-width: 100%;
+}
+
+/* ✅ MOBILE PERFECT FIT */
+@media (max-width: 576px) {
+  #editProfileModal .styled-modal-content {
+    max-width: 94% !important;
+    padding: 22px 20px;
+  }
+}
+/* ✅ HIDE "CHOOSE FILE" — IMAGE CLICK ONLY */
+#modalProfileUpload {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+
+

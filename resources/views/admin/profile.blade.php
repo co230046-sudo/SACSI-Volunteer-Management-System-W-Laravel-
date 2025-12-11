@@ -73,6 +73,7 @@
                                     </button>
 
 
+
                                    <button type="button" id="editSaveBtn" class="info-card mb-2" onclick="openEditProfileModal()">
                                         <i class="fas fa-edit"></i> Edit
                                     </button>

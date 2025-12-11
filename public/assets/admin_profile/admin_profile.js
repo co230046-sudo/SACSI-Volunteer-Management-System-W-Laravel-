@@ -158,29 +158,60 @@ function loadAdminLogs(adminId) {
         })
         .catch(err => console.error('Error loading logs:', err));
 }
-function printLeftColumn() {
-    const content = document.getElementById('leftColumn').innerHTML;
 
-    const printWindow = window.open('', '', 'height=800,width=600');
+
+function printLeftColumn() {
+    const leftColumn = document.getElementById("leftColumn");
+
+    if (!leftColumn) {
+        alert("Error: leftColumn container not found.");
+        return;
+    }
+
+    const content = leftColumn.innerHTML;
+    const printWindow = window.open("", "", "width=900,height=700");
 
     printWindow.document.write(`
         <html>
         <head>
             <title>Print</title>
+
             <style>
                 body {
                     font-family: Arial, sans-serif;
                     padding: 20px;
                 }
-                /* Include any styles you want for printing */
+
+                img {
+                    max-width: 100%;
+                    height: auto;
+                }
+
+                .info-card {
+                    border: 1px solid #ddd;
+                    padding: 10px;
+                    margin-bottom: 10px;
+                    border-radius: 8px;
+                }
+
+                h3, h4, h5 {
+                    margin-top: 0;
+                }
             </style>
         </head>
-        <body>${content}</body>
+
+        <body>
+            ${content}
+        </body>
         </html>
     `);
 
     printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-    printWindow.close();
+
+    // Make sure content loads before printing
+    printWindow.onload = function () {
+        printWindow.print();
+        printWindow.close();
+    };
 }
+

@@ -148,7 +148,7 @@
       <div class="h1">${escapeHtml(title)}</div>
       <div class="muted small">
         Code: ${escapeHtml(meta.event_code || "—")} •
-        Status: ${escapeHtml(meta.status || "completed")} •
+        Status: ${escapeHtml(meta.status || "planned")} •
         Generated: ${escapeHtml(meta.generated_at || "")}
       </div>
 
@@ -157,9 +157,14 @@
         <div class="box"><div class="k">Time</div><div class="v">${escapeHtml(meta.start_time || "")} - ${escapeHtml(meta.end_time || "")}</div></div>
         <div class="box"><div class="k">Venue</div><div class="v">${escapeHtml(meta.venue || "—")}</div></div>
         <div class="box"><div class="k">Location</div><div class="v">${escapeHtml(meta.barangay || "—")} • District ${escapeHtml(String(meta.district ?? ""))}</div></div>
+
         <div class="box"><div class="k">Expected</div><div class="v">${escapeHtml(String(meta.expected ?? 0))}</div></div>
         <div class="box"><div class="k">Attended</div><div class="v">${escapeHtml(String(meta.attended ?? 0))}</div></div>
         <div class="box"><div class="k">Attendance Rate</div><div class="v">${escapeHtml(String(meta.attendance_rate ?? 0))}%</div></div>
+
+        <div class="box"><div class="k">Walk-ins</div><div class="v">${escapeHtml(String(meta.walk_ins ?? 0))}</div></div>
+        <div class="box"><div class="k">Absent</div><div class="v">${escapeHtml(String(meta.absent ?? 0))}</div></div>
+        <div class="box"><div class="k">Volunteer Batch</div><div class="v">— (coming soon)</div></div>
       </div>
 
       <div class="section">
@@ -312,7 +317,7 @@
 
   let data = raw.map(d => ({
     label: (d.label ?? "Unknown").toString(),
-    color: (d.color ?? "#9ca3af").toString(), // ✅ controller picks theme-friendly colors now
+    color: (d.color ?? "#9ca3af").toString(),
     percentage: (d.percentage != null ? Number(d.percentage) : null),
     count: (d.count != null ? Number(d.count) : null),
   }));
@@ -397,7 +402,6 @@
       const pct = Math.round(seg.percentage * 10) / 10;
       tooltip.innerHTML = `<strong>${escapeHtml(seg.label)}</strong> — ${pct}%`;
 
-      // ✅ position tooltip relative to chart center and cursor
       const rect = chartEl.getBoundingClientRect();
       tooltip.style.left = `${evt.clientX - rect.left}px`;
       tooltip.style.top = `${evt.clientY - rect.top}px`;
@@ -407,3 +411,38 @@
     chartEl.addEventListener("mouseleave", () => { tooltip.style.opacity = "0"; });
   }
 })();
+
+/* -------------------------
+   comments offcanvas
+------------------------- */
+(function(){
+  const openBtn = document.getElementById("openComments");
+  const closeBtn = document.getElementById("closeComments");
+  const panel = document.getElementById("commentsPanel");
+  const overlay = document.getElementById("commentsOverlay");
+  if (!openBtn || !closeBtn || !panel || !overlay) return;
+
+  const key = "event_summary_comments_open";
+
+  function setOpen(open){
+    panel.classList.toggle("is-open", open);
+    panel.setAttribute("aria-hidden", open ? "false" : "true");
+    overlay.hidden = !open;
+    document.body.style.overflow = open ? "hidden" : "";
+    try { localStorage.setItem(key, open ? "1" : "0"); } catch {}
+  }
+
+  openBtn.addEventListener("click", () => setOpen(true));
+  closeBtn.addEventListener("click", () => setOpen(false));
+  overlay.addEventListener("click", () => setOpen(false));
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") setOpen(false);
+  });
+
+  // restore last state
+  try {
+    if (localStorage.getItem(key) === "1") setOpen(true);
+  } catch {}
+})();
+a

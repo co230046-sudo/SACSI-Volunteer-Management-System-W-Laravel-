@@ -903,24 +903,91 @@ class AttendanceImportController extends Controller
         return $preview;
     }
 
+    /**
+     * Normalized FactLog writer – same idea as other controllers:
+     * - consistent JSON structure
+     * - summary text stays readable in UI
+     * - extra data still available for devs / debugging
+     */
     private function logFact(?int $adminId, $entity, ?string $action = null, $details = null): FactLog
     {
         $admin = Auth::guard('admin')->user();
-        $adminId = is_numeric($adminId) ? (int)$adminId : ($admin->admin_id ?? null);
+        $adminId = is_numeric($adminId) ? (int) $adminId : ($admin->admin_id ?? null);
+        $adminUsername = $admin->username ?? ($admin->name ?? null);
 
-        $encodedDetails = is_array($details) || is_object($details)
-            ? json_encode($details, JSON_UNESCAPED_UNICODE)
-            : (string)$details;
-
+        // Figure out what we're logging against
         $entityType = 'Unknown';
         $entityId   = null;
+        $eventMeta  = null;
 
-        if (is_object($entity)) {
+        if ($entity instanceof Event) {
+            $entityType = 'Event';
+            $entityId   = $entity->event_id;
+            $eventMeta  = [
+                'id'    => $entity->event_id,
+                'code'  => $entity->event_code,
+                'title' => $entity->title,
+            ];
+        } elseif (is_object($entity)) {
             $entityType = class_basename($entity);
             $entityId   = method_exists($entity, 'getKey') ? $entity->getKey() : null;
         } elseif (is_string($entity)) {
             $entityType = $entity;
         }
+
+        // Turn the action into a "type" string we can filter on later
+        $typeBase = 'attendance.import';
+        $actionSlug = $action ? Str::slug(strtolower($action), '_') : 'generic';
+        $type = $typeBase . '.' . $actionSlug;
+
+        // Data payload (only for arrays/objects)
+        $data = is_array($details) || is_object($details) ? (array) $details : [];
+
+        // Make a human-ish summary for the UI
+        $eventLabel = $eventMeta
+            ? ' for event “' . ($eventMeta['title'] ?? 'Unknown') . '” (Code: ' . ($eventMeta['code'] ?? '—') . ')'
+            : '';
+
+        if (is_string($details) && trim($details) !== '') {
+            // If caller passed a sentence already, just use that as summary
+            $summary = trim($details);
+        } else {
+            $what = $action ?: 'Action';
+            $summary = trim("Admin {$adminUsername} {$what}{$eventLabel}.");
+        }
+
+        // Build normalized structure
+        $payload = [
+            'version' => 1,
+            'type'    => $type,
+            'summary' => $summary,
+            'entity'  => [
+                'type' => $entityType,
+                'id'   => $entityId,
+            ],
+            'actor'   => [
+                'admin_id' => $adminId,
+                'username' => $adminUsername,
+            ],
+            'event'   => $eventMeta,
+            'data'    => $data ?: null,
+            'meta'    => [
+                'ip' => request()->ip(),
+                'ua' => substr((string) request()->userAgent(), 0, 255),
+            ],
+            'at'      => now()->toIso8601String(),
+        ];
+
+        // Drop null keys so JSON stays clean
+        $payload = array_filter(
+            $payload,
+            fn ($v) => $v !== null && $v !== []
+        );
+
+        $encodedDetails = json_encode(
+            $payload,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
 
         return FactLog::create([
             'admin_id'    => $adminId,

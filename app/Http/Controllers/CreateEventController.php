@@ -138,8 +138,49 @@ class CreateEventController extends Controller
                 ]);
             }
 
-            $this->logEvent($event->event_id, $admin->admin_id, 'Create', "Created event “{$event->title}” (Code: {$event->event_code}).");
-            $this->logFact($admin->admin_id, $event, 'Create', "Admin {$admin->username} created event “{$event->title}” (Event ID: {$event->event_id}, Code: {$event->event_code}).");
+            // -------------------- NORMALIZED LOGGING (CREATE) --------------------
+            $summary = "Admin {$admin->username} created event “{$event->title}” (Code: {$event->event_code}).";
+
+            $eventLogPayload = $this->eventPayload(
+                type: 'event.created',
+                summary: $summary,
+                event: $event,
+                adminId: $admin->admin_id,
+                adminUsername: $admin->username,
+                data: [
+                    'input' => [
+                        'title' => (string)$request->title,
+                        'location_id' => (int)$request->location_id,
+                        'district_id' => $request->district_id ? (int)$request->district_id : null,
+                        'event_type_id' => (int)$request->event_type_id,
+                        'start_datetime' => (string)$request->start_datetime,
+                        'end_datetime' => (string)$request->end_datetime,
+                        'venue' => $request->venue,
+                        'max_volunteers' => Schema::hasColumn('events', 'max_volunteers') ? $request->input('max_volunteers') : null,
+                        'organizers' => $normalizedOrganizers,
+                    ],
+                ]
+            );
+
+            // EventLog can keep "Create" action, but details are now JSON.
+            $this->logEvent($event->event_id, $admin->admin_id, 'Create', $eventLogPayload);
+
+            $factPayload = $this->factPayload(
+                type: 'event.created',
+                summary: $summary,
+                adminId: $admin->admin_id,
+                adminUsername: $admin->username,
+                data: [
+                    'event' => [
+                        'id' => $event->event_id,
+                        'code' => $event->event_code,
+                        'title' => $event->title,
+                    ],
+                ]
+            );
+
+            $this->logFact($admin->admin_id, $event, 'Create', $factPayload);
+            // -------------------------------------------------------------------
 
             DB::commit();
             session()->forget('event_form_data');
@@ -200,6 +241,19 @@ class CreateEventController extends Controller
         try {
             DB::beginTransaction();
 
+            // Capture "before" snapshot for better logs (optional, but super useful)
+            $before = [
+                'title' => $event->title,
+                'description' => $event->description,
+                'venue' => $event->venue,
+                'location_id' => $event->location_id,
+                'district_id' => $event->district_id,
+                'event_type_id' => $event->event_type_id,
+                'start_datetime' => $event->start_datetime,
+                'end_datetime' => $event->end_datetime,
+                'max_volunteers' => Schema::hasColumn('events', 'max_volunteers') ? $event->max_volunteers : null,
+            ];
+
             $event->fill([
                 'title'          => $request->title,
                 'description'    => $request->description,
@@ -232,11 +286,66 @@ class CreateEventController extends Controller
                 ]);
             }
 
-            $this->logEvent($event->event_id, $admin->admin_id, 'Edit', "Edited event “{$event->title}” (ID: {$event->event_id}).");
-            $this->logFact($admin->admin_id, $event, 'Edit', [
-                'event_id'       => $event->event_id,
-                'updated_fields' => array_keys($request->all()),
-            ]);
+            $after = [
+                'title' => $event->title,
+                'description' => $event->description,
+                'venue' => $event->venue,
+                'location_id' => $event->location_id,
+                'district_id' => $event->district_id,
+                'event_type_id' => $event->event_type_id,
+                'start_datetime' => $event->start_datetime,
+                'end_datetime' => $event->end_datetime,
+                'max_volunteers' => Schema::hasColumn('events', 'max_volunteers') ? $event->max_volunteers : null,
+            ];
+
+            // Decide "changed fields" cleanly
+            $changedFields = [];
+            foreach ($after as $k => $v) {
+                $bv = $before[$k] ?? null;
+                // normalize datetime comparison
+                if (in_array($k, ['start_datetime','end_datetime'], true)) {
+                    $bv = $bv ? (string)$bv : null;
+                    $v = $v ? (string)$v : null;
+                }
+                if ($bv !== $v) $changedFields[] = $k;
+            }
+
+            // -------------------- NORMALIZED LOGGING (UPDATE) --------------------
+            $summary = "Admin {$admin->username} updated event “{$event->title}” (Code: {$event->event_code}).";
+
+            $eventLogPayload = $this->eventPayload(
+                type: 'event.updated',
+                summary: $summary,
+                event: $event,
+                adminId: $admin->admin_id,
+                adminUsername: $admin->username,
+                data: [
+                    'changed_fields' => $changedFields,
+                    'before' => $before,
+                    'after' => $after,
+                    'organizers' => $normalizedOrganizers,
+                ]
+            );
+
+            $this->logEvent($event->event_id, $admin->admin_id, 'Edit', $eventLogPayload);
+
+            $factPayload = $this->factPayload(
+                type: 'event.updated',
+                summary: $summary,
+                adminId: $admin->admin_id,
+                adminUsername: $admin->username,
+                data: [
+                    'event' => [
+                        'id' => $event->event_id,
+                        'code' => $event->event_code,
+                        'title' => $event->title,
+                    ],
+                    'changed_fields' => $changedFields,
+                ]
+            );
+
+            $this->logFact($admin->admin_id, $event, 'Edit', $factPayload);
+            // -------------------------------------------------------------------
 
             DB::commit();
 
@@ -295,6 +404,9 @@ class CreateEventController extends Controller
 
             DB::commit();
 
+            // (Optional) If you want, we can normalize logging here too later.
+            // For now, keep it unchanged.
+
             return response()->json([
                 'success' => true,
                 'added'   => count($toInsert),
@@ -326,6 +438,9 @@ class CreateEventController extends Controller
             }
 
             DB::commit();
+
+            // (Optional) normalize logging here too later.
+
             return response()->json(['success' => true]);
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -395,24 +510,34 @@ class CreateEventController extends Controller
         return $out;
     }
 
-    private function logEvent(int $eventId, ?int $adminId, string $action, ?string $details = null): void
+    /**
+     * EventLog writer (now accepts string OR array payload)
+     */
+    private function logEvent(int $eventId, ?int $adminId, string $action, $details = null): void
     {
+        $encoded = null;
+
+        if (is_array($details) || is_object($details)) {
+            $encoded = json_encode($details, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        } else {
+            $encoded = $details;
+        }
+
         EventLog::create([
             'event_id' => $eventId,
             'admin_id' => $adminId,
             'action'   => $action,
-            'details'  => $details,
+            'details'  => $encoded,
         ]);
     }
 
+    /**
+     * FactLog writer (kept compatible, but now JSON-safe)
+     */
     private function logFact(?int $adminId, $entity, ?string $action = null, $details = null): FactLog
     {
         $admin   = Auth::guard('admin')->user();
         $adminId = is_numeric($adminId) ? (int)$adminId : ($admin->admin_id ?? null);
-
-        $encodedDetails = is_array($details) || is_object($details)
-            ? json_encode($details, JSON_UNESCAPED_UNICODE)
-            : (string)$details;
 
         $entityType = 'Unknown';
         $entityId   = null;
@@ -424,6 +549,12 @@ class CreateEventController extends Controller
             $entityType = $entity;
         }
 
+        if (is_array($details) || is_object($details)) {
+            $encodedDetails = json_encode($details, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        } else {
+            $encodedDetails = is_null($details) ? '' : (string)$details;
+        }
+
         return FactLog::create([
             'admin_id'    => $adminId,
             'entity_type' => $entityType,
@@ -432,5 +563,44 @@ class CreateEventController extends Controller
             'details'     => $encodedDetails,
             'timestamp'   => now(),
         ]);
+    }
+
+    // -------------------- Payload helpers (normalize) --------------------
+
+    private function factPayload(string $type, ?string $summary, ?int $adminId, ?string $adminUsername, array $data = []): array
+    {
+        return array_merge([
+            'version' => 1,
+            'type'    => $type,
+            'summary' => $summary,
+            'actor'   => [
+                'admin_id' => $adminId,
+                'username' => $adminUsername,
+            ],
+            'meta' => [
+                'ip' => request()->ip(),
+                'ua' => substr((string)request()->userAgent(), 0, 255),
+            ],
+            'at' => now()->toIso8601String(),
+        ], $data);
+    }
+
+    private function eventPayload(string $type, ?string $summary, Event $event, ?int $adminId, ?string $adminUsername, array $data = []): array
+    {
+        return array_merge([
+            'version' => 1,
+            'type'    => $type,
+            'summary' => $summary,
+            'event'   => [
+                'id'    => $event->event_id,
+                'code'  => $event->event_code,
+                'title' => $event->title,
+            ],
+            'actor' => [
+                'admin_id' => $adminId,
+                'username' => $adminUsername,
+            ],
+            'at' => now()->toIso8601String(),
+        ], $data);
     }
 }

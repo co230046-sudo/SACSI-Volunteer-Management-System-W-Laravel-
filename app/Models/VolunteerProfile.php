@@ -21,6 +21,7 @@ class VolunteerProfile extends Model
         'full_name',
         'id_number',
         'year_level',
+        'batch_year',   
         'email',
         'contact_number',
         'emergency_contact',
@@ -35,6 +36,10 @@ class VolunteerProfile extends Model
         'class_schedule',
         'notes',
         'status',
+    ];
+
+    protected $casts = [
+        'batch_year' => 'integer',
     ];
 
     /**

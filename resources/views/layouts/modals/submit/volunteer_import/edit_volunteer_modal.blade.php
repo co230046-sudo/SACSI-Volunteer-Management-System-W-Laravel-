@@ -535,6 +535,40 @@ input.invalid:-webkit-autofill:active {
   font-weight:600;
 }
 
+/* keep rounded corners, but stop scrolling at the outer box */
+.edit-success-content {
+  position: relative;
+  background:#fff;
+  border-radius:18px;
+  width:100%;
+  max-width:440px;
+  max-height:88vh;
+  padding:1.8rem 2.1rem;
+  font-size:0.98rem;
+  box-shadow:0 14px 45px rgba(0,0,0,0.28);
+
+  /* 👇 key change */
+  overflow:hidden;
+}
+
+/* scroll only the long details area */
+#updateSuccessMessage {
+  max-height:60vh;
+  overflow-y:auto;
+  padding-right:6px;
+}
+
+/* optional: slim scroll just for the message area */
+#updateSuccessMessage::-webkit-scrollbar {
+  width: 6px;
+}
+#updateSuccessMessage::-webkit-scrollbar-track {
+  background: #f3f3f3;
+}
+#updateSuccessMessage::-webkit-scrollbar-thumb {
+  background: #c4c4c4;
+  border-radius: 999px;
+}
 
 
 /* small pill for college grouping in course dropdown */
@@ -1221,95 +1255,95 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll('.select-search').forEach(initSelectSearch);
 
     /* -------------------------------------------------------
-       OPEN / CLOSE MODAL FROM TABLE
+      OPEN / CLOSE MODAL FROM TABLE
     ------------------------------------------------------- */
-    /* -------------------------------------------------------
-   OPEN / CLOSE MODAL FROM TABLE
-------------------------------------------------------- */
-window._lastActionsToggleAfterEdit = window._lastActionsToggleAfterEdit || null;
+    window._lastActionsToggleAfterEdit = null;
 
-window.openEditVolunteerModal = function (type, index) {
-    // ✅ 1. Remember which Actions dropdown was open
-    //     (this is set by your main Actions script)
-    if (typeof lastDropdownToggle !== 'undefined' && lastDropdownToggle) {
-        window._lastActionsToggleAfterEdit = lastDropdownToggle;
-    } else {
-        window._lastActionsToggleAfterEdit = null;
-    }
+    window.openEditVolunteerModal = function (type, index, originEl) {
+        // originEl can be the dropdown-item OR the pill;
+        // always resolve the real Actions button
+        const actionsBtn = originEl
+            ? originEl.closest('.entry-actions')?.querySelector('.entry-actions-btn')
+            : null;
 
-    // ✅ 2. Close all Actions dropdowns so nothing stays open behind the modal
-    if (typeof window.closeAllEntryDropdowns === 'function') {
-        window.closeAllEntryDropdowns();
-    } else if (window._lastActionsToggleAfterEdit && typeof bootstrap !== 'undefined') {
-        const inst = bootstrap.Dropdown.getInstance(window._lastActionsToggleAfterEdit) ||
-                     bootstrap.Dropdown.getOrCreateInstance(window._lastActionsToggleAfterEdit, { autoClose: 'outside' });
-        inst.hide();
-    }
+        // remember this button so we can re-open its dropdown later
+        window._lastActionsToggleAfterEdit = actionsBtn || null;
 
-    // 🔽 3. From here down, keep exactly the same code you already had
-    const group = window.volunteersData[type] || [];
-    const volunteer = group[index] || {};
+        // Close that dropdown now so it doesn't stay visible behind the edit modal
+        if (actionsBtn && typeof bootstrap !== 'undefined') {
+            const inst = bootstrap.Dropdown.getOrCreateInstance(actionsBtn, {
+                autoClose: 'outside'
+            });
+            inst.hide(); // will also trigger your portal "restore" logic
+        } else if (typeof window.closeAllEntryDropdowns === 'function') {
+            // fallback – close all if we don't know which one
+            window.closeAllEntryDropdowns();
+        }
 
-    // simple fields
-    const simpleKeys = [
-        'full_name',
-        'id_number',
-        'year_level',
-        'batch_year',
-        'contact_number',
-        'emergency_contact',
-        'email',
-        'fb_messenger',
-        'class_schedule'
-    ];
-    simpleKeys.forEach(key => {
-        const input = document.getElementById(key);
-        if (!input) return;
-        input.value = volunteer[key] || '';
-    });
+        // ---------- from here down, keep your existing code ----------
+        const group = window.volunteersData[type] || [];
+        const volunteer = group[index] || {};
 
-    // make sure the three custom dropdowns reflect the underlying select
-    syncSelectSearchFromSelect('course');
-    syncSelectSearchFromSelect('barangay');
-    syncSelectSearchFromSelect('batch_year');
+        const simpleKeys = [
+            'full_name',
+            'id_number',
+            'year_level',
+            'batch_year',
+            'contact_number',
+            'emergency_contact',
+            'email',
+            'fb_messenger',
+            'class_schedule'
+        ];
+        simpleKeys.forEach(key => {
+            const input = document.getElementById(key);
+            if (!input) return;
+            input.value = volunteer[key] || '';
+        });
 
-    // course
-    if (volunteer.course && courseSelect) {
-        courseSelect.value = volunteer.course;
-    } else if (courseSelect) {
-        courseSelect.value = '';
-    }
-    const courseOpt = courseSelect.options[courseSelect.selectedIndex];
-    collegeInput.value = courseOpt ? (courseOpt.dataset.college || '') : '';
-    syncSelectSearchFromSelect('course');
+        // make sure the three custom dropdowns reflect the underlying select
+        syncSelectSearchFromSelect('course');
+        syncSelectSearchFromSelect('barangay');
+        syncSelectSearchFromSelect('batch_year');
 
-    // barangay (may be invalid -> fall back to empty)
-    if (volunteer.barangay && locationsMap[volunteer.barangay]) {
-        barangaySelect.value = volunteer.barangay;
-    } else {
-        barangaySelect.value = '';
-    }
-    syncSelectSearchFromSelect('barangay');
-    updateDistrict(); // also fills district_id
+        // course
+        if (volunteer.course && courseSelect) {
+            courseSelect.value = volunteer.course;
+        } else if (courseSelect) {
+            courseSelect.value = '';
+        }
+        const courseOpt = courseSelect.options[courseSelect.selectedIndex];
+        collegeInput.value = courseOpt ? (courseOpt.dataset.college || '') : '';
+        syncSelectSearchFromSelect('course');
 
-    // district override if we have stored district_id
-    if (volunteer.district_id) {
-        districtIdInput.value = volunteer.district_id;
-        districtInput.value = 'District ' + volunteer.district_id;
-    }
+        // barangay (may be invalid -> fall back to empty)
+        if (volunteer.barangay && locationsMap[volunteer.barangay]) {
+            barangaySelect.value = volunteer.barangay;
+        } else {
+            barangaySelect.value = '';
+        }
+        syncSelectSearchFromSelect('barangay');
+        updateDistrict(); // also fills district_id
 
-    // run validation once to paint fields
-    validateAll();
+        // district override if we have stored district_id
+        if (volunteer.district_id) {
+            districtIdInput.value = volunteer.district_id;
+            districtInput.value = 'District ' + volunteer.district_id;
+        }
 
-    // wire action URL
-    const routeTemplate = "{{ route('volunteer.import.update-entry', ['index' => '__INDEX__', 'type' => '__TYPE__']) }}";
-    form.action = routeTemplate.replace('__INDEX__', index).replace('__TYPE__', type);
+        // run validation once to paint fields
+        validateAll();
 
-    // show modal
-    modal.classList.add('is-open');
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-};
+        // wire action URL
+        const routeTemplate = "{{ route('volunteer.import.update-entry', ['index' => '__INDEX__', 'type' => '__TYPE__']) }}";
+        form.action = routeTemplate.replace('__INDEX__', index).replace('__TYPE__', type);
+
+        // show modal
+        modal.classList.add('is-open');
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+    };
+
 
 
     window.closeEditVolunteerModal = function () {

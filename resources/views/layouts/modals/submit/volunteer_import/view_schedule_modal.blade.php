@@ -198,6 +198,61 @@
 #classScheduleModal .modal-body::-webkit-scrollbar-thumb:hover {
   background: #9b2733;
 }
+
+/* ========= Class Schedule Modal - Simple Header ========= */
+:root{
+  --crimson: #a33636; /* tweak if you want darker/lighter */
+}
+
+.cs-modal-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(0,0,0,.08);
+  background: #fff;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.cs-modal-title{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  font-weight: 800;
+  color: var(--crimson);
+  font-size: 1.25rem;
+  letter-spacing: .2px;
+}
+
+.cs-modal-title i{
+  font-size: 1.2rem;
+  color: var(--crimson);
+}
+
+.cs-modal-close{
+  border: 0;
+  background: transparent;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display:grid;
+  place-items:center;
+  color: #6b7280;
+  transition: background .12s ease, color .12s ease;
+}
+
+.cs-modal-close:hover{
+  background: rgba(0,0,0,.06);
+  color: #111827;
+}
+
+/* Optional: make sure bootstrap modal header spacing doesn't fight your layout */
+#viewScheduleModal .modal-content{
+  border-radius: 12px;
+  overflow: hidden;
+}
+
 </style>
 
 <!-- ===========================================================
@@ -208,20 +263,19 @@
     <div class="modal-content custom-schedule-modal">
 
       <!-- Header -->
-      <div class="modal-header custom-modal-header d-flex justify-content-between align-items-center">
-        <h5 class="modal-title mb-0">
-          <i class="fa-solid fa-calendar-days me-2"></i> Class Schedule
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      <div class="cs-modal-header">
+          <div class="cs-modal-title">
+              <i class="fa-solid fa-calendar-days"></i>
+              <span>Class Schedule</span>
+          </div>
+
+          <button type="button" class="cs-modal-close" data-bs-dismiss="modal" aria-label="Close">
+              <i class="fa-solid fa-xmark"></i>
+          </button>
       </div>
 
       <!-- Body -->
       <div class="modal-body custom-modal-body">
-        <div class="schedule-hint">
-          In <strong>Edit</strong> mode, focus a time dropdown and press
-          <kbd>Ctrl</kbd> + <kbd>Z</kbd> to undo its last change for that day.
-        </div>
-
         <div class="weekly-schedule">
           <table class="table schedule-table text-center align-middle mb-0">
             <thead>
@@ -319,10 +373,7 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 
 <script>
-/* ===========================================================
-   CLASS SCHEDULE JS – CRIMSON VERSION WITH CONFLICT HIGHLIGHT
-=========================================================== */
-
+/* CLASS SCHEDULE JS –  */
 const MAX_ROWS = 6;
 const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 

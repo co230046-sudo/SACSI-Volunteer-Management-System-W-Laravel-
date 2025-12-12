@@ -1306,3 +1306,23 @@ body { overflow: hidden; }
     padding: 10px;
   }
 }
+
+/* === Fix 1: event cards keep full height (no vertical shrinking) === */
+.hp-list .event-card{
+  flex: 0 0 auto;      /* don't shrink; keep natural height and let the list scroll */
+}
+
+/* ================================
+   KEEP EVENT CARDS INSIDE OUTLINE
+   ================================ */
+
+/* Clip child content (cards + shadows) to the section's rounded border */
+.hp-section{
+  overflow: hidden !important;   /* respects the 18px border radius */
+}
+
+/* Give the last card some breathing room above the border */
+.hp-list{
+  padding-right: 6px !important; /* keep existing scrollbar spacing */
+  padding-bottom: 16px !important; /* space between last card and bottom outline */
+}

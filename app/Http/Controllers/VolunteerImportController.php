@@ -851,7 +851,7 @@ class VolunteerImportController extends Controller
         return empty($errors) ? null : $errors;
     }
 
-   /**
+    /**
      * Update / Correct Volunteer Fields
      */
     public function updateVolunteerEntry(Request $request, $index, $type)
@@ -869,32 +869,45 @@ class VolunteerImportController extends Controller
         $before = $entry;
         $input  = array_map('trim', $request->all());
 
+        // strip labels like "District 1" → "1"
         if (isset($before['district'])) $before['district'] = preg_replace('/\D/', '', $before['district']);
         if (isset($input['district']))  $input['district']  = preg_replace('/\D/', '', $input['district']);
 
+        // normalize schedule whitespace
         if (isset($before['class_schedule'])) $before['class_schedule'] = preg_replace('/\s+/', ' ', trim($before['class_schedule']));
         if (isset($input['class_schedule']))  $input['class_schedule']  = preg_replace('/\s+/', ' ', trim($input['class_schedule']));
 
+        // phone numbers
         foreach (['contact_number','emergency_contact'] as $field) {
             if (!empty($input[$field])) {
                 $input[$field] = preg_replace('/[^\d+]/', '', $input[$field]);
             }
         }
 
+        // ID
         if (!empty($input['id_number'])) {
             $input['id_number'] = strtoupper($input['id_number']);
         }
 
-        // 🔹 NEW: Normalize batch_year like in normalizeRow()
+        // 🔹 Normalize batch_year on BOTH before + input (so comparisons are fair)
+        if (isset($before['batch_year']) && $before['batch_year'] !== '') {
+            $digits = preg_replace('/\D+/', '', (string) $before['batch_year']);
+            if (strlen($digits) === 4) {
+                $before['batch_year'] = (int) $digits;
+            } elseif (strlen($digits) === 2) {
+                $before['batch_year'] = 2000 + (int) $digits;
+            }
+        }
+
         if (!empty($input['batch_year'])) {
             $digits = preg_replace('/\D+/', '', (string) $input['batch_year']);
 
             if (strlen($digits) === 4) {
-                $input['batch_year'] = (int) $digits;          // e.g. 2023
+                $input['batch_year'] = (int) $digits;          // 2023
             } elseif (strlen($digits) === 2) {
-                $input['batch_year'] = 2000 + (int) $digits;   // e.g. "23" → 2023
+                $input['batch_year'] = 2000 + (int) $digits;   // "23" → 2023
             } else {
-                // weird input, treat as null so validation can catch if needed
+                // weird input, let validation complain
                 $input['batch_year'] = null;
             }
         }
@@ -903,33 +916,34 @@ class VolunteerImportController extends Controller
         VALIDATION
         ============================================================ */
         $validator = \Validator::make($input, [
-            'full_name'        => ['required','regex:/^[A-Za-zÑñ\s\.\'-]+$/u','max:255'],
-            'id_number'        => ['required','regex:/^\d{6,7}$/'],
-            'course'           => 'required|string|max:100',
-            'year_level'       => ['required','in:1,2,3,4'],
-            'contact_number'   => ['required','regex:/^(09\d{9}|\+639\d{9})$/'],
-            'emergency_contact'=> ['required','regex:/^(09\d{9}|\+639\d{9})$/'],
-            'email'            => ['required','email','regex:/^[A-Za-z0-9._%+-]+@(gmail\.com|adzu\.edu\.ph)$/i'],
-            'fb_messenger'     => ['nullable'],
-            'barangay'         => ['required'],
-            'district'         => ['required'],
-            'class_schedule'   => ['required','string','regex:/^[\w\s,:()\.\-\/]+$/'],
+            'full_name'         => ['required','regex:/^[A-Za-zÑñ\s\.\'-]+$/u','max:255'],
+            'id_number'         => ['required','regex:/^\d{6,7}$/'],
+            'course'            => 'required|string|max:100',
+            'year_level'        => ['required','in:1,2,3,4'],
+            'contact_number'    => ['required','regex:/^(09\d{9}|\+639\d{9})$/'],
+            'emergency_contact' => ['required','regex:/^(09\d{9}|\+639\d{9})$/'],
+            'email'             => ['required','email','regex:/^[A-Za-z0-9._%+-]+@(gmail\.com|adzu\.edu\.ph)$/i'],
+            'fb_messenger'      => ['nullable'],
+            'barangay'          => ['required'],
+            'district'          => ['required'],
+            'class_schedule'    => ['required','string','regex:/^[\w\s,:()\.\-\/]+$/'],
 
-            // 🔹 NEW: make batch_year optional but sane
-            'batch_year'       => ['nullable','digits:4','integer','min:2000','max:2100'],
+            // 🔹 batch_year: optional, but must be a sensible 4-digit year
+            'batch_year'        => ['nullable','digits:4','integer','min:2000','max:2100'],
         ],[
-            'year_level.in'        => 'Year must be 1, 2, 3, or 4.',
-            'district.required'    => 'No district selected.',
-            'barangay.required'    => 'No barangay selected.',
+            'year_level.in'           => 'Year must be 1, 2, 3, or 4.',
+            'district.required'       => 'No district selected.',
+            'barangay.required'       => 'No barangay selected.',
             'class_schedule.required' => 'Class schedule is required.',
-            'class_schedule.regex' => 'Class schedule contains invalid characters.',
-            'batch_year.digits'    => 'Batch year must be a 4-digit year like 2023.',
-            'batch_year.min'       => 'Batch year is too early.',
-            'batch_year.max'       => 'Batch year is too far in the future.',
+            'class_schedule.regex'    => 'Class schedule contains invalid characters.',
+            'batch_year.digits'       => 'Batch year must be a 4-digit year like 2023.',
+            'batch_year.min'          => 'Batch year is too early.',
+            'batch_year.max'          => 'Batch year is too far in the future.',
         ]);
 
         $errors = $validator->fails() ? $validator->errors()->toArray() : [];
 
+        // FB link extra validation
         if (!empty($input['fb_messenger'])) {
             $fb = $input['fb_messenger'];
             if (!filter_var($fb, FILTER_VALIDATE_URL) ||
@@ -939,6 +953,7 @@ class VolunteerImportController extends Controller
             }
         }
 
+        // barangay ↔ district check
         if (!empty($input['barangay'])) {
             $districtId = $input['district_id'] ?? null;
 
@@ -959,32 +974,60 @@ class VolunteerImportController extends Controller
         }
 
         /* ============================================================
-        DETECT CHANGES
+        DETECT CHANGES (only real fields, incl. batch_year)
         ============================================================ */
+        $editableFields = [
+            'full_name',
+            'id_number',
+            'course',
+            'year_level',
+            'batch_year',
+            'contact_number',
+            'emergency_contact',
+            'email',
+            'fb_messenger',
+            'barangay',
+            'district',
+            'district_id',
+            'college',
+            'class_schedule',
+        ];
+
         $updatedFields = [];
 
-        foreach ($input as $field => $value) {
-
-            if (isset($errors[$field])) continue;
+        foreach ($editableFields as $field) {
+            if (!array_key_exists($field, $input)) {
+                continue;
+            }
+            if (isset($errors[$field])) {
+                // keep old value if invalid
+                continue;
+            }
 
             $old = $before[$field] ?? '';
-            $new = $value;
+            $new = $input[$field];
 
             if ($field === 'district') {
-                $old = preg_replace('/\D/', '', $old);
-                $new = preg_replace('/\D/', '', $new);
+                $old = preg_replace('/\D/', '', (string) $old);
+                $new = preg_replace('/\D/', '', (string) $new);
             }
 
             if ($field === 'class_schedule') {
-                $old = preg_replace('/\s+/', ' ', trim($old));
-                $new = preg_replace('/\s+/', ' ', trim($new));
+                $old = preg_replace('/\s+/', ' ', trim((string) $old));
+                $new = preg_replace('/\s+/', ' ', trim((string) $new));
+            }
+
+            if ($field === 'batch_year') {
+                // compare as integers so "2023" and 2023 are treated the same
+                $old = ($old === '' || $old === null) ? null : (int) $old;
+                $new = ($new === '' || $new === null) ? null : (int) $new;
             }
 
             if ($new !== $old) {
-                $updatedFields[$field] = $value;
+                $updatedFields[$field] = $input[$field]; // store original normalized value
             }
 
-            $entries[$index][$field] = $value;
+            $entries[$index][$field] = $input[$field];
         }
 
         $entries[$index]['errors'] = $errors;
@@ -1000,26 +1043,25 @@ class VolunteerImportController extends Controller
         }
 
         /* ============================================================
-        LOG CHANGES
+        LOG CHANGES  (Batch Year now included & ordered)
         ============================================================ */
         $adminId = Auth::guard('admin')->id();
         $labels = [
-            'full_name'        => 'Full Name',
-            'id_number'        => 'School ID',
-            'course'           => 'Course',
-            'year_level'       => 'Year Level',
-            'contact_number'   => 'Contact #',
-            'emergency_contact'=> 'Emergency #',
-            'email'            => 'Email',
-            'fb_messenger'     => 'FB/Messenger',
-            'barangay'         => 'Barangay',
-            'district'         => 'District',
-            'class_schedule'   => 'Class Schedule',
-            'batch_year'       => 'Batch Year',   // ✅ already good
+            'full_name'         => 'Full Name',
+            'id_number'         => 'School ID',
+            'course'            => 'Course',
+            'year_level'        => 'Year Level',
+            'batch_year'        => 'Batch Year',      // ⬅️ now right after Year Level
+            'contact_number'    => 'Contact #',
+            'emergency_contact' => 'Emergency #',
+            'email'             => 'Email',
+            'fb_messenger'      => 'FB/Messenger',
+            'barangay'          => 'Barangay',
+            'district'          => 'District',
+            'class_schedule'    => 'Class Schedule',
         ];
 
         if ($adminId && !empty($updatedFields)) {
-
             $fieldDetails = [];
             foreach ($updatedFields as $field => $value) {
                 if (isset($labels[$field])) {
@@ -1042,9 +1084,8 @@ class VolunteerImportController extends Controller
         }
 
         /* ============================================================
-        SUCCESS MODAL CONTENT (FIXED ICONS)
+        SUCCESS MODAL CONTENT (Batch Year in the right place)
         ============================================================ */
-
         $row  = $index + 1;
         $name = htmlspecialchars($before['full_name'] ?? 'Unknown', ENT_QUOTES, 'UTF-8');
 
@@ -1056,73 +1097,76 @@ class VolunteerImportController extends Controller
             </div>
         ";
 
-        foreach ($labels as $field => $niceLabel) {
+    foreach ($labels as $field => $niceLabel) {
 
-            $oldDisplay = $entry[$field] ?? ($before[$field] ?? '');
-            $newDisplay = $input[$field] ?? '';
+        // what we show as "before" and "after"
+        $oldDisplay = $entry[$field] ?? ($before[$field] ?? '');
+        $newDisplay = $entries[$index][$field] ?? ($input[$field] ?? '');
 
-            $oldSafe = htmlspecialchars((string)$oldDisplay, ENT_QUOTES, 'UTF-8');
-            $newSafe = htmlspecialchars((string)$newDisplay, ENT_QUOTES, 'UTF-8');
+        $oldSafe = htmlspecialchars((string)$oldDisplay, ENT_QUOTES, 'UTF-8');
+        $newSafe = htmlspecialchars((string)$newDisplay, ENT_QUOTES, 'UTF-8');
 
-            $hasError   = !empty($errors[$field] ?? []);
-            $wasChanged = array_key_exists($field, $updatedFields);
+        $hasError   = !empty($errors[$field] ?? []);
+        $wasChanged = array_key_exists($field, $updatedFields);
 
-            $errorMsg = $hasError
-                ? htmlspecialchars(implode(', ', (array)$errors[$field]), ENT_QUOTES, 'UTF-8')
-                : '';
+        $errorMsg = $hasError
+            ? htmlspecialchars(implode(', ', (array)$errors[$field]), ENT_QUOTES, 'UTF-8')
+            : '';
 
+        $block .= "
+        <div style='margin-bottom:10px; font-size:0.98rem;'>
+            <div style='font-weight:600; color:#333; margin-bottom:2px;'>
+                {$niceLabel}:
+            </div>
+            <div style='display:flex; align-items:flex-start; gap:6px;'>
+        ";
+
+        if ($hasError) {
+            // ⚠️ ERROR (same as before – warning triangle)
             $block .= "
-            <div style='margin-bottom:10px; font-size:0.98rem;'>
-                <div style='font-weight:600; color:#333; margin-bottom:2px;'>
-                    {$niceLabel}:
-                </div>
-                <div style='display:flex; align-items:flex-start; gap:6px;'>
+                <span style='margin-top:2px;'>&#9888;</span>
+                <span>
+                    <span style='color:#B2000C; font-weight:600;'>Error:</span>
+                    <span style='color:#B2000C;'> {$errorMsg}</span>
+                </span>
             ";
-
-            if ($hasError) {
-                // ⚠️ ERROR
-                $block .= "
-                    <span style='margin-top:2px;'>&#9888;</span>
-                    <span>
-                        <span style='color:#B2000C; font-weight:600;'>Error:</span>
-                        <span style='color:#B2000C;'> {$errorMsg}</span>
-                    </span>
-                ";
-            } elseif ($wasChanged) {
-                // ✔️ CHANGED
-                $block .= "
-                    <span style='margin-top:2px;'>&#10004;</span>
-                    <span>
-                        <span style='color:#28a745; font-weight:600;'>Changed:</span>
-                        <span style='color:#555;'> {$oldSafe}</span>
-                        <span style='color:#999; margin:0 4px;'>&rarr;</span>
-                        <span style='color:#007bff; font-weight:600;'>{$newSafe}</span>
-                    </span>
-                ";
-            } else {
-                // ℹ️ NO CHANGE
-                $block .= "
-                    <span style='margin-top:2px;'>&#8505;&#65039;</span>
-                    <span style='color:#444;'>No changes made</span>
-                ";
-            }
-
+        } elseif ($wasChanged) {
+            // ✔️ CHANGED (now used for *all* fields, including Batch Year)
             $block .= "
-                </div>
-                <div style='border-bottom:1px solid #e0e0e0; margin:8px 0 4px;'></div>
-            </div>";
+                <span style='margin-top:2px;'>&#10004;</span>
+                <span>
+                    <span style='color:#28a745; font-weight:600;'>Changed:</span>
+                    <span style='color:#555;'> {$oldSafe}</span>
+                    <span style='color:#999; margin:0 4px;'>&rarr;</span>
+                    <span style='color:#007bff; font-weight:600;'>{$newSafe}</span>
+                </span>
+            ";
+        } else {
+            // ℹ️ NO CHANGE (blue info)
+            $block .= "
+                <span style='margin-top:2px;'>&#8505;&#65039;</span>
+                <span style='color:#444;'>No changes made</span>
+            ";
         }
+
+        $block .= "
+            </div>
+            <div style='border-bottom:1px solid #e0e0e0; margin:8px 0 4px;'></div>
+        </div>";
+    }
+
 
         $encodedDetails = base64_encode($block);
 
         /* ============================================================
         FLASH MESSAGE
         ============================================================ */
+        $title = !empty($updatedFields)
+            ? "✔ Changes Saved #{$row}"
+            : "✔ No Changes Made #{$row}";
 
-        // (Optional: you may want to change this text if changes were actually made,
-        // but I'm keeping your original message here.)
         $flash = "
-            <strong style='color:#28a745;'>✔ No Changes Made #{$row}</strong>
+            <strong style='color:#28a745;'>{$title}</strong>
             <span style='color:#28a745; font-weight:600;'> – {$name}</span>
             &nbsp;|&nbsp;
             <span class='update-details-link'

@@ -43,10 +43,9 @@ class VolunteerProfileController extends Controller
             'fb_messenger'      => 'nullable|string|max:255',
             'course_id'         => 'nullable|integer|exists:courses,course_id',
             'year_level'        => 'nullable|integer|min:1|max:10',
+            'batch_year'        => 'nullable|integer|digits:4|min:2000|max:2100', // ✅ NEW
             'barangay'          => 'nullable|string|max:255',
             'district'          => 'nullable|string|max:255',
-
-            // Match DB enum: active / inactive
             'status'            => 'nullable|in:active,inactive',
         ]);
 
@@ -61,6 +60,7 @@ class VolunteerProfileController extends Controller
             'fb_messenger',
             'course_id',
             'year_level',
+            'batch_year',   // ✅ NEW
             'barangay',
             'district',
             'status',
@@ -68,6 +68,7 @@ class VolunteerProfileController extends Controller
 
         return redirect()->back()->with('success', 'Profile updated successfully.');
     }
+
 
     /**
      * Delete profile

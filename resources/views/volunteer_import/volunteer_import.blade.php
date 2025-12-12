@@ -46,24 +46,137 @@
         return $allNoClass;
     };
 
+    // -------------------------------------------------
+    // NEW: detect overlapping schedule times (per day)
+    // -------------------------------------------------
+    $timeMap = [
+        // Morning
+        '7:30-8:20'   => ['start' => 450,  'end' => 500],
+        '8:00-9:20'   => ['start' => 480,  'end' => 560],
+        '8:00-10:50'  => ['start' => 480,  'end' => 650],
+        '8:30-9:50'   => ['start' => 510,  'end' => 590],
+        '8:30-11:30'  => ['start' => 510,  'end' => 690],
+        '9:30-10:50'  => ['start' => 570,  'end' => 650],
+        '11:00-12:20' => ['start' => 660,  'end' => 740],
+
+        // Afternoon / Evening
+        '12:30-1:50'  => ['start' => 750,  'end' => 830],
+        '12:30-2:50'  => ['start' => 750,  'end' => 890],
+        '2:00-3:20'   => ['start' => 840,  'end' => 920],
+        '2:00-4:50'   => ['start' => 840,  'end' => 1010],
+        '3:30-4:50'   => ['start' => 930,  'end' => 1010],
+        '5:00-6:20'   => ['start' => 1020, 'end' => 1100],
+        '6:30-7:20'   => ['start' => 1110, 'end' => 1160],
+        '6:30-8:50'   => ['start' => 1110, 'end' => 1250],
+        '7:30-8:50'   => ['start' => 1170, 'end' => 1250],
+    ];
+
+    // normalize "8:30-950" / "8:30 - 9:50" → a known key like "8:30-9:50"
+    $normalizeRange = function (string $str) use ($timeMap): string {
+        $str = preg_replace('/[,;]+/', ' ', trim($str));
+        if ($str === '') return '';
+
+        $parts = array_map('trim', explode('-', $str));
+        if (count($parts) !== 2) return '';
+
+        $fix = function ($t) {
+            return preg_match('/^\d{1,2}$/', $t) ? ($t . ':00') : $t;
+        };
+
+        $key = $fix($parts[0]) . '-' . $fix($parts[1]);
+        return isset($timeMap[$key]) ? $key : '';
+    };
+
+    $parseRange = function (string $str) use ($timeMap, $normalizeRange): ?array {
+        $key = $normalizeRange($str);
+        if ($key === '' || !isset($timeMap[$key])) {
+            return null;
+        }
+        return $timeMap[$key];
+    };
+
+    // main helper: TRUE if ANY day has overlapping times
+    $hasScheduleConflicts = function ($entry) use ($normalizeRange, $parseRange): bool {
+        $schedule = (string)($entry['class_schedule'] ?? '');
+        $schedule = trim(preg_replace('/\s+/', ' ', $schedule));
+        if ($schedule === '') return false;
+
+        $days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+        foreach ($days as $day) {
+            // grab that day's piece: "Monday: 8:00-9:20 9:30-10:50"
+            $pattern = '/' . preg_quote($day, '/') . ':(.*?)(?=Monday:|Tuesday:|Wednesday:|Thursday:|Friday:|Saturday:|$)/i';
+
+            if (!preg_match($pattern, $schedule, $m)) {
+                continue;
+            }
+
+            $raw = trim($m[1]);
+            if ($raw === '' || stripos($raw, 'No Class') !== false) {
+                continue;
+            }
+
+            $slots  = preg_split('/\s+/', $raw);
+            $ranges = [];
+
+            foreach ($slots as $slot) {
+                $r = $parseRange($slot);
+                if ($r) $ranges[] = $r;
+            }
+
+            if (count($ranges) < 2) {
+                continue;
+            }
+
+            // sort by start time
+            usort($ranges, fn($a, $b) => $a['start'] <=> $b['start']);
+
+            // check for overlap in this day
+            $prev = $ranges[0];
+            for ($i = 1; $i < count($ranges); $i++) {
+                $cur = $ranges[$i];
+                if ($cur['start'] < $prev['end']) {
+                    // overlap!
+                    return true;
+                }
+                $prev = $cur;
+            }
+        }
+
+        return false;
+    };
+
     $invalidReadyCount = 0;
     $invalidNeedsCount = 0;
 
     foreach ($invalidEntries as $e) {
-        $hasErrors = !empty($e['errors']) && count($e['errors']) > 0;
+        $hasErrors = !empty($entry['errors']) && count($entry['errors']) > 0;
 
-        $missingRequired = false;
-        foreach (['full_name','id_number','course','year_level','contact_number','email','barangay','district'] as $requiredField) {
-            if (empty(trim($e[$requiredField] ?? ''))) { $missingRequired = true; break; }
+        $missingFields = [];
+        foreach ([
+            'full_name' => 'Name',
+            'id_number' => 'School ID',
+            'course' => 'Course',
+            'year_level' => 'Year',
+            'batch_year' => 'Batch Year',
+            'contact_number' => 'Contact #',
+            'email' => 'Email',
+            'barangay' => 'Barangay',
+            'district' => 'District',
+        ] as $k => $label) {
+            if (empty(trim($entry[$k] ?? ''))) $missingFields[] = $label;
         }
 
-        $scheduleOk = !$scheduleLooksEmpty($e);
-        $photoOk    = $hasRealPhoto($e);
+        $fieldsOk            = !$hasErrors && empty($missingFields);
+        $scheduleIsEmpty     = $scheduleLooksEmpty($e);
+        $scheduleHasConflict = $hasScheduleConflicts($e);
+        $scheduleOk          = !$scheduleIsEmpty && !$scheduleHasConflict;
+        $hasPic              = $hasRealPhoto($e);
 
-        $isReady = !$hasErrors && !$missingRequired && $scheduleOk && $photoOk;
-
-        if ($isReady) $invalidReadyCount++;
-        else $invalidNeedsCount++;
+        $isReady = !$hasErrors
+                && empty($missingFields)
+                && $scheduleOk
+                && $hasPic;
     }
 @endphp
 
@@ -269,11 +382,21 @@
 
                                                     $rowAccentClass = $isReady ? 'row-ok' : 'row-warn';
 
-                                                    $reasons = [];
-                                                    if (!empty($missingFields)) $reasons[] = "Missing: " . implode(', ', $missingFields);
-                                                    if (!$scheduleOk) $reasons[] = "Empty Schedule (Pending)";
-                                                    if (!$hasPic) $reasons[] = "No Photo (Pending)";
-                                                    if ($hasErrors) $reasons[] = "Has validation errors";
+                                                        $reasons = [];
+                                                        if (!empty($missingFields)) {
+                                                            $reasons[] = "Missing: " . implode(', ', $missingFields);
+                                                        }
+                                                        if ($scheduleIsEmpty) {
+                                                            $reasons[] = "Empty Schedule (Pending)";
+                                                        } elseif ($scheduleHasConflict) {
+                                                            $reasons[] = "Overlapping schedule(s)";
+                                                        }
+                                                        if (!$hasPic) {
+                                                            $reasons[] = "No Photo (Pending)";
+                                                        }
+                                                        if ($hasErrors) {
+                                                            $reasons[] = "Has validation errors";
+                                                        }
 
                                                     $statusTooltip = $isReady
                                                         ? "Ready — no missing fields, schedule and photo are present."
@@ -299,8 +422,10 @@
                                                     $truncatedFields = ['full_name','course','email','fb_messenger','barangay','district'];
 
                                                     // indicators
-                                                    $missingSchedule = !$scheduleOk;
-                                                    $missingPhoto    = !$hasPic;
+                                                    $missingSchedule   = $scheduleIsEmpty;
+                                                    $conflictSchedule  = !$scheduleIsEmpty && $scheduleHasConflict;
+                                                    $missingPhoto      = !$hasPic;
+
                                                 @endphp
 
                                                 <tr class="{{ $rowAccentClass }}">
@@ -385,15 +510,20 @@
                                                                 </span>
 
                                                                 {{-- ✅ NOTE: entry-type MUST be invalid here --}}
-                                                                <span class="ind-pill {{ $missingSchedule ? 'warn' : 'ok' }}"
+                                                                <span class="ind-pill {{ ($missingSchedule || $conflictSchedule) ? 'warn' : 'ok' }}"
                                                                     data-bs-toggle="tooltip"
-                                                                    data-bs-title="{{ $missingSchedule ? 'Empty Schedule' : 'Schedule OK' }}"
+                                                                    data-bs-title="
+                                                                        {{ $missingSchedule
+                                                                            ? 'Empty Schedule'
+                                                                            : ($conflictSchedule ? 'Schedule has overlaps' : 'Schedule OK') }}
+                                                                    "
                                                                     data-action="open-schedule"
                                                                     data-entry-type="invalid"
                                                                     data-entry-index="{{ $index }}"
                                                                     data-schedule-html="{!! e(nl2br(e($entry['class_schedule'] ?? ''))) !!}">
                                                                     <i class="fa-solid fa-calendar-days"></i>
                                                                 </span>
+
 
                                                                 <span class="ind-pill {{ $missingPhoto ? 'warn' : 'ok' }}"
                                                                     data-bs-toggle="tooltip"
@@ -422,6 +552,7 @@
                                                                 <div class="dropdown-divider my-1"></div>
 
                                                                 <button type="button" class="dropdown-item action-edit"
+                                                                    onclick="setLastUsedTable('invalid','{{ $index }}'); openEditVolunteerModal('invalid','{{ $index }}', this)"
                                                                         onclick="setLastUsedTable('invalid','{{ $index }}'); openEditVolunteerModal('invalid','{{ $index }}')">
                                                                     <i class="fa-solid fa-user-pen"></i>
                                                                     <span>Edit</span>
@@ -618,6 +749,11 @@
 
                                                         $missingSchedule = !$scheduleOk;
                                                         $missingPhoto    = !$hasPic;
+
+                                                        $scheduleIsEmpty     = $scheduleLooksEmpty($entry);
+                                                        $scheduleHasConflict = $hasScheduleConflicts($entry);
+                                                        $scheduleOk          = !$scheduleIsEmpty && !$scheduleHasConflict;
+
                                                     @endphp
 
                                                     <tr class="valid-entry row-ok">
@@ -721,7 +857,7 @@
                                                                     <div class="dropdown-divider my-1"></div>
 
                                                                     <button type="button" class="dropdown-item action-edit"
-                                                                            onclick="setLastUsedTable('valid','{{ $index }}'); openEditVolunteerModal('valid','{{ $index }}')">
+                                                                        onclick="setLastUsedTable('invalid','{{ $index }}'); openEditVolunteerModal('invalid','{{ $index }}', this)">
                                                                         <i class="fa-solid fa-user-pen"></i>
                                                                         <span>Edit</span>
                                                                     </button>
@@ -1162,13 +1298,15 @@
 
         // 🟢 Fields pill -> Edit modal
         if (action === 'open-edit') {
-          const type = pill.dataset.entryType || '';
-          const idx  = pill.dataset.entryIndex || '';
-          if (typeof window.openEditVolunteerModal === 'function') {
-              window.openEditVolunteerModal(type, idx);
-          }
-          return;
+            const type = pill.dataset.entryType || '';
+            const idx  = pill.dataset.entryIndex || '';
+            if (typeof window.openEditVolunteerModal === 'function') {
+                // pass the Actions button so we can re-open it later
+                window.openEditVolunteerModal(type, idx, toggle);
+            }
+            return;
         }
+
 
         if (action === 'open-schedule') {
           const html = pill.dataset.scheduleHtml || '';

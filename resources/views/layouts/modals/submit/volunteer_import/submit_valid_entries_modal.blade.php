@@ -1,287 +1,376 @@
 <style>
-/* ===========================================================
-   MODAL FRAMEWORK — SUBMIT / SUCCESS / ERROR
-=========================================================== */
+:root{
+    --red:#B2000C;
+    --red-dark:#8e0009;
+    --green:#28a745;
+    --green-dark:#1f8b39;
+    --orange:#a56b00;
+    --gray:#666;
+    --border:rgba(0,0,0,.10);
+    --shadow:0 18px 60px rgba(0,0,0,.35);
+}
 
-/* Wrapper */
 .submit-modal,
 .submit-success-modal,
-.submit-error-modal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 99999;
-    font-family: 'Segoe UI', Roboto, sans-serif;
+.submit-error-modal{
+    display:none;
+    position:fixed;
+    inset:0;
+    z-index:99999;
+    font-family:'Segoe UI', Roboto, sans-serif;
 }
 .submit-modal.active,
-.submit-success-modal.active,   
-.submit-error-modal.active {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-/* Overlay */
-.submit-modal-overlay,
-.submit-success-overlay,
-.submit-error-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.55);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-/* Modal Box */
-.submit-modal-box,
-.submit-success-box,
-.submit-error-box {
-    background: #fff;
-    border-radius: 16px;
-    width: 90%;
-    max-width: 500px;
-    padding: 2rem;
-    animation: fadeInUp 0.3s ease forwards;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.35);
-}
-
-/* Headers */
-.submit-modal-header,
-.submit-success-header,
-.submit-error-header {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: .5rem;
-}
-
-.submit-modal-header h2,
-.submit-success-header h2,
-.submit-error-header h2 {
-    font-size: 1.6rem;
-    margin: 0;
-    color: #B2000C;
-}
-
-.submit-modal-icon,
-.submit-success-icon,
-.submit-error-icon {
-    font-size: 2rem;
-    color: #B2000C;
-}
-
-/* Separator */
-.submit-modal-separator,
-.submit-success-separator,
-.submit-error-separator {
-    width: 85%;
-    height: 1px;
-    background: #ececec;
-    margin: 1rem auto;
-}
-
-/* Text Body */
-.submit-modal-text,
-.submit-success-text,
-.submit-error-text {
-    text-align: left;
-    margin: 1rem auto 1.6rem;
-    padding: 0 0.75rem;
-    font-size: 1.07rem;
-    line-height: 1.6;
-    color: #333;
-    word-break: break-word;
-}
-
-/* Buttons */
-.submit-modal-buttons,
-.submit-success-buttons,
-.submit-error-buttons {
-    display: flex;
-    justify-content: center;
-    gap: 16px;
-    margin-top: 1.5rem;
-}
-
-/* Expanded technical modal */
-.expanded-error-box {
-    width: 95% !important;
-    height: 90vh !important;
-    overflow-y: auto;
-}
-
-/* ===========================================================
-   SUCCESS MODAL – CLEAN GREEN THEME
-=========================================================== */
-
-/* Wrapper */
-.submit-success-modal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 99999;
-    font-family: 'Segoe UI', Roboto, sans-serif;
-}
-.submit-success-modal.active {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-/* Overlay */
-.submit-success-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.55);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-/* Modal Box */
-.submit-success-box {
-    background: #fff;
-    border-radius: 18px;
-    width: 92%;
-    max-width: 520px;
-    padding: 2rem 2.2rem 2rem;
-    animation: fadeInUp 0.28s ease forwards;
-    box-shadow: 0 14px 45px rgba(0,0,0,0.35);
-    text-align: center;
-}
-
-/* HEADER */
-.submit-success-header {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: .6rem;
-    margin-bottom: .6rem;
-}
-
-.submit-success-header h2 {
-    font-size: 1.7rem;
-    margin: 0;
-    font-weight: 700;
-    color: #28a745 !important;   /* PURE GREEN */
-}
-
-.submit-success-icon {
-    font-size: 2rem;
-    color: #28a745 !important;    /* PURE GREEN */
-}
-
-/* Separator */
-.submit-success-separator {
-    width: 85%;
-    height: 1px;
-    background: #e3e3e3;
-    margin: 1rem auto;
-}
-
-/* Text */
-.submit-success-text {
-    text-align: left;
-    margin: 1rem auto 1.4rem;
-    font-size: 1.1rem;
-    line-height: 1.62;
-    color: #333;
-    padding: 0 0.75rem;
-}
-
-/* BUTTON ROW */
-.submit-success-buttons {
-    display: flex;
-    justify-content: center;
-    margin-top: 1.4rem;
-}
-
-/* Green Button (consistent theme) */
-.file-btn-green {
-    background: #28a745;
-    color: #fff;
-    padding: 10px 26px;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: 600;
-    border: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    transition: background .2s ease, transform .15s ease;
-}
-.file-btn-green:hover {
-    background: #1f8b39;
-    transform: translateY(-2px);
-}
-.file-btn-green:active {
-    transform: translateY(0);
-}
-
-/* ===========================================================
-   ENTRY ERROR CARD STYLE (collapsible)
-=========================================================== */
-.entry-error-card {
-    border:1px solid #ddd;
-    border-radius:8px;
-    padding:10px;
-    background:#fafafa;
-    margin-bottom:10px;
-}
-.entry-error-header {
+.submit-success-modal.active,
+.submit-error-modal.active{
     display:flex;
-    justify-content:space-between;
+    justify-content:center;
     align-items:center;
 }
-.entry-more {
+
+.submit-modal-overlay,
+.submit-success-overlay,
+.submit-error-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.55);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:18px;
+}
+
+.submit-modal-box,
+.submit-success-box,
+.submit-error-box{
+    width:100%;
+    max-width:520px;
+    background:#fff;
+    border-radius:18px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    border:1px solid rgba(0,0,0,.06);
+    transform:translateY(6px);
+    animation:submitPop .18s ease-out forwards;
+}
+@keyframes submitPop{ to { transform:translateY(0); } }
+
+.modal-top{
+    padding:18px 20px 12px;
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+}
+.icon-wrap{
+    flex:0 0 auto;
+    width:42px;
+    height:42px;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(178,0,12,.10);
+    border:1px solid rgba(178,0,12,.14);
+}
+.icon-wrap i{
+    font-size:18px;
+    color:var(--red);
+}
+.title-wrap{ flex:1 1 auto; }
+.modal-title{
+    margin:0;
+    font-size:1.22rem;
+    font-weight:900;
+    color:var(--red);
+    letter-spacing:.2px;
+    line-height:1.2;
+}
+.modal-subtitle{
+    margin-top:6px;
+    font-size:.95rem;
+    color:var(--gray);
+    line-height:1.35;
+}
+.modal-close{
+    flex:0 0 auto;
+    border:none;
+    background:transparent;
+    width:36px;
+    height:36px;
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#333;
+    cursor:pointer;
+}
+.modal-close:hover{ background:rgba(0,0,0,.06); }
+
+.modal-divider{
+    height:1px;
+    background:#eee;
+    margin:0 20px;
+}
+
+.modal-body{ padding:16px 20px 18px; }
+.modal-text{
+    text-align:left !important;
+    margin:0;
+    padding:0;
+    font-size:1rem;
+    line-height:1.65;
+    color:#333;
+    word-break:break-word;
+}
+
+.modal-footer{
+    padding:14px 20px 18px;
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    background:#fafafa;
+    border-top:1px solid #eee;
+}
+
+.file-btn-red,
+.file-btn-gray,
+.file-btn-green{
+    border-radius:12px;
+    padding:10px 14px;
+    font-size:.95rem;
+    font-weight:900;
+    cursor:pointer;
+    border:1px solid transparent;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    transition:.15s ease;
+    user-select:none;
+}
+.file-btn-red{
+    background:var(--red);
+    color:#fff;
+    border-color:rgba(178,0,12,.55);
+}
+.file-btn-red:hover{ background:var(--red-dark); }
+
+.file-btn-gray{
+    background:#fff;
+    color:#222;
+    border-color:rgba(0,0,0,.15);
+}
+.file-btn-gray:hover{ background:rgba(0,0,0,.04); }
+
+.file-btn-green{
+    background:var(--green);
+    color:#fff;
+    border-color:rgba(40,167,69,.45);
+}
+.file-btn-green:hover{ background:var(--green-dark); }
+
+/* Confirm modal */
+.submit-summary{
+    margin-top:14px;
+    padding:12px 14px;
+    border-radius:14px;
+    border:1px solid rgba(178,0,12,.18);
+    background:rgba(178,0,12,.06);
+}
+.submit-summary-title{
+    font-size:.92rem;
+    font-weight:900;
+    color:var(--red);
+    margin-bottom:6px;
+}
+.submit-summary-row{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    font-size:.95rem;
+    line-height:1.55;
+}
+.submit-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:6px 10px;
+    border-radius:999px;
+    font-size:.86rem;
+    font-weight:900;
+    border:1px solid rgba(0,0,0,.10);
+    background:#fff;
+}
+.submit-chip-ok{
+    color:var(--green);
+    border-color:rgba(40,167,69,.25);
+    background:rgba(40,167,69,.08);
+}
+
+/* Success */
+.submit-success-box{ max-width:560px; }
+.submit-success-box .icon-wrap{
+    background:rgba(40,167,69,.10);
+    border:1px solid rgba(40,167,69,.16);
+}
+.submit-success-box .icon-wrap i{ color:var(--green); }
+.submit-success-box .modal-title{ color:var(--green); }
+
+/* Error modal size */
+.submit-error-box{ max-width:760px; }
+
+/* Entry list */
+#errorEntryList{
+    margin-top:14px;
+    max-height:40vh;
+    overflow-y:auto;
+    padding-right:10px;
+}
+
+/* Entry card */
+.entry-error-card{
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:12px;
+    background:#fff;
+    margin-bottom:10px;
+}
+.entry-error-header{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    align-items:flex-start;
+}
+.entry-left{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+}
+.entry-name{
+    font-weight:900;
+    color:#222;
+}
+.entry-meta{
+    font-size:.92rem;
+    color:#666;
+}
+
+/* Status badge (simple, not a pill “button”) */
+.status-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:6px 10px;
+    border-radius:999px;
+    font-size:.82rem;
+    font-weight:900;
+    border:1px solid rgba(0,0,0,.10);
+    background:#f8f8f8;
+    white-space:nowrap;
+}
+.badge-good{
+    color:var(--green);
+    border-color:rgba(40,167,69,.22);
+    background:rgba(40,167,69,.07);
+}
+.badge-dup{
+    color:var(--red);
+    border-color:rgba(178,0,12,.22);
+    background:rgba(178,0,12,.07);
+}
+.badge-invalid{
+    color:var(--orange);
+    border-color:rgba(211,139,0,.25);
+    background:rgba(211,139,0,.10);
+}
+
+/* Reasons */
+.reason-box{
+    margin-top:10px;
+    background:rgba(0,0,0,.02);
+    border:1px solid rgba(0,0,0,.10);
+    border-radius:12px;
+    padding:10px 12px;
+    color:#333;
+    line-height:1.55;
+    font-size:.95rem;
+}
+.reason-box ul{
+    margin:8px 0 0;
+    padding-left:18px;
+}
+.reason-box li{ margin:4px 0; }
+
+/* Technical (small) */
+#toggleTechDetailsBtn{
+    margin:12px 0 0;
+    display:none;
+}
+#technicalErrorBox{
+    display:none;
+    background:#f8f8f8;
+    padding:10px 12px;
+    border-radius:12px;
+    border:1px solid rgba(0,0,0,.10);
+    font-size:.83rem;
+    max-height:140px;
+    overflow:auto;
+    white-space:pre-wrap;
+}
+#techTools{
     display:none;
     margin-top:8px;
-    color:#555;
-    font-size:0.92rem;
-}
-.entry-name {
-    color:#B2000C;
-    font-weight:600;
+    text-align:left;
+    gap:10px;
 }
 
-/* Make the ERROR MODAL scrollable when content is long */
-#errorModalBox {
-    max-height: 85vh;          /* prevents exploding beyond screen */
-    overflow-y: auto !important;
-    padding-right: 18px;       /* avoid content being hidden behind scrollbar */
+@media (max-width: 720px){
+    .modal-top{ padding:16px 16px 10px; }
+    .modal-body{ padding:14px 16px 16px; }
+    .modal-footer{ padding:12px 16px 16px; }
 }
-
-/* Make entry list itself scroll if it becomes huge */
-#errorEntryList {
-    max-height: 45vh;
-    overflow-y: auto;
-    padding-right: 10px;
-}
-
 </style>
-
 
 <!-- ===========================================================
      SUBMIT CONFIRMATION MODAL
 =========================================================== -->
 <div id="modalSubmit" class="submit-modal">
-    <div class="submit-modal-overlay">
-        <div class="submit-modal-box">
+    <div class="submit-modal-overlay" id="submitConfirmOverlay">
+        <div class="submit-modal-box" role="dialog" aria-modal="true" aria-labelledby="submitTitle">
 
-            <div class="submit-modal-header">
-                <i class="fa-solid fa-database submit-modal-icon"></i>
-                <h2>Submit to Database</h2>
+            <div class="modal-top">
+                <div class="icon-wrap">
+                    <i class="fa-solid fa-database"></i>
+                </div>
+
+                <div class="title-wrap">
+                    <h2 id="submitTitle" class="modal-title">Submit to Database</h2>
+                    <div class="modal-subtitle">
+                        This will permanently save the selected verified entries.
+                        <strong style="color:var(--red);">This action can’t be undone.</strong>
+                    </div>
+                </div>
+
+                <button type="button" class="modal-close" id="cancelSubmitX" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
 
-            <hr class="submit-modal-separator">
+            <div class="modal-divider"></div>
 
-            <div id="modalSubmitText" class="submit-modal-text">
-                <span id="modalSubmitCount">Are you sure you want to submit?</span>
+            <div class="modal-body">
+                <div id="modalSubmitText" class="modal-text">
+                    <span id="modalSubmitCount">Are you sure you want to submit?</span>
+                </div>
+
+                <div class="submit-summary">
+                    <div class="submit-summary-title">Submission summary</div>
+                    <div class="submit-summary-row">
+                        <div style="font-weight:900; color:#333;">Status</div>
+                        <div><span class="submit-chip submit-chip-ok">✅ Verified entries</span></div>
+                    </div>
+                </div>
             </div>
 
-            <div class="submit-modal-buttons">
+            <div class="modal-footer">
                 <button type="button" class="file-btn-gray" id="cancelSubmitBtn">
                     <i class="fa-solid fa-xmark"></i> Cancel
                 </button>
@@ -294,25 +383,37 @@
     </div>
 </div>
 
-
 <!-- ===========================================================
-     SUCCESS MODAL (GREEN THEME)
+     SUCCESS MODAL
 =========================================================== -->
 <div id="submitSuccessModal" class="submit-success-modal">
-    <div class="submit-success-overlay">
-        <div class="submit-success-box">
+    <div class="submit-success-overlay" id="submitSuccessOverlay">
+        <div class="submit-success-box" role="dialog" aria-modal="true" aria-labelledby="submitSuccessTitle">
 
-            <div class="submit-success-header">
-                <i class="fa-solid fa-circle-check submit-success-icon"></i>
-                <h2>Success</h2>
+            <div class="modal-top">
+                <div class="icon-wrap">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+
+                <div class="title-wrap">
+                    <h2 id="submitSuccessTitle" class="modal-title">Success</h2>
+                    <div class="modal-subtitle">
+                        Your verified entries have been saved successfully.
+                    </div>
+                </div>
+
+                <button type="button" class="modal-close" id="closeSubmitSuccessX" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
 
-            <hr class="submit-success-separator">
+            <div class="modal-divider"></div>
 
-            <div id="submitSuccessModalMessage" class="submit-success-text"
-                style="font-size:1.05rem; line-height:1.6; color:#333;"></div>
+            <div class="modal-body">
+                <div id="submitSuccessModalMessage" class="modal-text"></div>
+            </div>
 
-            <div class="submit-success-buttons" style="margin-top:1.7rem;">
+            <div class="modal-footer">
                 <button type="button" id="closeSubmitSuccessModal" class="file-btn-green">
                     <i class="fa-solid fa-check"></i> Ok
                 </button>
@@ -322,49 +423,51 @@
     </div>
 </div>
 
-
 <!-- ===========================================================
      ERROR MODAL
 =========================================================== -->
 <div id="errorModal" class="submit-error-modal">
-    <div class="submit-error-overlay">
-        <div id="errorModalBox" class="submit-error-box">
+    <div class="submit-error-overlay" id="errorModalOverlay">
+        <div id="errorModalBox" class="submit-error-box" role="dialog" aria-modal="true" aria-labelledby="errTitle">
 
-            <div class="submit-error-header">
-                <i class="fa-solid fa-triangle-exclamation submit-error-icon"></i>
-                <h2>Error</h2>
-            </div>
+            <div class="modal-top">
+                <div class="icon-wrap">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
 
-            <hr class="submit-error-separator">
+                <div class="title-wrap">
+                    <h2 id="errTitle" class="modal-title">Upload Blocked</h2>
+                    <div class="modal-subtitle">
+                        Fix the issue(s) below, then try submitting again.
+                    </div>
+                </div>
 
-            <div id="errorModalMessage" class="submit-error-text"></div>
-
-            <!-- Entry Errors -->
-            <div id="errorEntryList" style="margin-top:10px;"></div>
-
-            <!-- Technical details -->
-            <button id="toggleTechDetailsBtn"
-                    class="file-btn-gray"
-                    style="margin: 10px auto; display:none;">
-                Show Technical Details
-            </button>
-
-            <pre id="technicalErrorBox"
-                 style="display:none;background:#f8f8f8;padding:15px;border-radius:10px;
-                        font-size:0.85rem;max-height:200px;overflow-y:auto;
-                        border:1px solid #ddd;white-space:pre-wrap;">
-            </pre>
-
-            <div id="techTools" style="display:none;text-align:center;margin-top:10px;">
-                <button id="copyTechErrorBtn" class="file-btn-gray">
-                    <i class="fa-solid fa-copy"></i> Copy
-                </button>
-                <button id="expandTechErrorBtn" class="file-btn-gray">
-                    <i class="fa-solid fa-expand"></i> Expand
+                <button type="button" class="modal-close" id="closeErrorX" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
 
-            <div class="submit-error-buttons" style="margin-top:20px;">
+            <div class="modal-divider"></div>
+
+            <div class="modal-body">
+                <div id="errorModalMessage" class="modal-text"></div>
+
+                <div id="errorEntryList"></div>
+
+                <button id="toggleTechDetailsBtn" class="file-btn-gray">
+                    Show Technical Details
+                </button>
+
+                <pre id="technicalErrorBox"></pre>
+
+                <div id="techTools">
+                    <button id="copyTechErrorBtn" class="file-btn-gray">
+                        <i class="fa-solid fa-copy"></i> Copy
+                    </button>
+                </div>
+            </div>
+
+            <div class="modal-footer">
                 <button type="button" id="closeErrorModal" class="file-btn-red">
                     <i class="fa-solid fa-xmark"></i> Close
                 </button>
@@ -374,22 +477,20 @@
     </div>
 </div>
 
-
 <!-- ===========================================================
      FLASH DATA (SERVER → JS)
 =========================================================== -->
 @if(session('error_modal'))
-<div id="flashErrorModal" data-message="{!! session('error_modal') !!}"></div>
+    <div id="flashErrorModal" data-message="{!! session('error_modal') !!}"></div>
 @endif
 
 @if(session('error_modal_technical'))
-<div id="flashTechnicalError" data-technical="{{ session('error_modal_technical') }}"></div>
+    <div id="flashTechnicalError" data-technical="{{ session('error_modal_technical') }}"></div>
 @endif
 
 @if(session('submit_success'))
-<div id="flashSubmitSuccessModal" data-message="{!! session('submit_success') !!}"></div>
+    <div id="flashSubmitSuccessModal" data-message="{!! session('submit_success') !!}"></div>
 @endif
-
 
 @if(session('error_modal_entries'))
 <script>
@@ -400,105 +501,232 @@
 <script>
 document.addEventListener("DOMContentLoaded", () => {
 
+    function escapeHtml(str){
+        return String(str ?? '')
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    function safeParseJson(maybeJson){
+        try {
+            const obj = JSON.parse(maybeJson);
+            return (obj && typeof obj === "object") ? obj : null;
+        } catch {
+            return null;
+        }
+    }
+
+    // Map raw validation messages to short labels like you want:
+    // "Invalid Character", "Invalid ID Number", etc.
+    function simplifyIssue(field, message){
+        const f = String(field || '').toLowerCase();
+        const m = String(message || '').toLowerCase();
+
+        if (f.includes('full_name') || f.includes('full name')) {
+            if (m.includes('only letters') || m.includes('letters allowed') || m.includes('regex')) {
+                return "Invalid Character";
+            }
+        }
+
+        if (f.includes('id_number') || f.includes('id number')) {
+            return "Invalid ID Number";
+        }
+
+        if (f.includes('email')) {
+            return "Invalid Email";
+        }
+
+        if (f.includes('contact')) {
+            return "Invalid Contact Number";
+        }
+
+        if (f.includes('emergency')) {
+            return "Invalid Emergency Contact";
+        }
+
+        if (f.includes('barangay')) {
+            return "Invalid Barangay";
+        }
+
+        if (f.includes('course')) {
+            return "Invalid Course";
+        }
+
+        if (f.includes('year_level') || f.includes('year level')) {
+            return "Invalid Year Level";
+        }
+
+        if (f.includes('batch_year') || f.includes('batch year')) {
+            return "Invalid Batch Year";
+        }
+
+        return null;
+    }
+
+    function statusBadge(status){
+        if (status === 'good') {
+            return `<span class="status-badge badge-good">✅ Good to go</span>`;
+        }
+        if (status === 'duplicate') {
+            return `<span class="status-badge badge-dup">⛔ Duplicate</span>`;
+        }
+        return `<span class="status-badge badge-invalid">⚠️ Invalid</span>`;
+    }
+
+    function renderReasons(reasons){
+        if (!reasons || !reasons.length) return ``;
+        return `
+            <div class="reason-box">
+                <div style="font-weight:900;color:#333;">Reason:</div>
+                <ul>${reasons.map(r => `<li>${escapeHtml(r)}</li>`).join('')}</ul>
+            </div>
+        `;
+    }
+
+    /* ===========================================================
+       ERROR MODAL (server-triggered)
+    ============================================================ */
     const flashErrorModal     = document.getElementById("flashErrorModal");
     const flashTechnicalError = document.getElementById("flashTechnicalError");
 
-    const errorModal          = document.getElementById("errorModal");
+    const errorModal   = document.getElementById("errorModal");
+    const errOverlay   = document.getElementById("errorModalOverlay");
+    const closeErrBtn  = document.getElementById("closeErrorModal");
+    const closeErrX    = document.getElementById("closeErrorX");
 
-    /*
-    |----------------------------------------------------------------------
-    | SUBMIT SUCCESS MODAL (isolated)
-    |----------------------------------------------------------------------
-    */
-    const flashSubmitSuccessModal = document.getElementById("flashSubmitSuccessModal");
-    const submitSuccessModal      = document.getElementById("submitSuccessModal"); // isolated ID
+    function closeError(){ errorModal?.classList.remove("active"); }
 
-    /* ===========================================================
-       ERROR MODAL
-    ============================================================ */
-    if (flashErrorModal && flashErrorModal.dataset.message.trim() !== "") {
+    closeErrBtn?.addEventListener("click", closeError);
+    closeErrX?.addEventListener("click", closeError);
+    errOverlay?.addEventListener("click", (e) => { if (e.target === errOverlay) closeError(); });
 
-        const friendly  = flashErrorModal.dataset.message.trim();
-        const technical = flashTechnicalError ? flashTechnicalError.dataset.technical.trim() : "";
+    if (flashErrorModal && (flashErrorModal.dataset.message || "").trim() !== "") {
 
-        const modalBox     = document.getElementById("errorModalBox");
-        const friendlyBox  = document.getElementById("errorModalMessage");
-        const techBox      = document.getElementById("technicalErrorBox");
-        const toggleBtn    = document.getElementById("toggleTechDetailsBtn");
-        const copyBtn      = document.getElementById("copyTechErrorBtn");
-        const expandBtn    = document.getElementById("expandTechErrorBtn");
-        const toolsBox     = document.getElementById("techTools");
-        const entryList    = document.getElementById("errorEntryList");
+        const friendly  = (flashErrorModal.dataset.message || "").trim();
+        const technical = flashTechnicalError ? (flashTechnicalError.dataset.technical || "").trim() : "";
+
+        const friendlyBox = document.getElementById("errorModalMessage");
+        const entryList   = document.getElementById("errorEntryList");
+
+        const techBox    = document.getElementById("technicalErrorBox");
+        const toggleBtn  = document.getElementById("toggleTechDetailsBtn");
+        const toolsBox   = document.getElementById("techTools");
+        const copyBtn    = document.getElementById("copyTechErrorBtn");
 
         friendlyBox.innerHTML = friendly;
         errorModal.classList.add("active");
 
-        /* Entry list rendering */
+        // Build cards
         if (window.__error_entries && Array.isArray(window.__error_entries)) {
-            entryList.innerHTML = window.__error_entries.map((e, i) => `
-                <div class="entry-error-card">
-                    <div class="entry-error-header">
-                        <div>
-                            <strong>Entry #${e.row ?? "?"}</strong> —
-                            <span class="entry-name">${e.name ?? "Unknown"}</span>
-                        </div>
-                        <a href="#" class="toggleEntryMore" data-target="entryMore${i}">
-                            View more +
-                        </a>
-                    </div>
-                    <div id="entryMore${i}" class="entry-more">
-                        ${e.details ?? "<em>No details provided.</em>"}
-                    </div>
-                </div>
-            `).join("");
 
-            document.querySelectorAll(".toggleEntryMore").forEach(btn => {
-                btn.addEventListener("click", ev => {
-                    ev.preventDefault();
-                    const div  = document.getElementById(btn.dataset.target);
-                    const show = (div.style.display === "none" || div.style.display === "");
-                    div.style.display = show ? "block" : "none";
-                    btn.innerHTML    = show ? "Hide −" : "View more +";
-                });
-            });
+            entryList.innerHTML = window.__error_entries.map((e) => {
+
+                const row  = e.row ?? "?";
+                const name = e.name ?? "Unknown";
+
+                // Preferred format (future): status + issues[]
+                let status = String(e.status || "").toLowerCase();
+                let reasons = [];
+
+                if (Array.isArray(e.issues) && e.issues.length) {
+                    reasons = e.issues.map(x => String(x));
+                    if (!status) status = 'invalid';
+                }
+
+                // Current controller format: "details" has JSON of entry, including errors
+                if (!status) {
+                    const detailsRaw = e.details ?? "";
+                    const detailsObj = (typeof detailsRaw === "string") ? safeParseJson(detailsRaw) : null;
+
+                    if (detailsObj && detailsObj.errors) {
+                        status = 'invalid';
+
+                        // Produce short “Invalid Character” style reasons
+                        const errs = detailsObj.errors;
+                        const shortSet = new Set();
+
+                        Object.entries(errs).forEach(([field, msgs]) => {
+                            (Array.isArray(msgs) ? msgs : [msgs]).forEach((m) => {
+                                const short = simplifyIssue(field, m);
+                                if (short) shortSet.add(short);
+                            });
+                        });
+
+                        reasons = Array.from(shortSet);
+                        if (reasons.length === 0) reasons = ["Invalid entry data"];
+                    } else {
+                        // If it’s not a per-entry JSON error, it’s likely the generic system entry
+                        // If your catch is duplicate (1062), we can only say “Duplicate detected”
+                        if (String(friendly).toLowerCase().includes('duplicate') || String(detailsRaw).toLowerCase().includes('duplicate') || String(detailsRaw).includes('1062')) {
+                            status = 'duplicate';
+                            reasons = ["Volunteer Already Exist"];
+                        } else {
+                            status = 'invalid';
+                            reasons = [String(e.details || "Upload blocked")];
+                        }
+                    }
+                }
+
+                // If you ever send status=good, show it too
+                const metaLine = (status === 'good')
+                    ? "Ready to be saved."
+                    : "This entry is blocking upload.";
+
+                return `
+                    <div class="entry-error-card">
+                        <div class="entry-error-header">
+                            <div class="entry-left">
+                                <div style="font-weight:900;color:#333;">
+                                    Entry #${escapeHtml(row)} — <span class="entry-name">${escapeHtml(name)}</span>
+                                </div>
+                                <div class="entry-meta">${escapeHtml(metaLine)}</div>
+                            </div>
+                            ${statusBadge(status)}
+                        </div>
+                        ${status === 'good' ? '' : renderReasons(reasons)}
+                    </div>
+                `;
+            }).join("");
         }
 
+        // Small technical toggle
         if (technical.length > 0) {
-            toggleBtn.style.display = "block";
+            toggleBtn.style.display = "inline-flex";
             techBox.textContent = technical;
 
             toggleBtn.onclick = () => {
                 const show = techBox.style.display !== "block";
-                techBox.style.display   = show ? "block" : "none";
-                toolsBox.style.display  = show ? "block" : "none";
-                toggleBtn.innerHTML     = show ? "Hide Technical Details" : "Show Technical Details";
+                techBox.style.display  = show ? "block" : "none";
+                toolsBox.style.display = show ? "flex" : "none";
+                toggleBtn.innerHTML    = show ? "Hide Technical Details" : "Show Technical Details";
             };
 
             copyBtn.onclick = () => {
                 navigator.clipboard.writeText(technical);
                 copyBtn.innerHTML = "Copied!";
-                setTimeout(() => copyBtn.innerHTML = "Copy", 1200);
-            };
-
-            expandBtn.onclick = () => {
-                const expanded = modalBox.classList.toggle("expanded-error-box");
-                expandBtn.innerHTML = expanded ? "Collapse" : "Expand";
-                techBox.style.maxHeight = expanded ? "60vh" : "200px";
+                setTimeout(() => copyBtn.innerHTML = `<i class="fa-solid fa-copy"></i> Copy`, 1200);
             };
         }
     }
 
-    document.getElementById("closeErrorModal")?.addEventListener("click", () => {
-        errorModal.classList.remove("active");
-    });
-
     /* ===========================================================
-       SUBMIT SUCCESS MODAL — ONLY FOR submit_success
+       SUCCESS MODAL (server-triggered)
     ============================================================ */
-    if (flashSubmitSuccessModal && flashSubmitSuccessModal.dataset.message.trim() !== "") {
+    const flashSubmitSuccessModal = document.getElementById("flashSubmitSuccessModal");
+    const submitSuccessModal      = document.getElementById("submitSuccessModal");
+    const successOverlay          = document.getElementById("submitSuccessOverlay");
 
-        const msg = flashSubmitSuccessModal.dataset.message.trim();
+    function closeSuccess(){ submitSuccessModal?.classList.remove("active"); }
 
+    document.getElementById("closeSubmitSuccessModal")?.addEventListener("click", closeSuccess);
+    document.getElementById("closeSubmitSuccessX")?.addEventListener("click", closeSuccess);
+    successOverlay?.addEventListener("click", (e) => { if (e.target === successOverlay) closeSuccess(); });
+
+    if (flashSubmitSuccessModal && (flashSubmitSuccessModal.dataset.message || "").trim() !== "") {
+        const msg = (flashSubmitSuccessModal.dataset.message || "").trim();
         const msgBox = document.getElementById("submitSuccessModalMessage");
         if (msgBox && submitSuccessModal) {
             msgBox.innerHTML = msg;
@@ -506,17 +734,15 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    document.getElementById("closeSubmitSuccessModal")?.addEventListener("click", () => {
-        submitSuccessModal?.classList.remove("active");
-    });
-
     /* ===========================================================
        SUBMIT CONFIRMATION MODAL
     ============================================================ */
     const modalSubmit   = document.getElementById("modalSubmit");
+    const overlaySubmit = document.getElementById("submitConfirmOverlay");
     const openModalBtn  = document.getElementById("openSubmitModalBtn");
     const confirmBtn    = document.getElementById("confirmSubmitBtn");
     const cancelBtn     = document.getElementById("cancelSubmitBtn");
+    const cancelX       = document.getElementById("cancelSubmitX");
 
     const validForm = document
         .getElementById("import-Section-valid")
@@ -530,13 +756,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const getChecked = () =>
         document.querySelectorAll('#valid-entries-table tbody input[name="selected_valid[]"]:checked');
 
+    function closeSubmitConfirm(){ modalSubmit?.classList.remove("active"); }
+
     openModalBtn.addEventListener("click", () => {
 
         const checkboxes = getTableCheckboxes();
 
         if (checkboxes.length === 0) {
-            document.getElementById("errorModalMessage").innerHTML =
-                "No verified entries to submit.";
+            const msgBox = document.getElementById("errorModalMessage");
+            msgBox.innerHTML = "No verified entries to submit.";
             errorModal.classList.add("active");
             return;
         }
@@ -548,12 +776,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const total = getChecked().length;
 
         document.getElementById("modalSubmitCount").innerHTML =
-            `Submit <strong style="color:#28a745">${total}</strong> entries to the database?`;
+            `Submit <strong style="color:var(--green)">${total}</strong> entries to the database?`;
 
         modalSubmit.classList.add("active");
     });
 
-    cancelBtn.addEventListener("click", () => modalSubmit.classList.remove("active"));
+    cancelBtn?.addEventListener("click", closeSubmitConfirm);
+    cancelX?.addEventListener("click", closeSubmitConfirm);
+    overlaySubmit?.addEventListener("click", (e) => { if (e.target === overlaySubmit) closeSubmitConfirm(); });
+
     confirmBtn.addEventListener("click", () => validForm.submit());
 
 });

@@ -57,11 +57,24 @@ class VolunteerListController extends Controller
         // For Add-Volunteer barangay dropdown (with district mapping)
         $locations = Location::orderBy('barangay')->get(['location_id','barangay','district_id']);
 
+        // ✅ PATCH: provide batch years to Blade so dropdown has REAL options
+        // If your column name is not batch_year, change here.
+        $batches = VolunteerProfile::query()
+            ->whereNotNull('batch_year')
+            ->where('batch_year', '!=', '')
+            ->distinct()
+            ->orderByDesc('batch_year')
+            ->pluck('batch_year')
+            ->map(fn($y) => trim((string)$y))
+            ->filter()
+            ->values();
+
         return view('volunteer_list.volunteer_list', compact(
             'courses',
             'barangays',
             'districts',
-            'locations'
+            'locations',
+            'batches' // ✅ PATCH
         ));
     }
 
@@ -157,6 +170,8 @@ class VolunteerListController extends Controller
             'class_schedule'       => $schedule,
             'notes'                => 'No notes',
             'status'               => $validated['status'] ?? 'active',
+            // NOTE: you are not setting batch_year on create here.
+            // That’s fine if batch_year only comes from imports.
         ]);
 
         return redirect()
@@ -257,9 +272,13 @@ class VolunteerListController extends Controller
         $barangay      = $request->query('barangay');
         $district      = $request->query('district');
         $yearLevel     = $request->query('year_level');
+
+        // ✅ PATCH: read batch year from query
+        $batchYear     = $request->query('batch_year'); // frontend sends batch_year
+
         $selectedDay   = $request->query('day');
         $selectedBlock = $request->query('schedule_day');
-        $status       = $request->query('status');
+        $status        = $request->query('status');
 
         $parsedRange = null;
         if ($selectedBlock) {
@@ -280,44 +299,42 @@ class VolunteerListController extends Controller
             'email',
             'contact_number',
             'emergency_contact',
-            'status',              
+            'status',
+            'batch_year' // ✅ PATCH: include in select (change name if DB column differs)
         );
-
-        $scheduleMode = ($selectedDay || $selectedBlock) ? true : false; // (can remove if you want)
 
         // Search (ALWAYS allowed, even when day/time filters are used)
         if ($search !== '') {
             $query->where(function($q) use ($search, $searchRaw) {
-            $like = "%{$search}%";
+                $like = "%{$search}%";
 
-            // name / barangay
-            $q->whereRaw("LOWER(full_name) LIKE ?", [$like])
-            ->orWhereRaw("LOWER(barangay) LIKE ?", [$like])
+                // name / barangay
+                $q->whereRaw("LOWER(full_name) LIKE ?", [$like])
+                  ->orWhereRaw("LOWER(barangay) LIKE ?", [$like])
 
-            // email
-            ->orWhereRaw("LOWER(email) LIKE ?", [$like])
+                  // email
+                  ->orWhereRaw("LOWER(email) LIKE ?", [$like])
 
-            // phone numbers (use raw input, not lowercased)
-            ->orWhere('contact_number', 'LIKE', "%{$searchRaw}%")
-            ->orWhere('emergency_contact', 'LIKE', "%{$searchRaw}%");
+                  // phone numbers (use raw input, not lowercased)
+                  ->orWhere('contact_number', 'LIKE', "%{$searchRaw}%")
+                  ->orWhere('emergency_contact', 'LIKE', "%{$searchRaw}%");
 
-            if (in_array($search, ['1','district 1','d1'], true)) {
-                $q->orWhere('district', 1);
-            }
-            if (in_array($search, ['2','district 2','d2'], true)) {
-                $q->orWhere('district', 2);
-            }
+                if (in_array($search, ['1','district 1','d1'], true)) {
+                    $q->orWhere('district', 1);
+                }
+                if (in_array($search, ['2','district 2','d2'], true)) {
+                    $q->orWhere('district', 2);
+                }
 
-            $q->orWhereHas('course', function($qc) use ($like) {
-                $qc->whereRaw("LOWER(course_name) LIKE ?", [$like]);
+                $q->orWhereHas('course', function($qc) use ($like) {
+                    $qc->whereRaw("LOWER(course_name) LIKE ?", [$like]);
+                });
+
+                $statusSearch = strtolower($search);
+                if (in_array($statusSearch, ['active','inactive'], true)) {
+                    $q->orWhere('status', $statusSearch);
+                }
             });
-
-            $statusSearch = strtolower($search);
-            if (in_array($statusSearch, ['active','inactive'], true)) {
-                $q->orWhere('status', $statusSearch);
-            }
-        });
-
         }
 
         // Filters
@@ -333,6 +350,13 @@ class VolunteerListController extends Controller
         if ($yearLevel && $yearLevel !== 'remove') {
             $query->where('year_level', $yearLevel);
         }
+
+        // ✅ PATCH: apply batch filter
+        if ($batchYear && $batchYear !== 'remove') {
+            // If your column name is not batch_year, change this.
+            $query->where('batch_year', $batchYear);
+        }
+
         if ($status && $status !== 'remove') {
             $query->where('status', $status);
         }
@@ -363,9 +387,6 @@ class VolunteerListController extends Controller
         $items = $query->get();
 
         // Schedule availability filtering (in-memory)
-        // - day only   => volunteers with NO class blocks that day (free all day)
-        // - time only  => volunteers that NEVER have a class overlapping that time
-        // - day+time   => volunteers free at that time on that specific day
         if ($selectedDay || $parsedRange) {
             $items = $items->filter(function ($v) use ($selectedDay, $parsedRange) {
                 $blocksByDay = $this->extractScheduleByDay($v->class_schedule);
@@ -381,12 +402,10 @@ class VolunteerListController extends Controller
                     foreach ($blocksByDay as $ranges) {
                         foreach ($ranges as $block) {
                             if ($this->overlaps($parsedRange, $block)) {
-                                // has at least one overlapping class somewhere in the week → NOT available
                                 return false;
                             }
                         }
                     }
-                    // no overlap on any day → always free at that time
                     return true;
                 }
 
@@ -395,18 +414,15 @@ class VolunteerListController extends Controller
                     $ranges = $blocksByDay[$selectedDay] ?? [];
                     foreach ($ranges as $block) {
                         if ($this->overlaps($parsedRange, $block)) {
-                            // has class overlapping → NOT available
                             return false;
                         }
                     }
-                    // no overlapping block → available at that day+time
                     return true;
                 }
 
                 return true;
             })->values();
         }
-
 
         $total       = $items->count();
         $currentPage = max(1, (int)$request->query('page', 1));
@@ -447,6 +463,9 @@ class VolunteerListController extends Controller
                     'contact_number'     => $item->contact_number,
                     'emergency_contact'  => $item->emergency_contact,
                     'status'             => $item->status,
+
+                    // ✅ PATCH: return batch_year so JS can display/scan it
+                    'batch_year'         => $item->batch_year,
                 ];
             }),
             'total'         => $total,

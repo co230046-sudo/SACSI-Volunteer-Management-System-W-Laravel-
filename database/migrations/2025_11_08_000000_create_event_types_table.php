@@ -15,7 +15,6 @@ return new class extends Migration
             $table->increments('event_type_id');
             $table->string('type_key', 50)->unique(); // e.g. "cleanup", "seminar"
             $table->string('label', 100);             // e.g. "Cleanup Drive", "Seminar"
-            $table->string('icon_class', 100)->nullable(); // Optional: FontAwesome icon
             $table->timestamps();
         });
     }

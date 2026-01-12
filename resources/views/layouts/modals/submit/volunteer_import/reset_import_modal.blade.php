@@ -1,161 +1,256 @@
 <style>
-/* Reset Import Modal */
-.reset-import-modal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    font-family: 'Segoe UI', Roboto, sans-serif;
+/* ==========================
+   RESET IMPORT MODAL (Redesign)
+   Matches class schedule modal feel
+========================== */
+.reset-import-modal{
+    display:none;
+    position:fixed;
+    inset:0;
+    z-index:9999;
+    font-family:'Segoe UI', Roboto, sans-serif;
 }
-.reset-import-modal.active {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-/* Overlay */
-.reset-modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.55);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+.reset-import-modal.active{
+    display:flex;
+    justify-content:center;
+    align-items:center;
 }
 
-/* Modal Box */
-.reset-modal-box {
-    background: #fff;
-    border-radius: 16px;
-    width: 90%;
-    max-width: 500px;
-    padding: 2rem;
-    animation: fadeInUp 0.3s ease forwards;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+.reset-modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.55);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:18px;
 }
 
-/* Header */
-.reset-modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: .5rem;
-    text-align: center;
-}
-.reset-modal-header h2 {
-    font-size: 1.6rem;
-    color: #B2000C;
-    margin: 0;
-}
-.reset-modal-icon {
-    font-size: 2rem;
-    color: #B2000C;
+/* Modal box */
+.reset-modal-box{
+    width:100%;
+    max-width:520px;
+    background:#fff;
+    border-radius:18px;
+    box-shadow:0 18px 60px rgba(0,0,0,.35);
+    overflow:hidden;
+    transform:translateY(6px);
+    animation:resetPop .18s ease-out forwards;
+    border:1px solid rgba(0,0,0,.06);
 }
 
-/* Separator */
-.reset-modal-separator {
-    width: 85%;
-    height: 1px;
-    background: #ececec;
-    margin: 1rem auto;
+/* Header area */
+.reset-modal-top{
+    padding:18px 20px 12px;
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
 }
 
-/* LEFT-ALIGNED MESSAGE AREA */
-.reset-text-block {
-    text-align: left !important;
-    margin: 1rem auto 1.5rem;
-    padding: 0 0.75rem;
-    font-size: 1.07rem;
-    line-height: 1.6;
-    color: #333;
-    word-break: break-word;
+.reset-icon-wrap{
+    flex:0 0 auto;
+    width:42px;
+    height:42px;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(178,0,12,.10);
+    border:1px solid rgba(178,0,12,.14);
+}
+.reset-icon-wrap i{
+    font-size:18px;
+    color:#B2000C;
 }
 
-/* Buttons */
-.reset-modal-buttons {
-    display: flex;
-    justify-content: center;
-    gap: 16px;
-    margin-top: 1.5rem;
+.reset-title-wrap{
+    flex:1 1 auto;
+}
+.reset-title{
+    margin:0;
+    font-size:1.22rem;
+    font-weight:800;
+    color:#B2000C;
+    letter-spacing:.2px;
+    line-height:1.2;
+}
+.reset-subtitle{
+    margin-top:6px;
+    font-size:.95rem;
+    color:#666;
+    line-height:1.35;
 }
 
-.reset-btn-cancel {
-    background-color: #f1f1f1;
-    color: #222;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    padding: 10px 22px;
-    font-size: .95rem;
-    font-weight: 600;
-    cursor: pointer;
+.reset-close{
+    flex:0 0 auto;
+    border:none;
+    background:transparent;
+    width:36px;
+    height:36px;
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#333;
+    cursor:pointer;
 }
-.reset-btn-cancel:hover {
-    background-color: #e2e2e2;
-}
-
-.reset-btn-confirm {
-    background-color: #b2000c;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    padding: 10px 22px;
-    font-size: .95rem;
-    font-weight: 600;
-    cursor: pointer;
-}
-.reset-btn-confirm:hover {
-    background-color: #8e0009;
+.reset-close:hover{
+    background:rgba(0,0,0,.06);
 }
 
-/* Success Styles */
-.reset-success-icon {
-    font-size: 2rem;
-    color: #28a745;
-}
-.reset-success-title {
-    color: #28a745 !important;
-}
-.reset-success-text {
-    text-align: left !important;
+/* Divider */
+.reset-divider{
+    height:1px;
+    background:#eee;
+    margin:0 20px;
 }
 
-.reset-success-text {
-    font-size: 1.07rem;
-    line-height: 1.75;       /* better readability */
-    margin-top: 1.8rem;       /* proper spacing from header */
-    padding: 0 0.75rem;       /* clean left/right padding */
-    white-space: normal;      /* ensures proper wrapping */
+/* Body */
+.reset-body{
+    padding:16px 20px 18px;
 }
 
-.reset-success-text br {
-    margin-bottom: 0.6rem;
-    display: block;
-    content: "";
+.reset-text-block{
+    text-align:left !important;
+    padding:0;
+    margin:0;
+    font-size:1rem;
+    line-height:1.65;
+    color:#333;
+    word-break:break-word;
+}
+
+/* Highlight section */
+.reset-summary{
+    margin-top:14px;
+    padding:12px 14px;
+    border-radius:14px;
+    border:1px solid rgba(178,0,12,.18);
+    background:rgba(178,0,12,.06);
+}
+.reset-summary .reset-summary-title{
+    font-size:.92rem;
+    font-weight:800;
+    color:#B2000C;
+    margin-bottom:6px;
+}
+.reset-summary .reset-summary-row{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    font-size:.95rem;
+    line-height:1.55;
+}
+.reset-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:6px 10px;
+    border-radius:999px;
+    font-size:.86rem;
+    font-weight:800;
+    border:1px solid rgba(0,0,0,.10);
+    background:#fff;
+}
+.reset-chip-valid{ color:#1f7a39; border-color:rgba(40,167,69,.25); background:rgba(40,167,69,.08); }
+.reset-chip-invalid{ color:#B2000C; border-color:rgba(178,0,12,.25); background:rgba(178,0,12,.08); }
+.reset-chip-dup{ color:#a56b00; border-color:rgba(211,139,0,.25); background:rgba(211,139,0,.10); }
+
+/* Footer buttons */
+.reset-footer{
+    padding:14px 20px 18px;
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    background:#fafafa;
+    border-top:1px solid #eee;
+}
+
+.reset-btn{
+    border-radius:12px;
+    padding:10px 14px;
+    font-size:.95rem;
+    font-weight:800;
+    cursor:pointer;
+    border:1px solid transparent;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    transition:.15s ease;
+    user-select:none;
+}
+.reset-btn i{ font-size:.95rem; }
+
+/* Cancel */
+.reset-btn-cancel{
+    background:#fff;
+    color:#222;
+    border-color:rgba(0,0,0,.15);
+}
+.reset-btn-cancel:hover{
+    background:rgba(0,0,0,.04);
+}
+
+/* Confirm */
+.reset-btn-confirm{
+    background:#B2000C;
+    color:#fff;
+    border-color:rgba(178,0,12,.55);
+}
+.reset-btn-confirm:hover{
+    background:#8e0009;
+}
+
+/* Animation */
+@keyframes resetPop{
+    to { transform:translateY(0); }
+}
+
+/* Mobile tweaks */
+@media (max-width: 520px){
+    .reset-modal-top{ padding:16px 16px 10px; }
+    .reset-body{ padding:14px 16px 16px; }
+    .reset-footer{ padding:12px 16px 16px; }
 }
 </style>
 
-<!-- CONFIRM RESET MODAL -->
+<!-- CONFIRM RESET MODAL (Redesigned) -->
 <div id="resetImportModal" class="reset-import-modal">
     <div id="resetModalOverlay" class="reset-modal-overlay">
-        <div class="reset-modal-box">
+        <div class="reset-modal-box" role="dialog" aria-modal="true" aria-labelledby="resetTitle">
 
-            <div class="reset-modal-header">
-                <i class="fa-solid fa-rotate-left reset-modal-icon"></i>
-                <h2>Clear Import Preview?</h2>
+            <div class="reset-modal-top">
+                <div class="reset-icon-wrap">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </div>
+
+                <div class="reset-title-wrap">
+                    <h2 id="resetTitle" class="reset-title">Clear Import Preview?</h2>
+                    <div class="reset-subtitle">
+                        This will remove all imported preview rows from your session.
+                        <strong style="color:#B2000C;">This action can’t be undone.</strong>
+                    </div>
+                </div>
+
+                <button type="button" class="reset-close" id="cancelResetModal" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
 
-            <hr class="reset-modal-separator">
+            <div class="reset-divider"></div>
 
-            <div id="resetModalMessage" class="reset-text-block"></div>
+            <div class="reset-body">
+                <div id="resetModalMessage" class="reset-text-block"></div>
+            </div>
 
-            <div class="reset-modal-buttons">
-                <button type="button" class="reset-btn-cancel" id="cancelResetModal">
+            <div class="reset-footer">
+                <button type="button" class="reset-btn reset-btn-cancel" id="cancelResetModalAlt">
                     <i class="fa-solid fa-xmark"></i> Cancel
                 </button>
 
-                <form action="{{ route('volunteer.import.reset') }}" method="POST">
+                <form action="{{ route('volunteer.import.reset') }}" method="POST" style="margin:0;">
                     @csrf
-                    <button type="submit" class="reset-btn-confirm" id="confirmResetBtn">
+                    <button type="submit" class="reset-btn reset-btn-confirm" id="confirmResetBtn">
                         <i class="fa-solid fa-check"></i> Confirm
                     </button>
                 </form>
@@ -165,115 +260,147 @@
     </div>
 </div>
 
-
-<!-- SUCCESS MODAL -->
-<div id="resetSuccessModal" class="reset-import-modal">
-    <div id="resetSuccessOverlay" class="reset-modal-overlay">
-        <div class="reset-modal-box">
-
-            <div class="reset-modal-header">
-                <i class="fa-solid fa-circle-check reset-success-icon"></i>
-                <h2 class="reset-success-title">Success</h2>
-            </div>
-
-            <hr class="reset-modal-separator">
-
-            <div id="resetSuccessMessage" class="reset-text-block reset-success-text"></div>
-
-            <div class="reset-modal-buttons">
-                <button type="button" class="reset-btn-confirm" id="resetSuccessOkBtn">
-                    <i class="fa-solid fa-check"></i> OK
-                </button>
-            </div>
-
-        </div>
-    </div>
-</div>
-
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+(function () {
 
-    /* ==========================
-       CONFIRM RESET MODAL
-    ========================== */
-    const resetModal = document.getElementById('resetImportModal');
-    const resetOverlay = document.getElementById('resetModalOverlay');
-    const openResetBtn = document.getElementById('openResetModal');
-    const cancelResetBtn = document.getElementById('cancelResetModal');
-    const confirmResetBtn = document.getElementById('confirmResetBtn');
-    const resetModalMessage = document.getElementById('resetModalMessage');
-
-    function openResetModal() {
-        const validCount     = {{ session()->has('validEntries') ? count(session('validEntries')) : 0 }};
-        const invalidCount   = {{ session()->has('invalidEntries') ? count(session('invalidEntries')) : 0 }};
-        const duplicateCount = {{ session()->has('duplicateEntries') ? count(session('duplicateEntries')) : 0 }};
-        const total = validCount + invalidCount + duplicateCount;
-
-        resetModalMessage.innerHTML = `
-            Are you sure you want to clear all imported entries?<br>
-            <strong>This action cannot be undone.</strong><br><br>
-            <span style="color:#B2000C; font-weight:700; font-size:1.05rem;">
-                Rows to clear: ${total}
-            </span>
-
-            <div style="font-size:0.95rem; margin-top:8px; line-height:1.4;">
-                <span style="color:#28a745;">Valid: ${validCount}</span><br>
-                <span style="color:#B2000C;">Invalid: ${invalidCount}</span><br>
-                <span style="color:#d38b00;">Duplicates: ${duplicateCount}</span>
-            </div>
-        `;
-
-        resetModal.classList.add('active');
+    function runWhenReady(fn) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', fn);
+        } else {
+            fn();
+        }
     }
 
-    function closeResetModal() { resetModal.classList.remove('active'); }
+    runWhenReady(() => {
 
-    openResetBtn?.addEventListener('click', openResetModal);
-    cancelResetBtn?.addEventListener('click', closeResetModal);
-    resetOverlay?.addEventListener('click', e => { if (e.target === resetOverlay) closeResetModal(); });
+        // Keep your existing variables if you already have them — this just supports the new second cancel button
+        const resetModal = document.getElementById('resetImportModal');
+        const resetOverlay = document.getElementById('resetModalOverlay');
+        const openResetBtn = document.getElementById('openResetModal');
+        const cancelResetBtn = document.getElementById('cancelResetModal');
+        const cancelResetBtnAlt = document.getElementById('cancelResetModalAlt');
+        const resetModalMessage = document.getElementById('resetModalMessage');
 
-    /* ==========================
-       RESET SUCCESS MODAL
-    ========================== */
-    const successModal   = document.getElementById('resetSuccessModal');
-    const successOverlay = document.getElementById('resetSuccessOverlay');
-    const successMessage = document.getElementById('resetSuccessMessage');
-    const successOkBtn   = document.getElementById('resetSuccessOkBtn');
+        function openResetModal() {
+            const validCount     = {{ session()->has('validEntries') ? count(session('validEntries')) : 0 }};
+            const invalidCount   = {{ session()->has('invalidEntries') ? count(session('invalidEntries')) : 0 }};
+            const duplicateCount = {{ session()->has('duplicateEntries') ? count(session('duplicateEntries')) : 0 }};
+            const total = validCount + invalidCount + duplicateCount;
 
-    function showResetSuccess(msg) {
-        successMessage.innerHTML = msg;
-        successModal.classList.add('active');
-    }
+            // Same content you had — styled better by the new CSS
+            resetModalMessage.innerHTML = `
+                <div class="reset-summary">
+                    <div class="reset-summary-title">Rows to clear</div>
+                    <div class="reset-summary-row" style="margin-bottom:10px;">
+                        <div style="font-weight:800; color:#333;">Total</div>
+                        <div style="font-weight:900; color:#B2000C;">${total}</div>
+                    </div>
 
-    function closeSuccess() { successModal.classList.remove('active'); }
+                    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                        <span class="reset-chip reset-chip-valid">✅ Valid: ${validCount}</span>
+                        <span class="reset-chip reset-chip-invalid">❌ Invalid: ${invalidCount}</span>
+                        <span class="reset-chip reset-chip-dup">⚠️ Duplicates: ${duplicateCount}</span>
+                    </div>
+                </div>
+            `;
 
-    successOkBtn?.addEventListener('click', closeSuccess);
-    successOverlay?.addEventListener('click', e => { if (e.target === successOverlay) closeSuccess(); });
+            resetModal.classList.add('active');
+        }
 
-    /* =====================================================
-       AUTO SHOW RESET SUCCESS (Redirect)
-    ===================================================== */
-    @if(session('resetSuccess'))
-        showResetSuccess(`{!! session('resetSuccess') !!}`);
-    @endif
+        function closeResetModal() { resetModal.classList.remove('active'); }
 
-    /* =====================================================
-       FLASH BAR “SHOW DETAILS” → OPEN RESET SUCCESS MODAL
-    ===================================================== */
-    document.addEventListener('click', function (e) {
-        const link = e.target.closest('.reset-details-link');
-        if (!link) return;
+        openResetBtn?.addEventListener('click', openResetModal);
+        cancelResetBtn?.addEventListener('click', closeResetModal);
+        cancelResetBtnAlt?.addEventListener('click', closeResetModal);
+        resetOverlay?.addEventListener('click', e => { if (e.target === resetOverlay) closeResetModal(); });
 
-        e.preventDefault();
+        /* =====================================================
+           UNIVERSAL SUCCESS MODAL (after redirect)
+           ✅ FIX: Use base64 session('resetDetails') (same as Show Details)
+        ===================================================== */
+        function openUniversal(html, title, subtitle) {
 
-        const encoded = link.getAttribute('data-details');
-        if (!encoded) return;
+            // 1) If your app already exposes a global opener, use it
+            if (typeof window.openUniversalModal === 'function') {
+                window.openUniversalModal({ title, subtitle, html });
+                return true;
+            }
+            if (typeof window.showUniversalModal === 'function') {
+                window.showUniversalModal(title, subtitle, html);
+                return true;
+            }
 
-        const decoded = atob(encoded);  // decode details
+            // 2) Fallback: try common universal modal DOM hooks
+            const modal =
+                document.getElementById('universalModal') ||
+                document.getElementById('feedbackModal') ||
+                document.getElementById('universalFeedbackModal');
 
-        successMessage.innerHTML = decoded;  // insert HTML
-        successModal.classList.add('active'); // open reset modal
+            const body =
+                document.getElementById('universalModalBody') ||
+                document.getElementById('feedbackModalBody') ||
+                document.getElementById('universalFeedbackBody') ||
+                document.querySelector('.universal-modal-body');
+
+            const tEl =
+                document.getElementById('universalModalTitle') ||
+                document.getElementById('feedbackModalTitle') ||
+                document.querySelector('.universal-modal-title');
+
+            const sEl =
+                document.getElementById('universalModalSubtitle') ||
+                document.getElementById('feedbackModalSubtitle') ||
+                document.querySelector('.universal-modal-subtitle');
+
+            if (tEl) tEl.innerHTML = title || '';
+            if (sEl) sEl.innerHTML = subtitle || '';
+            if (body) body.innerHTML = html || '';
+
+            if (modal) {
+                modal.classList.add('active');
+                return true;
+            }
+
+            return false;
+        }
+
+        // ✅ Auto-open success after redirect (base64-safe)
+        @if(session('resetDetails'))
+            setTimeout(() => {
+                let decoded = '';
+                try { decoded = atob(String(@json(session('resetDetails'))).trim()); } catch (e) { decoded = ''; }
+                if (!decoded) return;
+
+                openUniversal(
+                    decoded,
+                    'Reset Completed',
+                    'Import preview cleared successfully.'
+                );
+            }, 120);
+        @endif
+
+        // ✅ Flash bar "Show Details" -> open Universal modal
+        document.addEventListener('click', function (e) {
+            const link = e.target.closest('.reset-details-link');
+            if (!link) return;
+
+            e.preventDefault();
+
+            const encoded = link.getAttribute('data-details');
+            if (!encoded) return;
+
+            let decoded = '';
+            try { decoded = atob(String(encoded).trim()); } catch (err) { decoded = ''; }
+            if (!decoded) return;
+
+            openUniversal(
+                decoded,
+                'Reset Completed',
+                'Import preview cleared successfully.'
+            );
+        });
+
     });
 
-});
+})();
 </script>

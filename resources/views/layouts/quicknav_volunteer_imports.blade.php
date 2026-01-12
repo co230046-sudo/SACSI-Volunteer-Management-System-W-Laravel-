@@ -1,3 +1,5 @@
+{{-- quick_side_nav.blade.php (FULL FIX — reliable active section + visible active bubble + unique colors preserved + NO tooltip hover jitter) --}}
+
 <style>
 :root{
   --nav-text: #2f2f2f;
@@ -12,7 +14,7 @@
   top: 50%;
   left: 0;
   transform: translateY(-50%);
-  z-index: 200;
+  z-index: 9000;
 
   width: 260px;
   border-radius: 0 16px 16px 0;
@@ -27,12 +29,10 @@
 
   transition: width .25s ease, transform .25s ease, box-shadow .25s ease;
 }
-
 .side-nav.collapsed{
   width: 64px;
   padding: 12px 8px;
 }
-
 .side-nav:hover{ box-shadow: 0 14px 38px rgba(0,0,0,0.16); }
 
 /* ===== Toggle Button ===== */
@@ -48,17 +48,13 @@
   margin: 2px auto 6px;
   transition: background .2s ease, transform .2s ease, border-color .2s ease;
 }
-
 .toggle-btn i{
   pointer-events: none !important;
   color: var(--nav-muted);
   font-size: 18px;
   transition: transform .25s ease, color .25s ease;
 }
-
-.side-nav:not(.collapsed) .toggle-btn i{
-  transform: rotate(180deg);
-}
+.side-nav:not(.collapsed) .toggle-btn i{ transform: rotate(180deg); }
 
 /* ===== Links ===== */
 .nav-links{
@@ -68,7 +64,6 @@
   padding: 4px 2px;
 }
 
-/* per-link theme (default) */
 .nav-links a{
   --accent: #e6202e;
   --accent-soft: rgba(230, 32, 46, 0.12);
@@ -87,53 +82,59 @@
   font-size: 16px;
   font-weight: 600;
 
-  transition: background .2s ease, color .2s ease, transform .2s ease, border-color .2s ease;
+  transition: background .2s ease, color .2s ease, transform .2s ease, border-color .2s ease, box-shadow .2s ease;
 }
 
 .nav-links a i{
   font-size: 22px;
-  color: var(--nav-muted);
   width: 30px;
   text-align: center;
-  transition: color .2s ease, transform .2s ease;
+
+  color: var(--accent);
+  opacity: .92;
+
+  transition: color .2s ease, transform .2s ease, opacity .2s ease;
 }
 
-/* ✅ Colors */
+/* ✅ Unique colors */
 .nav-links a.nav-danger{
   --accent: #e6202e;
-  --accent-soft: rgba(230, 32, 46, 0.12);
-  --accent-border: rgba(230, 32, 46, 0.28);
+  --accent-soft: rgba(230, 32, 46, 0.14);
+  --accent-border: rgba(230, 32, 46, 0.34);
 }
 .nav-links a.nav-success{
   --accent: #16a34a;
-  --accent-soft: rgba(22, 163, 74, 0.12);
-  --accent-border: rgba(22, 163, 74, 0.28);
+  --accent-soft: rgba(22, 163, 74, 0.14);
+  --accent-border: rgba(22, 163, 74, 0.34);
 }
 .nav-links a.nav-info{
   --accent: #2563eb;
-  --accent-soft: rgba(37, 99, 235, 0.12);
-  --accent-border: rgba(37, 99, 235, 0.28);
+  --accent-soft: rgba(37, 99, 235, 0.14);
+  --accent-border: rgba(37, 99, 235, 0.34);
 }
 
+/* ✅ normal hover should NOT impersonate active */
 .nav-links a:hover{
-  background: var(--accent-soft);
-  color: var(--accent);
-  transform: translateX(2px);
+  background: transparent;
+  transform: none;
+  color: var(--nav-text);
 }
-.nav-links a:hover i{
-  color: var(--accent);
-  transform: scale(1.06);
-}
+.nav-links a:hover i{ opacity: 1; }
 
-/* ===== ACTIVE ===== */
+/* ===== ACTIVE (bubble look) ===== */
 .nav-links a.active-link{
-  background: color-mix(in srgb, var(--accent) 14%, white);
-  color: var(--accent);
-  border: 1px solid var(--accent-border);
+  background: var(--accent-soft) !important;
+  color: var(--accent) !important;
+  border: 1px solid var(--accent-border) !important;
+  transform: translateX(2px) !important;
+  box-shadow: 0 10px 26px rgba(0,0,0,0.10) !important;
 }
-.nav-links a.active-link i{ color: var(--accent); }
+.nav-links a.active-link i{
+  color: var(--accent) !important;
+  opacity: 1 !important;
+  transform: scale(1.08) !important;
+}
 
-/* left accent bar */
 .nav-links a.active-link::before{
   content: "";
   position: absolute;
@@ -153,58 +154,103 @@
 .side-nav.collapsed .nav-links a span{ display:none; }
 .side-nav.collapsed .nav-links a i{ width:auto; margin:0; }
 
-/* ===== Tooltip (bigger) ===== */
+.side-nav.collapsed .nav-links a.active-link{
+  background: var(--accent-soft) !important;
+  border: 1px solid var(--accent-border) !important;
+  box-shadow: 0 10px 26px rgba(0,0,0,0.12) !important;
+  transform: translateX(0) !important;
+}
+
+/* =========================================================
+   ✅ Tooltip FIX: NO MOVEMENT on hover (prevents jitter)
+   - We keep the bridge, but tooltip stays in one spot
+========================================================= */
+
+.nav-links a .tooltip-bridge{
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  transform: translateY(-50%);
+  height: 56px;
+  width: 28px;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 999999;
+}
+.nav-links a:hover .tooltip-bridge,
+.nav-links a:focus-visible .tooltip-bridge{
+  pointer-events: auto;
+}
+
+/* tooltip base */
+.nav-links a::after,
+.nav-links a::before{
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s ease; /* ✅ only fade, no transform animation */
+  will-change: opacity;
+}
+
+/* bubble */
 .nav-links a::after{
   content: attr(data-tooltip);
   position: absolute;
-  left: calc(100% + 12px);
+  left: calc(100% + 14px);
   top: 50%;
-  transform: translateY(-50%) translateX(6px);
-  opacity: 0;
-  pointer-events: none;
+  transform: translateY(-50%); /* ✅ fixed position */
 
   padding: 12px 14px;
   border-radius: 12px;
   color: #fff;
-  background: rgba(25,25,25,0.95);
-  box-shadow: 0 10px 28px rgba(0,0,0,0.22);
+  background: rgba(20,20,20,0.96);
+  box-shadow: 0 12px 34px rgba(0,0,0,0.30);
 
   font-size: 13.5px;
   line-height: 1.35;
 
   width: max-content;
   max-width: 380px;
-  min-width: 240px;
+  min-width: 220px;
   white-space: normal;
   word-break: break-word;
 
-  transition: opacity .2s ease, transform .2s ease;
-  z-index: 999;
-}
-.nav-links a:hover::after{
-  opacity: 1;
-  transform: translateY(-50%) translateX(12px);
+  z-index: 1000000;
 }
 
-/* ✅ if you have sticky header, adjust this value */
+/* arrow */
+.nav-links a::before{
+  content: "";
+  position: absolute;
+  left: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%); /* ✅ fixed position */
+
+  border: 8px solid transparent;
+  border-right-color: rgba(20,20,20,0.96);
+
+  z-index: 1000000;
+}
+
+/* show tooltip (no shift) */
+.nav-links a:hover::after,
+.nav-links a:hover::before,
+.nav-links a:focus-visible::after,
+.nav-links a:focus-visible::before{
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* section scroll margin */
 #import-Section-invalid,
 #import-Section-valid,
 #importlog-Section{
-  scroll-margin-top: 90px;
+  scroll-margin-top: 120px;
 }
 
-html { scroll-behavior: smooth; } /* works when window scrolls */
+html { scroll-behavior: smooth; }
 
-/* if you have a scrollable wrapper, add scroll-behavior there too */
-.database-container,
-.data-table-container,
-.table-controls,
-main,
-body {
-  scroll-behavior: smooth;
-}
-
-/* ===== Mobile tweaks ===== */
+/* ===== Mobile ===== */
 @media (max-width: 576px){
   .side-nav{ top: auto; bottom: 16px; transform: none; border-radius: 16px; left: 12px; }
   .side-nav.collapsed{ width: 64px; }
@@ -214,7 +260,7 @@ body {
 
 <nav class="side-nav collapsed" id="sideNav" aria-label="Quick Navigation">
   <button class="toggle-btn" id="toggleNav" type="button" aria-expanded="false">
-    <i id="toggleIcon" class="fas fa-chevron-right"></i>
+    <i class="fas fa-chevron-right"></i>
   </button>
 
   <div class="nav-links">
@@ -222,29 +268,31 @@ body {
        data-tooltip="Upload CSV files and review invalid entries for correction.">
       <i class="fas fa-tasks"></i>
       <span>Invalid Entries</span>
+      <span class="tooltip-bridge" aria-hidden="true"></span>
     </a>
 
     <a class="nav-success" href="#import-Section-valid"
        data-tooltip="View verified volunteer entries successfully validated after import.">
       <i class="fas fa-user-check"></i>
       <span>Verified Entries</span>
+      <span class="tooltip-bridge" aria-hidden="true"></span>
     </a>
 
     <a class="nav-info" href="#importlog-Section"
        data-tooltip="Access import logs with timestamps and uploader details.">
       <i class="fas fa-history"></i>
       <span>Import Logs</span>
+      <span class="tooltip-bridge" aria-hidden="true"></span>
     </a>
   </div>
 </nav>
 
 <script>
-(function(){
+document.addEventListener("DOMContentLoaded", function () {
   const sideNav   = document.getElementById("sideNav");
   const toggleBtn = document.getElementById("toggleNav");
   const links     = Array.from(document.querySelectorAll("#sideNav .nav-links a"));
-
-  if (!sideNav || !toggleBtn || !links.length) return;
+  if (!sideNav || !toggleBtn || links.length === 0) return;
 
   function setExpanded(expanded){
     sideNav.classList.toggle("collapsed", !expanded);
@@ -261,20 +309,7 @@ body {
     if (!sideNav.contains(e.target)) setExpanded(false);
   });
 
-  // ---- helpers ----
-  function findScrollParent(el){
-    let p = el.parentElement;
-    while (p && p !== document.body) {
-      const s = getComputedStyle(p);
-      const canScrollY = (s.overflowY === "auto" || s.overflowY === "scroll") && p.scrollHeight > p.clientHeight;
-      if (canScrollY) return p;
-      p = p.parentElement;
-    }
-    return window; // page scroll
-  }
-
   function getHeaderOffset(){
-    // ✅ change selector if your header is different
     const header = document.querySelector(".navbar, .sticky-top, header");
     if (!header) return 0;
     const s = getComputedStyle(header);
@@ -282,25 +317,89 @@ body {
     return isSticky ? header.getBoundingClientRect().height : 0;
   }
 
-  function smoothScrollToSection(target){
-    const offset = getHeaderOffset() + 12; // extra breathing space
-    const scrollParent = findScrollParent(target);
+  const scrollContainer = document.querySelector(".scroll-container");
+  const scrollEl = scrollContainer || window;
 
-    if (scrollParent === window) {
+  function setActive(href){
+    links.forEach(l => l.classList.remove("active-link"));
+    const a = links.find(l => l.getAttribute("href") === href);
+    if (a) a.classList.add("active-link");
+  }
+
+  const items = links.map(a => {
+    const href = a.getAttribute("href");
+    if (!href || !href.startsWith("#")) return null;
+    const el = document.querySelector(href);
+    if (!el) return null;
+    return { href, el };
+  }).filter(Boolean);
+  if (!items.length) return;
+
+  let lastActive = null;
+
+  function computeBestSection(){
+    const header = getHeaderOffset();
+    const line = header + 140;
+
+    let best = null;
+    let bestDist = Infinity;
+
+    for (const it of items) {
+      const r = it.el.getBoundingClientRect();
+      const inPlay = (r.bottom > line) && (r.top < window.innerHeight * 0.92);
+      if (!inPlay) continue;
+
+      const dist = Math.abs(r.top - line);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = it;
+      }
+    }
+
+    if (!best) {
+      let passed = null;
+      for (const it of items) {
+        const r = it.el.getBoundingClientRect();
+        if (r.top <= line) passed = it;
+      }
+      best = passed || items[0];
+    }
+
+    if (best && best.href !== lastActive) {
+      lastActive = best.href;
+      setActive(best.href);
+    }
+  }
+
+  let ticking = false;
+  function onScroll(){
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      computeBestSection();
+      ticking = false;
+    });
+  }
+
+  scrollEl.addEventListener("scroll", onScroll, { passive: true });
+  document.addEventListener("scroll", onScroll, { passive: true, capture: true });
+  window.addEventListener("resize", onScroll);
+
+  function smoothScrollTo(target){
+    const offset = getHeaderOffset() + 12;
+
+    if (!scrollContainer) {
       const y = window.scrollY + target.getBoundingClientRect().top - offset;
       window.scrollTo({ top: y, behavior: "smooth" });
       return;
     }
 
-    // scrollable container
-    const parentRect = scrollParent.getBoundingClientRect();
+    const parentRect = scrollContainer.getBoundingClientRect();
     const targetRect = target.getBoundingClientRect();
-    const y = scrollParent.scrollTop + (targetRect.top - parentRect.top) - offset;
-
-    scrollParent.scrollTo({ top: y, behavior: "smooth" });
+    const y = scrollContainer.scrollTop + (targetRect.top - parentRect.top) - offset;
+    scrollContainer.scrollTo({ top: y, behavior: "smooth" });
   }
 
-  // Smooth scroll + active link
   links.forEach(a => {
     a.addEventListener("click", (e) => {
       const href = a.getAttribute("href");
@@ -312,12 +411,31 @@ body {
       e.preventDefault();
       history.pushState(null, "", href);
 
-      smoothScrollToSection(target);
+      setActive(href);
+      lastActive = href;
 
-      links.forEach(l => l.classList.remove("active-link"));
-      a.classList.add("active-link");
+      smoothScrollTo(target);
+
+      setTimeout(computeBestSection, 120);
+      setTimeout(computeBestSection, 350);
     });
   });
 
-})();
+  window.addEventListener("hashchange", () => {
+    if (location.hash && document.querySelector(location.hash)) {
+      setActive(location.hash);
+      lastActive = location.hash;
+      setTimeout(computeBestSection, 60);
+    }
+  });
+
+  if (location.hash && document.querySelector(location.hash)) {
+    setActive(location.hash);
+    lastActive = location.hash;
+  } else {
+    computeBestSection();
+  }
+
+  setTimeout(computeBestSection, 80);
+});
 </script>

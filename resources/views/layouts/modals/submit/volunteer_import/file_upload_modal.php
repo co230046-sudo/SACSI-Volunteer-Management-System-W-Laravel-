@@ -1,206 +1,277 @@
 <style>
-
-/* ===============================
-   FILE MODAL WRAPPER
-=============================== */
+/* ==========================
+   FILE MODALS (Redesign)
+   Match Reset Modal UI
+========================== */
 .file-modal,
-.file-success-modal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 99999;
-    font-family: 'Segoe UI', Roboto, sans-serif;
+.file-success-modal{
+    display:none;
+    position:fixed;
+    inset:0;
+    z-index:99999;
+    font-family:'Segoe UI', Roboto, sans-serif;
 }
 .file-modal.active,
-.file-success-modal.active {
-    display: flex;
-    justify-content: center;
-    align-items: center;
+.file-success-modal.active{
+    display:flex;
+    justify-content:center;
+    align-items:center;
 }
 
-/* ===============================
-   OVERLAY
-=============================== */
 .file-modal-overlay,
-.file-success-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.55);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+.file-success-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.55);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:18px;
 }
 
-/* ===============================
-   MODAL BOX
-=============================== */
+/* Box */
 .file-modal-box,
-.file-success-box {
-    background: #fff;
-    border-radius: 16px;
-    width: 90%;
-    max-width: 500px;
-    padding: 2rem;
-    animation: fadeInUp 0.3s ease forwards;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+.file-success-box{
+    width:100%;
+    max-width:560px;
+    background:#fff;
+    border-radius:18px;
+    box-shadow:0 18px 60px rgba(0,0,0,.35);
+    overflow:hidden;
+    border:1px solid rgba(0,0,0,.06);
+    transform:translateY(6px);
+    animation:filePop .18s ease-out forwards;
 }
 
-/* ===============================
-   HEADER
-=============================== */
-.file-modal-header,
-.file-success-header {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: .5rem;
+/* Header */
+.file-modal-top{
+    padding:18px 20px 12px;
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
 }
 
-.file-modal-header h2,
-.file-success-header h2 {
-    font-size: 1.6rem;
-    margin: 0;
-    color: #B2000C !important;
+.file-icon-wrap{
+    flex:0 0 auto;
+    width:42px;
+    height:42px;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(178,0,12,.10);
+    border:1px solid rgba(178,0,12,.14);
+}
+.file-icon-wrap i{
+    font-size:18px;
+    color:#B2000C;
 }
 
-.file-modal-icon,
-.file-success-icon {
-    font-size: 2rem;
-    color: #B2000C;
+.file-title-wrap{
+    flex:1 1 auto;
+}
+.file-title{
+    margin:0;
+    font-size:1.22rem;
+    font-weight:900;
+    color:#B2000C;
+    letter-spacing:.2px;
+    line-height:1.2;
+}
+.file-subtitle{
+    margin-top:6px;
+    font-size:.95rem;
+    color:#666;
+    line-height:1.35;
 }
 
-/* ===============================
-   SEPARATORS
-=============================== */
-.file-modal-separator,
-.file-success-separator {
-    width: 85%;
-    height: 1px;
-    background: #ececec;
-    margin: 1rem auto;
+.file-close{
+    flex:0 0 auto;
+    border:none;
+    background:transparent;
+    width:36px;
+    height:36px;
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#333;
+    cursor:pointer;
+}
+.file-close:hover{ background:rgba(0,0,0,.06); }
+
+.file-divider{
+    height:1px;
+    background:#eee;
+    margin:0 20px;
 }
 
-/* ===============================
-   TEXT BLOCKS
-=============================== */
+/* Body */
+.file-body{
+    padding:16px 20px 18px;
+}
+
 .file-modal-text,
-.file-success-text {
-    text-align: left !important;
-    margin: 1rem auto 1.6rem;
-    padding: 0 0.75rem;
-    font-size: 1.07rem;
-    line-height: 1.6;
-    color: #333;
-    word-break: break-word;
+.file-success-text{
+    text-align:left !important;
+    margin:0;
+    padding:0;
+    font-size:1rem;
+    line-height:1.65;
+    color:#333;
+    word-break:break-word;
 }
 
-/* ===============================
-   BUTTONS
-=============================== */
-.file-modal-buttons,
-.file-success-buttons {
-    display: flex;
-    justify-content: center;
-    gap: 16px;
-    margin-top: 1.5rem;
+/* Footer */
+.file-footer{
+    padding:14px 20px 18px;
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    background:#fafafa;
+    border-top:1px solid #eee;
 }
 
-.file-btn-red {
-    background-color: #B2000C;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    padding: 10px 22px;
-    font-size: .95rem;
-    font-weight: 600;
-    cursor: pointer;
+.file-btn{
+    border-radius:12px;
+    padding:10px 14px;
+    font-size:.95rem;
+    font-weight:900;
+    cursor:pointer;
+    border:1px solid transparent;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    transition:.15s ease;
+    user-select:none;
+    white-space:nowrap;
 }
-.file-btn-red:hover {
-    background-color: #8e0009;
+.file-btn i{ font-size:.95rem; }
+
+/* Cancel */
+.file-btn-gray{
+    background:#fff;
+    color:#222;
+    border-color:rgba(0,0,0,.15);
+}
+.file-btn-gray:hover{ background:rgba(0,0,0,.04); }
+
+/* Confirm / primary */
+.file-btn-red{
+    background:#B2000C;
+    color:#fff;
+    border-color:rgba(178,0,12,.55);
+}
+.file-btn-red:hover{ background:#8e0009; }
+
+/* Optional “summary box” look (when your HTML includes it) */
+.file-summary{
+    margin-top:14px;
+    padding:12px 14px;
+    border-radius:14px;
+    border:1px solid rgba(178,0,12,.18);
+    background:rgba(178,0,12,.06);
+}
+.file-summary .file-summary-title{
+    font-size:.92rem;
+    font-weight:900;
+    color:#B2000C;
+    margin-bottom:6px;
 }
 
-.file-btn-gray {
-    background-color: #f1f1f1;
-    color: #222;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    padding: 10px 22px;
-    font-size: .95rem;
-    font-weight: 600;
-    cursor: pointer;
-}
-.file-btn-gray:hover {
-    background-color: #e2e2e2;
-}
-
-/* ===============================
-   HIGHLIGHT ONLY IMPORT + UPLOADING-AS
-=============================== */
-
+/* Highlights (keep existing behavior) */
 .file-selected {
     border: 2px solid #B2000C !important;
     background: rgba(178, 0, 12, 0.09) !important;
     color: #B2000C !important;
     border-radius: 6px !important;
 }
-
 .import-btn.file-selected {
     background: #B2000C !important;
     color: #fff !important;
     border-color: #B2000C !important;
 }
-.import-btn.file-selected:hover {
-    background: #8e0009 !important;
-}
+.import-btn.file-selected:hover { background: #8e0009 !important; }
 
-/* Smooth transitions */
 .import-btn,
-.uploader-info .form-control {
-    transition: all .25s ease;
-}
+.uploader-info .form-control { transition: all .25s ease; }
 
-@keyframes fadeInUp {
-    from { opacity:0; transform:translateY(20px); }
-    to   { opacity:1; transform:translateY(0); }
+@keyframes filePop { to { transform:translateY(0); } }
+
+@media (max-width: 560px){
+    .file-modal-top{ padding:16px 16px 10px; }
+    .file-body{ padding:14px 16px 16px; }
+    .file-footer{ padding:12px 16px 16px; }
 }
 </style>
 
-<!-- FILE MODAL (Notice / Error / Confirm) -->
+<!-- ==========================
+     FILE MODAL (Notice/Error/Confirm)
+     IDs preserved for your JS
+========================== -->
 <div id="fileModal" class="file-modal">
-    <div class="file-modal-overlay">
-        <div class="file-modal-box">
+    <div class="file-modal-overlay" id="fileModalOverlay">
+        <div class="file-modal-box" role="dialog" aria-modal="true" aria-labelledby="fileModalTitle">
 
-            <div class="file-modal-header">
-                <i id="fileModalIcon" class="fa-solid fa-circle-exclamation file-modal-icon"></i>
-                <h2 id="fileModalTitle">Notice</h2>
+            <div class="file-modal-top">
+                <div class="file-icon-wrap">
+                    <i id="fileModalIcon" class="fa-solid fa-circle-exclamation"></i>
+                </div>
+
+                <div class="file-title-wrap">
+                    <h2 id="fileModalTitle" class="file-title">Notice</h2>
+                    <div id="fileModalSubtitle" class="file-subtitle">
+                        Please review the message below.
+                    </div>
+                </div>
+
+                <button type="button" class="file-close" id="fileModalCloseBtn" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
 
-            <hr class="file-modal-separator">
+            <div class="file-divider"></div>
 
-            <div id="fileModalText" class="file-modal-text"></div>
+            <div class="file-body">
+                <div id="fileModalText" class="file-modal-text"></div>
+            </div>
 
-            <div id="fileModalButtons" class="file-modal-buttons"></div>
+            <div class="file-footer" id="fileModalButtons"></div>
 
         </div>
     </div>
 </div>
 
-<!-- FILE SUCCESS MODAL (RED THEME) -->
+<!-- ==========================
+     FILE SUCCESS MODAL (Upload success only)
+========================== -->
 <div id="fileSuccessModal" class="file-success-modal">
-    <div class="file-success-overlay">
-        <div class="file-success-box">
+    <div class="file-success-overlay" id="fileSuccessOverlay">
+        <div class="file-success-box" role="dialog" aria-modal="true" aria-labelledby="fileSuccessTitle">
 
-            <div class="file-success-header">
-                <i class="fa-solid fa-circle-check file-success-icon"></i>
-                <h2>Success</h2>
+            <div class="file-modal-top">
+                <div class="file-icon-wrap" style="background:rgba(40,167,69,.10); border-color:rgba(40,167,69,.16);">
+                    <i class="fa-solid fa-circle-check" style="color:#28a745;"></i>
+                </div>
+
+                <div class="file-title-wrap">
+                    <h2 id="fileSuccessTitle" class="file-title" style="color:#28a745;">Success</h2>
+                    <div class="file-subtitle">Your file upload action completed.</div>
+                </div>
+
+                <button type="button" class="file-close" id="fileSuccessCloseBtn" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
 
-            <hr class="file-success-separator">
+            <div class="file-divider"></div>
 
-            <div id="fileSuccessText" class="file-success-text"></div>
+            <div class="file-body">
+                <div id="fileSuccessText" class="file-success-text"></div>
+            </div>
 
-            <div class="file-success-buttons">
-                <button id="fileSuccessOkBtn" class="file-btn-red">
+            <div class="file-footer">
+                <button id="fileSuccessOkBtn" class="file-btn file-btn-red">
                     <i class="fa-solid fa-check"></i> Ok
                 </button>
             </div>
@@ -209,24 +280,37 @@
     </div>
 </div>
 
-<!-- ===========================================================
-     PREVIEW DETAILS MODAL
-=========================================================== -->
+<!-- ==========================
+     PREVIEW DETAILS MODAL (Show Details)
+     Same styling as above
+========================== -->
 <div id="previewModal" class="file-modal">
-    <div class="file-modal-overlay">
-        <div class="file-modal-box">
+    <div class="file-modal-overlay" id="previewOverlay">
+        <div class="file-modal-box" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
 
-            <div class="file-modal-header">
-                <i class="fa-solid fa-circle-info file-modal-icon"></i>
-                <h2>Preview Summary</h2>
+            <div class="file-modal-top">
+                <div class="file-icon-wrap" style="background:rgba(21,101,192,.10); border-color:rgba(21,101,192,.16);">
+                    <i class="fa-solid fa-circle-info" style="color:#1565c0;"></i>
+                </div>
+
+                <div class="file-title-wrap">
+                    <h2 id="previewTitle" class="file-title" style="color:#1565c0;">Preview Summary</h2>
+                    <div class="file-subtitle">Review the breakdown of your imported CSV.</div>
+                </div>
+
+                <button type="button" class="file-close" id="previewCloseX" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
 
-            <hr class="file-modal-separator">
+            <div class="file-divider"></div>
 
-            <div id="previewModalContent" class="file-modal-text" style="max-height:300px; overflow-y:auto;"></div>
+            <div class="file-body">
+                <div id="previewModalContent" class="file-modal-text" style="max-height:320px; overflow-y:auto;"></div>
+            </div>
 
-            <div class="file-modal-buttons">
-                <button type="button" class="file-btn-red" id="previewModalCloseBtn">
+            <div class="file-footer">
+                <button type="button" class="file-btn file-btn-red" id="previewModalCloseBtn">
                     <i class="fa-solid fa-check"></i> Close
                 </button>
             </div>
@@ -238,24 +322,31 @@
 <script>
 document.addEventListener("DOMContentLoaded", () => {
 
-    /* ==========================  
+    /* ==========================
        FILE MODAL ELEMENTS
     ========================== */
     const fileModal      = document.getElementById("fileModal");
     const fileIcon       = document.getElementById("fileModalIcon");
     const fileTitle      = document.getElementById("fileModalTitle");
+    const fileSubtitle   = document.getElementById("fileModalSubtitle");
     const fileText       = document.getElementById("fileModalText");
     const fileBtns       = document.getElementById("fileModalButtons");
+    const fileModalClose = document.getElementById("fileModalCloseBtn");
+    const fileModalOverlay = document.getElementById("fileModalOverlay");
 
     /* SUCCESS MODAL (UPLOAD SUCCESS ONLY) */
     const fileSuccessModal = document.getElementById("fileSuccessModal");
     const fileSuccessText  = document.getElementById("fileSuccessText");
     const fileSuccessOk    = document.getElementById("fileSuccessOkBtn");
+    const fileSuccessClose = document.getElementById("fileSuccessCloseBtn");
+    const fileSuccessOverlay = document.getElementById("fileSuccessOverlay");
 
     /* PREVIEW SUMMARY MODAL (VALID/INVALID/DUPES DETAILS) */
     const previewModal     = document.getElementById("previewModal");
     const previewContent   = document.getElementById("previewModalContent");
-    const previewClose     = document.getElementById("previewModalCloseBtn");
+    const previewCloseBtn  = document.getElementById("previewModalCloseBtn");
+    const previewCloseX    = document.getElementById("previewCloseX");
+    const previewOverlay   = document.getElementById("previewOverlay");
 
     /* ==========================
        GENERIC MODAL FUNCTIONS
@@ -263,41 +354,63 @@ document.addEventListener("DOMContentLoaded", () => {
     function openFileModal()  { fileModal.classList.add("active"); }
     function closeFileModal() { fileModal.classList.remove("active"); }
 
+    // close actions
+    fileModalClose?.addEventListener("click", closeFileModal);
+    fileModalOverlay?.addEventListener("click", (e) => { if (e.target === fileModalOverlay) closeFileModal(); });
+
     function showFileNotice(msg) {
-        fileIcon.className = "fa-solid fa-circle-exclamation file-modal-icon";
+        fileIcon.className = "fa-solid fa-circle-exclamation";
         fileTitle.textContent = "Notice";
+        if (fileSubtitle) fileSubtitle.textContent = "Please review the message below.";
         fileText.innerHTML = msg;
-        fileBtns.innerHTML = `<button class="file-btn-red"><i class="fa-solid fa-check"></i> Ok</button>`;
+
+        fileBtns.innerHTML = `
+            <button class="file-btn file-btn-red">
+                <i class="fa-solid fa-check"></i> Ok
+            </button>
+        `;
         fileBtns.querySelector("button").onclick = closeFileModal;
+
         openFileModal();
     }
 
     function showFileError(msg) {
-        fileIcon.className = "fa-solid fa-circle-xmark file-modal-icon";
+        fileIcon.className = "fa-solid fa-circle-xmark";
         fileTitle.textContent = "Error";
+        if (fileSubtitle) fileSubtitle.textContent = "Something went wrong. Please fix the issue and try again.";
         fileText.innerHTML = msg;
-        fileBtns.innerHTML = `<button class="file-btn-red">OK</button>`;
+
+        fileBtns.innerHTML = `
+            <button class="file-btn file-btn-red">
+                <i class="fa-solid fa-check"></i> OK
+            </button>
+        `;
         fileBtns.querySelector("button").onclick = closeFileModal;
+
         openFileModal();
     }
 
     function showFileConfirm(msg, yesCallback) {
-        fileIcon.className = "fa-solid fa-circle-question file-modal-icon";
+        fileIcon.className = "fa-solid fa-circle-question";
         fileTitle.textContent = "Confirm";
+        if (fileSubtitle) fileSubtitle.textContent = "Please confirm before continuing.";
         fileText.innerHTML = msg;
+
         fileBtns.innerHTML = `
-            <button class="file-btn-gray">
-                <i class="fa-solid fa-xmark" style="margin-right:6px;"></i> No
+            <button class="file-btn file-btn-gray">
+                <i class="fa-solid fa-xmark"></i> Cancel
             </button>
-            <button class="file-btn-red">
-                <i class="fa-solid fa-check" style="margin-right:6px;"></i> Yes
+            <button class="file-btn file-btn-red">
+                <i class="fa-solid fa-check"></i> Confirm
             </button>
         `;
+
         fileBtns.querySelector(".file-btn-gray").onclick = closeFileModal;
         fileBtns.querySelector(".file-btn-red").onclick = () => {
             closeFileModal();
             yesCallback?.();
         };
+
         openFileModal();
     }
 
@@ -305,6 +418,14 @@ document.addEventListener("DOMContentLoaded", () => {
         fileSuccessText.innerHTML = msg;
         fileSuccessModal.classList.add("active");
     }
+
+    function closeFileSuccess() {
+        fileSuccessModal.classList.remove("active");
+    }
+
+    fileSuccessOk?.addEventListener("click", closeFileSuccess);
+    fileSuccessClose?.addEventListener("click", closeFileSuccess);
+    fileSuccessOverlay?.addEventListener("click", (e) => { if (e.target === fileSuccessOverlay) closeFileSuccess(); });
 
     /* ==========================
        UPLOAD SUCCESS MODAL
@@ -314,10 +435,8 @@ document.addEventListener("DOMContentLoaded", () => {
         sessionStorage.removeItem("file-upload-success");
     }
 
-    fileSuccessOk.onclick = () => fileSuccessModal.classList.remove("active");
-
-    /* ==========================  
-       FILE UPLOAD LOGIC
+    /* ==========================
+       FILE UPLOAD LOGIC (KEEP INTACT)
     ========================== */
     const fileInput     = document.getElementById("file-upload");
     const filePath      = document.getElementById("file-path");
@@ -325,10 +444,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const importBtn     = document.querySelector(".uploader-info .import-btn");
     const uploaderField = document.querySelector(".uploader-info .form-control");
 
-    // ⚠️ Do NOT return early here anymore – we still need the Show Details handler.
     if (fileInput && uploadBtn && filePath && uploaderField) {
 
-        // Highlight logic (guard importBtn because it might not exist after import)
         function applyUploadHighlight() {
             if (importBtn) importBtn.classList.add("file-selected");
             uploaderField.classList.add("file-selected");
@@ -343,13 +460,11 @@ document.addEventListener("DOMContentLoaded", () => {
             uploaderField.classList.add("file-selected");
         }
 
-        // Choose file
         uploadBtn.onclick = () => {
             fileInput.value = "";
             fileInput.click();
         };
 
-        // File chosen
         fileInput.onchange = () => {
             if (!fileInput.files.length) return;
 
@@ -364,7 +479,6 @@ document.addEventListener("DOMContentLoaded", () => {
             `);
         };
 
-        // Submit / Upload confirm — only if the Import button exists
         if (importBtn && importBtn.form) {
             importBtn.form.addEventListener("submit", (e) => {
                 e.preventDefault();
@@ -396,6 +510,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     /* =================================================
        PREVIEW DETAILS → WHEN "Show Details" CLICKED
+       (kept intact, now with redesigned previewModal)
     ================================================= */
     document.addEventListener('click', function(e) {
         const link = e.target.closest(".move-details-link");
@@ -406,17 +521,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const encoded = link.getAttribute("data-details");
         if (!encoded) return;
 
-        // these already exist above
         previewContent.innerHTML = atob(encoded);
         previewModal.classList.add("active");
     });
 
-    // (optional) close button for the preview modal
-    if (previewClose) {
-        previewClose.addEventListener("click", () => {
-            previewModal.classList.remove("active");
-        });
-    }
+    function closePreview() { previewModal.classList.remove("active"); }
+
+    previewCloseBtn?.addEventListener("click", closePreview);
+    previewCloseX?.addEventListener("click", closePreview);
+    previewOverlay?.addEventListener("click", (e) => { if (e.target === previewOverlay) closePreview(); });
 
 });
 </script>

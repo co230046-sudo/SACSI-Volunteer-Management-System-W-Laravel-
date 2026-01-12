@@ -7,6 +7,16 @@
   $locations  = $locations  ?? collect();
 
   $DEFAULT_AVATAR = asset('storage/defaults/default_user.png');
+
+  // ✅ PATCH: provide distinct batches for the dropdown
+  // NOTE: Ideally this is computed in controller, but this works immediately.
+  $batches = \App\Models\VolunteerProfile::query()
+    ->whereNotNull('batch_year')
+    ->where('batch_year', '!=', '')
+    ->distinct()
+    ->orderBy('batch_year', 'desc')
+    ->pluck('batch_year')
+    ->values();
 @endphp
 
 <!DOCTYPE html>
@@ -22,6 +32,126 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap" rel="stylesheet">
+
+  {{-- ✅ PATCH: ONLY layout + rows UI + navbar offset + keep your autosuggest styles (no JS here) --}}
+  <style>
+    /* ✅ Navbar overlap safety (script also sets --vlNavOffset dynamically; keep a good default) */
+    :root{ --vlNavOffset: 72px; }
+    .vl-page{ padding-top: var(--vlNavOffset) !important; margin-top: 0 !important; }
+
+    /* ✅ Toolbar alignment: Search + Rows + Filter (Filter must NOT take full width) */
+    .vl-toolbar{
+      display:flex !important;
+      align-items:center;
+      gap:12px;
+      margin: 12px 0;
+    }
+    .vl-search{
+      flex: 1 1 auto;
+      max-width: 1200px;        /* prevents filter button from being pushed to next line */
+      min-width: 260px;
+    }
+    .vl-filterBtn{
+      width:auto !important;
+      white-space:nowrap;
+      flex: 0 0 auto;
+    }
+
+    /* ✅ Rows per page (uses the EXISTING JS hook: #vlPerPage) */
+    .vl-perPage{
+      flex: 0 0 auto;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      background:#fff;
+      border:1px solid rgba(15,23,42,.12);
+      border-radius:14px;
+      padding:6px 10px;
+      box-shadow:0 6px 18px rgba(2,6,23,.08);
+      height:44px;
+      white-space:nowrap;
+    }
+    .vl-perPage label{
+      font-size:12px;
+      font-weight:900;
+      color:#6b7280;
+      margin:0;
+      white-space:nowrap;
+    }
+
+    /* Make native select look custom (no extra JS needed) */
+    .vl-perPage select{
+      appearance:none;
+      -webkit-appearance:none;
+      -moz-appearance:none;
+      border:0;
+      outline:0;
+      font-weight:1000;
+      background:transparent;
+      padding: 2px 28px 2px 6px; /* room for caret */
+      cursor:pointer;
+      color:#111827;
+      line-height:1.1;
+    }
+    .vl-perPage .vl-perPageCaret{
+      width:28px;
+      height:28px;
+      display:grid;
+      place-items:center;
+      border-radius:10px;
+      background: rgba(162,52,63,0.08);
+      color:#a2343f;
+      pointer-events:none;
+    }
+
+    @media (max-width: 992px){
+      :root{ --vlNavOffset: 64px; }
+      .vl-toolbar{
+        flex-wrap:wrap;
+      }
+      .vl-search{
+        max-width: 100%;
+        flex: 1 1 100%;
+      }
+      .vl-perPage{
+        height:40px;
+        padding:5px 9px;
+        border-radius:12px;
+      }
+    }
+
+    /* ✅ Keep your existing rich autosuggest look (so it doesn't break) */
+    .vl-search{ position:relative; }
+    .vl-suggest{
+      position:absolute;
+      left:10px;
+      right:10px;
+      top: calc(100% + 8px);
+      z-index:9999;
+      background:#fff;
+      border:1px solid rgba(15, 23, 42, .10);
+      border-radius:14px;
+      box-shadow:0 14px 32px rgba(2, 6, 23, .18);
+      overflow:hidden;
+      max-height:320px;
+      overflow-y:auto;
+      padding:6px;
+    }
+    .vl-suggestItem{
+      width:100%;
+      border:0;
+      background:transparent;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:12px;
+      text-align:left;
+      cursor:pointer;
+    }
+    .vl-suggestItem:hover{ background:rgba(220, 38, 38, .07); }
+  </style>
+  {{-- ✅ END PATCH --}}
 </head>
 
 <body class="page--volunteer-list">
@@ -32,10 +162,13 @@
   <section class="vl-page">
     <div id="vlRoot"
          class="vl-root"
+         data-data-url="{{ url('/volunteers/data') }}"
+         data-profile-url-base="{{ url('/volunteer-profile') }}"
          data-default-avatar="{{ $DEFAULT_AVATAR }}"
          data-courses='@json($courses)'
          data-barangays='@json($barangays)'
-         data-districts='@json($districts)'>
+         data-districts='@json($districts)'
+         data-batches='@json($batches)'>
 
       <div class="vl-header">
         <div class="vl-kicker">
@@ -72,6 +205,16 @@
 
             <div id="vlSuggest" class="vl-suggest" hidden></div>
           </div>
+
+          {{-- ✅ PATCH: rows dropdown that your CURRENT script.js already supports --}}
+          <div class="vl-dd vl-dd--rows" data-dd="perpage">
+            <button class="vl-ddBtn" type="button">
+              <span data-dd-text>6 rows</span>
+              <i class="fa-solid fa-chevron-down"></i>
+            </button>
+            <div class="vl-ddMenu" data-dd-menu></div>
+          </div>
+
 
           <button id="vlFilterToggle" class="vl-filterBtn" type="button" aria-expanded="false">
             <i class="fa-solid fa-sliders"></i>
@@ -139,6 +282,17 @@
             </div>
 
             <div class="vl-field">
+              <label>Batch Year</label>
+              <div class="vl-dd" data-dd="batch">
+                <button class="vl-ddBtn" type="button">
+                  <span data-dd-text>All Batches</span>
+                  <i class="fa-solid fa-chevron-down"></i>
+                </button>
+                <div class="vl-ddMenu" data-dd-menu></div>
+              </div>
+            </div>
+
+            <div class="vl-field">
               <label>Available At (Day)</label>
               <div class="vl-dd" data-dd="day">
                 <button class="vl-ddBtn" type="button">
@@ -148,7 +302,7 @@
                 <div class="vl-ddMenu" data-dd-menu></div>
               </div>
             </div>
-            
+
             <div class="vl-field">
               <label>Available At (Time Block)</label>
               <div class="vl-dd" data-dd="block">
@@ -160,17 +314,17 @@
               </div>
             </div>
 
-             <div class="vl-field">
-            <div class="vl-dd" data-dd="status">
-              <label>Status</label>
-              <button type="button" class="vl-ddBtn">
-                <span data-dd-text>All Status</span>
-                <i class="fa-solid fa-chevron-down"></i>
-              </button>
+            <div class="vl-field">
+              <div class="vl-dd" data-dd="status">
+                <label>Status</label>
+                <button type="button" class="vl-ddBtn">
+                  <span data-dd-text>All Status</span>
+                  <i class="fa-solid fa-chevron-down"></i>
+                </button>
+              </div>
             </div>
           </div>
-          </div>
-          
+
           <div class="vl-panelFooter">
             <button id="vlReset" class="vl-btn vl-btnGhost" type="button">Reset</button>
             <button id="vlApply" class="vl-btn vl-btnSolid" type="button">
@@ -202,376 +356,7 @@
     </div>
   </section>
 
-  {{-- ================================
-       ADD VOLUNTEER MODAL
-  ================================= --}}
-  <div class="modal fade" id="addVolunteerModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-xl">
-      <div class="modal-content" style="border-radius:18px; overflow:hidden;">
-        <div class="modal-header vl-modalHeader">
-          <h5 class="modal-title">
-            <i class="fa-solid fa-user-plus me-2"></i>Add Volunteer
-          </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-
-        <form method="POST"
-              action="{{ url('/volunteers') }}"
-              enctype="multipart/form-data"
-              id="vlAddVolunteerForm">
-          @csrf
-
-          <div class="modal-body" style="background:#fff;">
-            <div class="row g-4">
-              {{-- LEFT: Avatar --}}
-              <div class="col-md-3">
-                <div class="d-flex flex-column align-items-start gap-3">
-                  <img id="vlPhotoPreview"
-                       class="vl-photoPreview"
-                       src="{{ $DEFAULT_AVATAR }}"
-                       alt="Profile Preview">
-                  <div class="w-100">
-                    <label class="form-label fw-bold mb-1">Profile Photo</label>
-                    <input id="vlPhotoInput"
-                           type="file"
-                           name="profile_picture"
-                           class="form-control"
-                           accept="image/*" />
-                    <div class="vl-miniHint">Optional. JPG/PNG up to 4MB.</div>
-                  </div>
-                </div>
-              </div>
-
-              {{-- RIGHT: Fields --}}
-              <div class="col-md-9">
-                <div class="row g-3">
-                  {{-- Full Name + School ID --}}
-                  <div class="col-md-8">
-                    <label class="form-label fw-bold">
-                      Full Name <span class="text-danger">*</span>
-                    </label>
-                    <input name="full_name"
-                           class="form-control @error('full_name') is-invalid @enderror"
-                           value="{{ old('full_name') }}"
-                           required
-                           maxlength="255"
-                           placeholder="e.g., Juan D. Dela Cruz">
-                    @error('full_name')
-                      <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
-                  </div>
-
-                  <div class="col-md-4">
-                    <label class="form-label fw-bold">
-                      School ID <span class="text-danger">*</span>
-                    </label>
-                    <input name="id_number"
-                           class="form-control @error('id_number') is-invalid @enderror"
-                           value="{{ old('id_number') }}"
-                           required
-                           pattern="\d{6,7}"
-                           maxlength="7"
-                           placeholder="6–7 digit ID">
-                    <div class="form-text small">Must be unique.</div>
-                    @error('id_number')
-                      <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
-                  </div>
-
-                  {{-- Course + Year Level --}}
-                  <div class="col-md-8">
-                    <label class="form-label fw-bold">
-                      Course <span class="text-danger">*</span>
-                    </label>
-
-                    <div class="vl-filterWrapper mb-1">
-                      <i class="fa-solid fa-magnifying-glass vl-filterIcon"></i>
-                      <input type="text"
-                             class="form-control form-control-sm vl-filterInput"
-                             id="vlCourseSearch"
-                             placeholder="Search course…">
-                    </div>
-
-                    <select name="course_id"
-                            id="vlCourseSelect"
-                            class="form-select @error('course_id') is-invalid @enderror"
-                            required>
-                      <option value="">Select course</option>
-                      @foreach($courses as $c)
-                        <option value="{{ $c->course_id }}"
-                                data-name="{{ $c->course_name }}"
-                                {{ old('course_id') == $c->course_id ? 'selected' : '' }}>
-                          {{ $c->abbr ? $c->abbr.' — ' : '' }}{{ $c->course_name }}
-                        </option>
-                      @endforeach
-                    </select>
-                    @error('course_id')
-                      <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
-                  </div>
-
-                  <div class="col-md-4">
-                    <label class="form-label fw-bold">
-                      Year Level <span class="text-danger">*</span>
-                    </label>
-                    <select name="year_level"
-                            class="form-select @error('year_level') is-invalid @enderror"
-                            required>
-                      <option value="">Year</option>
-                      <option value="1" {{ old('year_level') == '1' ? 'selected' : '' }}>1st Year</option>
-                      <option value="2" {{ old('year_level') == '2' ? 'selected' : '' }}>2nd Year</option>
-                      <option value="3" {{ old('year_level') == '3' ? 'selected' : '' }}>3rd Year</option>
-                      <option value="4" {{ old('year_level') == '4' ? 'selected' : '' }}>4th Year</option>
-                    </select>
-                    @error('year_level')
-                      <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
-                  </div>
-
-                  {{-- Contact + Emergency --}}
-                  <div class="col-md-6">
-                    <label class="form-label fw-bold">
-                      Contact Number <span class="text-danger">*</span>
-                    </label>
-                    <input name="contact_number"
-                           class="form-control @error('contact_number') is-invalid @enderror"
-                           value="{{ old('contact_number') }}"
-                           required
-                           pattern="^(09\d{9}|\+639\d{9})$"
-                           placeholder="09XXXXXXXXX or +639XXXXXXXXX">
-                    <div class="form-text small">Valid PH mobile number.</div>
-                    @error('contact_number')
-                      <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
-                  </div>
-
-                  <div class="col-md-6">
-                    <label class="form-label fw-bold">
-                      Emergency Number <span class="text-danger">*</span>
-                    </label>
-                    <input name="emergency_contact"
-                           class="form-control @error('emergency_contact') is-invalid @enderror"
-                           value="{{ old('emergency_contact') }}"
-                           required
-                           pattern="^(09\d{9}|\+639\d{9})$"
-                           placeholder="09XXXXXXXXX or +639XXXXXXXXX">
-                    <div class="form-text small">Must be different from Contact Number.</div>
-                    @error('emergency_contact')
-                      <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
-                  </div>
-
-                  {{-- Email + FB --}}
-                  <div class="col-md-6">
-                    <label class="form-label fw-bold">
-                      Email <span class="text-danger">*</span>
-                    </label>
-                    <input name="email"
-                           type="email"
-                           class="form-control @error('email') is-invalid @enderror"
-                           value="{{ old('email') }}"
-                           required
-                           placeholder="name@adzu.edu.ph or name@gmail.com">
-                    <div class="form-text small">Only @adzu.edu.ph or @gmail.com.</div>
-                    @error('email')
-                      <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
-                  </div>
-
-                  <div class="col-md-6">
-                    <label class="form-label fw-bold">FB / Messenger (optional)</label>
-                    <input name="fb_messenger"
-                           type="url"
-                           class="form-control @error('fb_messenger') is-invalid @enderror"
-                           value="{{ old('fb_messenger') }}"
-                           placeholder="https://facebook.com/…">
-                    @error('fb_messenger')
-                      <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
-                  </div>
-
-                  {{-- Barangay + District + Status --}}
-                  <div class="col-md-6">
-                    <label class="form-label fw-bold">
-                      Barangay <span class="text-danger">*</span>
-                    </label>
-
-                    <div class="vl-filterWrapper mb-1">
-                      <i class="fa-solid fa-magnifying-glass vl-filterIcon"></i>
-                      <input type="text"
-                             class="form-control form-control-sm vl-filterInput"
-                             id="vlBarangaySearch"
-                             placeholder="Search barangay…">
-                    </div>
-
-                    <select name="barangay"
-                            id="vlBarangaySelect"
-                            class="form-select @error('barangay') is-invalid @enderror"
-                            required>
-                      <option value="">Select barangay</option>
-                      @foreach($locations as $loc)
-                        <option value="{{ $loc->barangay }}"
-                                data-district="{{ $loc->district_id }}"
-                                {{ old('barangay') === $loc->barangay ? 'selected' : '' }}>
-                          {{ $loc->barangay }}
-                        </option>
-                      @endforeach
-                    </select>
-                    @error('barangay')
-                      <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
-                  </div>
-
-                  <div class="col-md-3">
-                    <label class="form-label fw-bold">
-                      District <span class="text-danger">*</span>
-                    </label>
-                    <select name="district"
-                            id="vlDistrictSelect"
-                            class="form-select @error('district') is-invalid @enderror"
-                            required>
-                      <option value="">Select district</option>
-                      @foreach($districts as $d)
-                        <option value="{{ $d->district_id }}"
-                                {{ old('district') == $d->district_id ? 'selected' : '' }}>
-                          {{ $d->district_name }}
-                        </option>
-                      @endforeach
-                    </select>
-                    <div class="form-text small">Auto-filled when you pick a barangay.</div>
-                    @error('district')
-                      <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
-                  </div>
-
-                  <div class="col-md-3">
-                    <label class="form-label fw-bold">Status</label>
-                    <select name="status"
-                            class="form-select @error('status') is-invalid @enderror">
-                      <option value="active" {{ old('status','active') === 'active' ? 'selected' : '' }}>Active</option>
-                      <option value="inactive" {{ old('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
-                    </select>
-                    @error('status')
-                      <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
-                  </div>
-
-                  {{-- Class Schedule --}}
-                  <div class="col-12">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                      <label class="form-label fw-bold mb-0">
-                        Class Schedule (optional)
-                      </label>
-
-                      <button type="button"
-                              class="btn btn-outline-danger btn-sm vl-btnSchedule"
-                              id="vlScheduleTrigger">
-                        <i class="fa-solid fa-calendar-days me-1"></i>
-                        Set Schedule
-                      </button>
-                    </div>
-
-                    {{-- Hidden field actually sent to backend --}}
-                    <input type="hidden"
-                           name="class_schedule"
-                           id="vlScheduleField"
-                           value="{{ old('class_schedule') }}">
-
-                    {{-- Preview text --}}
-                    <div class="vl-scheduleMetaBox">
-                      <span id="vlScheduleSummary" class="vl-scheduleMeta">
-                        No schedule set. Volunteers will be treated as available on any day &amp; time.
-                      </span>
-                    </div>
-
-                    <div class="form-text small mt-1">
-                      Used when matching volunteers by unavailable class blocks.
-                    </div>
-
-                    @error('class_schedule')
-                      <div class="text-danger small mt-1">{{ $message }}</div>
-                    @enderror
-                  </div>
-
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="modal-footer" style="background:#f7f7f9;">
-            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-danger vl-modalSave">
-              <i class="fa-solid fa-floppy-disk me-1"></i> Save
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  {{-- ================================
-       SCHEDULE BUILDER MODAL (Add Volunteer)
-  ================================= --}}
-  <div class="modal fade" id="vlScheduleModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-xl">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title mb-0">
-            <i class="fa-solid fa-calendar-days me-2"></i> Class Schedule
-          </h5>
-          <button type="button"
-                  class="btn-close btn-close-white"
-                  data-bs-dismiss="modal"
-                  aria-label="Close"></button>
-        </div>
-
-        <div class="modal-body">
-          <p class="small text-muted mb-2">
-            Select the time blocks when the volunteer <strong>has classes</strong>.
-            They are considered available outside these blocks.
-          </p>
-
-          <div class="table-responsive">
-            <table class="table table-sm text-center align-middle vl-schTable mb-0">
-              <thead>
-                <tr>
-                  <th style="width:40px;">#</th>
-                  <th>Monday</th>
-                  <th>Tuesday</th>
-                  <th>Wednesday</th>
-                  <th>Thursday</th>
-                  <th>Friday</th>
-                  <th>Saturday</th>
-                </tr>
-              </thead>
-              <tbody id="vlScheduleBody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="modal-footer justify-content-between">
-          <button type="button"
-                  class="btn btn-outline-secondary btn-sm"
-                  id="vlScheduleClear">
-            <i class="fa-solid fa-eraser me-1"></i> Clear All
-          </button>
-
-          <div>
-            <button type="button"
-                    class="btn btn-light btn-sm me-1"
-                    data-bs-dismiss="modal">
-              Cancel
-            </button>
-            <button type="button"
-                    class="btn btn-danger btn-sm"
-                    id="vlScheduleSave">
-              <i class="fa-solid fa-check me-1"></i> Save Schedule
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+  @include('layouts.modals.submit.volunteer_list.add_volunteer_modal')
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="{{ asset('assets/volunteer_list/js/script.js') }}"></script>

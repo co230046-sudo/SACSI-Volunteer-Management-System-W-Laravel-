@@ -116,7 +116,10 @@
                 continue;
             }
 
-            $slots  = preg_split('/\s+/', $raw);
+            $raw = preg_replace('/[,;]+/', ' ', $raw);        // remove commas/semicolons
+            $raw = preg_replace('/\s+/', ' ', trim($raw));    // normalize spaces
+            $slots = preg_split('/\s+/', $raw);
+
             $ranges = [];
 
             foreach ($slots as $slot) {
@@ -150,34 +153,60 @@
     $invalidNeedsCount = 0;
 
     foreach ($invalidEntries as $e) {
-        $hasErrors = !empty($entry['errors']) && count($entry['errors']) > 0;
+        $hasErrors = !empty($e['errors']) && is_array($e['errors']) && count($e['errors']) > 0;
 
         $missingFields = [];
         foreach ([
-            'full_name' => 'Name',
-            'id_number' => 'School ID',
-            'course' => 'Course',
-            'year_level' => 'Year',
-            'batch_year' => 'Batch Year',
-            'contact_number' => 'Contact #',
-            'email' => 'Email',
-            'barangay' => 'Barangay',
-            'district' => 'District',
+            'full_name'       => 'Name',
+            'id_number'       => 'School ID',
+            'course'          => 'Course',
+            'year_level'      => 'Year',
+            'batch_year'      => 'Batch Year',
+            'contact_number'  => 'Contact #',
+            'email'           => 'Email',
+            'fb_messenger'   => 'FB/Messenger',
+            'barangay'        => 'Barangay',
+            'district'        => 'District',
         ] as $k => $label) {
-            if (empty(trim($entry[$k] ?? ''))) $missingFields[] = $label;
+            if (empty(trim($e[$k] ?? ''))) $missingFields[] = $label;
         }
 
-        $fieldsOk            = !$hasErrors && empty($missingFields);
         $scheduleIsEmpty     = $scheduleLooksEmpty($e);
         $scheduleHasConflict = $hasScheduleConflicts($e);
         $scheduleOk          = !$scheduleIsEmpty && !$scheduleHasConflict;
-        $hasPic              = $hasRealPhoto($e);
+
+        $hasPic = $hasRealPhoto($e);
 
         $isReady = !$hasErrors
-                && empty($missingFields)
-                && $scheduleOk
-                && $hasPic;
+            && empty($missingFields)
+            && $scheduleOk
+            && $hasPic;
+
+        if ($isReady) $invalidReadyCount++;
+        else $invalidNeedsCount++;
     }
+
+    /* ===========================================================
+       ✅ PATCH ONLY: Ensure these are always defined.
+       - $columns is used by both Invalid and Valid tables
+       - $truncatedFields is used for tooltip + truncation logic
+       Keeping your existing per-row overrides intact.
+    ============================================================ */
+    $columns = $columns ?? [
+        'full_name'         => 'Full Name',
+        'id_number'         => 'School ID',
+        'course'            => 'Course',
+        'year_level'        => 'Year',
+        'batch_year'        => 'Batch',
+        'contact_number'    => 'Contact #',
+        'email'             => 'Email',
+        'emergency_contact' => 'Emergency #',
+        'fb_messenger'      => 'FB/Messenger',
+        'barangay'          => 'Barangay',
+        'district'          => 'District',
+    ];
+
+    $truncatedFields = $truncatedFields ?? ['full_name','course','email','fb_messenger','barangay','district'];
 @endphp
 
 <!DOCTYPE html>
@@ -190,6 +219,7 @@
     <link rel="stylesheet" href="{{ asset('assets/volunteer_import/css/volunteer_import.css') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="{{ asset('assets/layouts/modals/universal_feedback_modal.css') }}">
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta id="scrollToInvalid" content="{{ session('scrollToInvalid') ? '1' : '0' }}">
@@ -216,6 +246,7 @@
     @include('layouts.quicknav_volunteer_imports')
     @include('layouts.back_button')
 
+    
     <div class="scroll-container">
         {{-- 1. IMPORT & VALIDATION --}}
         <section id="import-Section-invalid">
@@ -357,46 +388,79 @@
                                                 @php
                                                     $name = trim($entry['full_name'] ?? '') ?: 'Unknown';
 
-                                                    $hasErrors = !empty($entry['errors']) && count($entry['errors']) > 0;
+                                                    /**
+                                                     * IMPORTANT UI FIX:
+                                                     * We separate schedule errors (monday..saturday) from non-schedule errors.
+                                                     * Otherwise, an entry with ONLY schedule overlap/conflict gets a red
+                                                     * "Edit Volunteer" pill even if all normal fields are valid.
+                                                     */
+                                                    $scheduleKeys = ['monday','tuesday','wednesday','thursday','friday','saturday'];
+                                                    $errorBag = (isset($entry['errors']) && is_array($entry['errors'])) ? $entry['errors'] : [];
+
+                                                    $hasScheduleErrors = false;
+                                                    $hasNonScheduleErrors = false;
+                                                    foreach ($errorBag as $k => $v) {
+                                                        if (in_array($k, $scheduleKeys, true)) {
+                                                            $hasScheduleErrors = true;
+                                                        } else {
+                                                            $hasNonScheduleErrors = true;
+                                                        }
+                                                    }
+
+                                                    // keep a combined flag for "overall validity" checks
+                                                    $hasErrors = $hasScheduleErrors || $hasNonScheduleErrors;
 
                                                     $missingFields = [];
                                                     foreach ([
-                                                        'full_name' => 'Name',
-                                                        'id_number' => 'School ID',
-                                                        'course' => 'Course',
-                                                        'year_level' => 'Year',
-                                                        'batch_year' => 'Batch Year',
+                                                        'full_name'      => 'Name',
+                                                        'id_number'      => 'School ID',
+                                                        'course'         => 'Course',
+                                                        'year_level'     => 'Year',
+                                                        'batch_year'     => 'Batch Year',
                                                         'contact_number' => 'Contact #',
-                                                        'email' => 'Email',
-                                                        'barangay' => 'Barangay',
-                                                        'district' => 'District',
+                                                        'email'          => 'Email',
+                                                        'fb_messenger'   => 'FB/Messenger',
+                                                        'barangay'       => 'Barangay',
+                                                        'district'       => 'District',
                                                     ] as $k => $label) {
                                                         if (empty(trim($entry[$k] ?? ''))) $missingFields[] = $label;
                                                     }
 
-                                                    $fieldsOk = !$hasErrors && empty($missingFields);
-                                                    $scheduleOk = !$scheduleLooksEmpty($entry);
-                                                    $hasPic     = $hasRealPhoto($entry);
+                                                    // "Edit Volunteer" should only go red for non-schedule field issues.
+                                                    $fieldsOk = !$hasNonScheduleErrors && empty($missingFields);
+
+                                                    // ✅ Schedule status should follow the same source of truth as the UI/modals:
+                                                    // - If validateRow() flagged any schedule day (monday..saturday), treat schedule as NOT OK.
+                                                    // - Still keep string-based overlap detection as a fallback.
+                                                    $scheduleIsEmpty      = $scheduleLooksEmpty($entry);
+                                                    $scheduleHasConflict  = $hasScheduleConflicts($entry) || $hasScheduleErrors;
+                                                    $scheduleOk           = !$scheduleIsEmpty && !$scheduleHasConflict;
+
+                                                    $hasPic = $hasRealPhoto($entry);
 
                                                     $isReady = !$hasErrors && empty($missingFields) && $scheduleOk && $hasPic;
 
                                                     $rowAccentClass = $isReady ? 'row-ok' : 'row-warn';
 
-                                                        $reasons = [];
-                                                        if (!empty($missingFields)) {
-                                                            $reasons[] = "Missing: " . implode(', ', $missingFields);
-                                                        }
-                                                        if ($scheduleIsEmpty) {
-                                                            $reasons[] = "Empty Schedule (Pending)";
-                                                        } elseif ($scheduleHasConflict) {
-                                                            $reasons[] = "Overlapping schedule(s)";
-                                                        }
-                                                        if (!$hasPic) {
-                                                            $reasons[] = "No Photo (Pending)";
-                                                        }
-                                                        if ($hasErrors) {
-                                                            $reasons[] = "Has validation errors";
-                                                        }
+                                                    $reasons = [];
+                                                    if (!empty($missingFields)) {
+                                                        $reasons[] = "Missing: " . implode(', ', $missingFields);
+                                                    }
+                                                    if ($scheduleIsEmpty) {
+                                                        $reasons[] = "Empty Schedule (Pending)";
+                                                    } elseif ($scheduleHasConflict) {
+                                                        $reasons[] = "Overlapping schedule(s)";
+                                                    }
+                                                    if (!$hasPic) {
+                                                        $reasons[] = "No Photo (Pending)";
+                                                    }
+                                                    if ($hasNonScheduleErrors) {
+                                                        $reasons[] = "Has field validation errors";
+                                                    }
+                                                    // Schedule errors that aren't caught by the overlap helper (e.g. invalid time format)
+                                                    if ($hasScheduleErrors && !$scheduleHasConflict) {
+                                                        $reasons[] = "Schedule has invalid time(s)";
+                                                    }
 
                                                     $statusTooltip = $isReady
                                                         ? "Ready — no missing fields, schedule and photo are present."
@@ -407,26 +471,27 @@
                                                         : ($entry['profile_picture'] ?? null);
 
                                                     $columns = [
-                                                        'full_name' => 'Name',
-                                                        'id_number' => 'School ID',
-                                                        'course' => 'Course',
-                                                        'year_level' => 'Year',
-                                                        'batch_year' => 'Batch',   
-                                                        'contact_number' => 'Contact #',
-                                                        'email' => 'Email',
+                                                        'full_name'         => 'Name',
+                                                        'id_number'         => 'School ID',
+                                                        'course'            => 'Course',
+                                                        'year_level'        => 'Year',
+                                                        'batch_year'        => 'Batch',
+                                                        'contact_number'    => 'Contact #',
+                                                        'email'             => 'Email',
                                                         'emergency_contact' => 'Emergency #',
-                                                        'fb_messenger' => 'FB/Messenger',
-                                                        'barangay' => 'Barangay',
-                                                        'district' => 'District',
+                                                        'fb_messenger'      => 'FB/Messenger',
+                                                        'barangay'          => 'Barangay',
+                                                        'district'          => 'District',
                                                     ];
+
                                                     $truncatedFields = ['full_name','course','email','fb_messenger','barangay','district'];
 
-                                                    // indicators
-                                                    $missingSchedule   = $scheduleIsEmpty;
-                                                    $conflictSchedule  = !$scheduleIsEmpty && $scheduleHasConflict;
-                                                    $missingPhoto      = !$hasPic;
-
+                                                    // indicators (now safe)
+                                                    $missingSchedule  = $scheduleIsEmpty;
+                                                    $conflictSchedule = $scheduleHasConflict;
+                                                    $missingPhoto     = !$hasPic;
                                                 @endphp
+
 
                                                 <tr class="{{ $rowAccentClass }}">
                                                     <td><input type="checkbox" name="selected_invalid[]" value="{{ $index }}"></td>
@@ -552,8 +617,7 @@
                                                                 <div class="dropdown-divider my-1"></div>
 
                                                                 <button type="button" class="dropdown-item action-edit"
-                                                                    onclick="setLastUsedTable('invalid','{{ $index }}'); openEditVolunteerModal('invalid','{{ $index }}', this)"
-                                                                        onclick="setLastUsedTable('invalid','{{ $index }}'); openEditVolunteerModal('invalid','{{ $index }}')">
+                                                                    onclick="setLastUsedTable('invalid','{{ $index }}'); openEditVolunteerModal('invalid','{{ $index }}', this)">
                                                                     <i class="fa-solid fa-user-pen"></i>
                                                                     <span>Edit</span>
                                                                 </button>
@@ -722,41 +786,72 @@
                                             @if(!empty($validEntries) && count($validEntries) > 0)
                                                 @foreach ($validEntries as $index => $entry)
                                                     @php
-                                                        $name = trim($entry['full_name'] ?? '') ?: 'Unknown';
-                             
-                                                        $fieldsOk = empty($validMissingFields);
-                                                        $scheduleOk = !$scheduleLooksEmpty($entry);
-                                                        $hasPic     = $hasRealPhoto($entry);
+                                                    $name = trim($entry['full_name'] ?? '') ?: 'Unknown';
 
-                                                        $picSrc = !empty($entry['profile_picture_local'])
-                                                            ? asset('storage/' . $entry['profile_picture_local'])
-                                                            : ($entry['profile_picture'] ?? null);
+                                                    // ✅ PATCH ONLY: define image source in VALID loop too
+                                                    $picSrc = !empty($entry['profile_picture_local'])
+                                                        ? asset('storage/' . $entry['profile_picture_local'])
+                                                        : ($entry['profile_picture'] ?? null);
 
-                                                        $columns = [
-                                                            'full_name' => 'Name',
-                                                            'id_number' => 'School ID',
-                                                            'course' => 'Course',
-                                                            'year_level' => 'Year',
-                                                            'batch_year' => 'Batch',
-                                                            'contact_number' => 'Contact #',
-                                                            'email' => 'Email',
-                                                            'emergency_contact' => 'Emergency #',
-                                                            'fb_messenger' => 'FB/Messenger',
-                                                            'barangay' => 'Barangay',
-                                                            'district' => 'District',
-                                                        ];
-                                                        $truncatedFields = ['full_name','course','email','fb_messenger','barangay','district'];
+                                                    // Even in valid section, still compute field completeness
+                                                    $missingFields = [];
+                                                    foreach ([
+                                                        'full_name'      => 'Name',
+                                                        'id_number'      => 'School ID',
+                                                        'course'         => 'Course',
+                                                        'year_level'     => 'Year',
+                                                        'batch_year'     => 'Batch Year',
+                                                        'contact_number' => 'Contact #',
+                                                        'email'          => 'Email',
+                                                        'barangay'       => 'Barangay',
+                                                        'fb_messenger'   => 'FB/Messenger',
+                                                        'district'       => 'District',
 
-                                                        $missingSchedule = !$scheduleOk;
-                                                        $missingPhoto    = !$hasPic;
+                                                        // ✅ ADD YOUR "facebook link" field here if it's required:
+                                                        'fb_messenger'   => 'FB/Messenger',
+                                                    ] as $k => $label) {
+                                                        if (empty(trim($entry[$k] ?? ''))) $missingFields[] = $label;
+                                                    }
 
-                                                        $scheduleIsEmpty     = $scheduleLooksEmpty($entry);
-                                                        $scheduleHasConflict = $hasScheduleConflicts($entry);
-                                                        $scheduleOk          = !$scheduleIsEmpty && !$scheduleHasConflict;
+                                                    // Split schedule vs non-schedule errors so "Edit Volunteer" pill doesn't
+                                                    // turn red just because the schedule has conflicts.
+                                                    $scheduleErrorKeys = ['monday','tuesday','wednesday','thursday','friday','saturday'];
+                                                    $errorBag = (isset($entry['errors']) && is_array($entry['errors'])) ? $entry['errors'] : [];
+                                                    $hasScheduleErrors = false;
+                                                    $hasNonScheduleErrors = false;
+                                                    foreach (array_keys($errorBag) as $ek) {
+                                                        if (in_array(strtolower((string)$ek), $scheduleErrorKeys, true)) {
+                                                            $hasScheduleErrors = true;
+                                                        } else {
+                                                            $hasNonScheduleErrors = true;
+                                                        }
+                                                    }
+                                                    $hasErrors = $hasScheduleErrors || $hasNonScheduleErrors;
 
+                                                    // "Edit Volunteer" should only go red for non-schedule field issues.
+                                                    $fieldsOk = !$hasNonScheduleErrors && empty($missingFields);
+
+                                                    // schedule flags
+                                                    // Use BOTH:
+                                                    // - string-based detector (quick scan of the schedule string)
+                                                    // - server-side validator errors (source of truth for overlaps/format issues)
+                                                    $scheduleIsEmpty     = $scheduleLooksEmpty($entry);
+                                                    $scheduleHasConflict = $hasScheduleConflicts($entry) || $hasScheduleErrors;
+                                                    $scheduleOk          = !$scheduleIsEmpty && !$scheduleHasConflict;
+
+                                                    $hasPic = $hasRealPhoto($entry);
+
+                                                    // indicators for pills
+                                                    $missingSchedule  = $scheduleIsEmpty;
+                                                    $conflictSchedule = $scheduleHasConflict;
+                                                    $missingPhoto     = !$hasPic;
+
+                                                    // optional: if a "valid" row isn't actually valid, you can visually mark it
+                                                    $rowAccentClass = ($fieldsOk && $scheduleOk && $hasPic) ? 'row-ok' : 'row-warn';
                                                     @endphp
 
-                                                    <tr class="valid-entry row-ok">
+
+                                                    <tr class="valid-entry {{ $rowAccentClass }}">
                                                         <td>
                                                             <input type="checkbox" name="selected_valid[]" value="{{ $index }}"
                                                                    data-id-number="{{ $entry['id_number'] ?? '' }}">
@@ -801,7 +896,7 @@
                                                         {{-- ✅ ACTIONS dropdown --}}
                                                         <td class="actions-cell">
                                                             <div class="dropdown entry-actions">
-                                                                 <button
+                                                                <button
                                                                     class="btn btn-sm btn-outline-secondary entry-actions-btn"
                                                                     type="button"
                                                                     data-bs-toggle="dropdown"
@@ -810,8 +905,7 @@
                                                                     aria-expanded="false">
                                                                     <i class="fa-solid fa-ellipsis-vertical me-1"></i> Actions
 
-                                                                    {{-- 🟢 NEW: Fields indicator --}}
-                                                                    <span class="ind-pill {{ $fieldsOk ? 'ok' : 'warn' }}"
+                                                                    <span class="ind-pill pill-action {{ $fieldsOk ? 'ok' : 'warn' }}"
                                                                         data-bs-toggle="tooltip"
                                                                         data-bs-title="{{ $fieldsOk ? 'All required fields OK' : 'Missing fields' }}"
                                                                         data-action="open-edit"
@@ -820,9 +914,9 @@
                                                                         <i class="fa-solid fa-user-pen"></i>
                                                                     </span>
 
-                                                                    <span class="ind-pill {{ $missingSchedule ? 'warn' : 'ok' }}"
+                                                                    <span class="ind-pill pill-action {{ ($missingSchedule || $conflictSchedule) ? 'warn' : 'ok' }}"
                                                                         data-bs-toggle="tooltip"
-                                                                        data-bs-title="{{ $missingSchedule ? 'Empty Schedule' : 'Schedule OK' }}"
+                                                                        data-bs-title="{{ $missingSchedule ? 'Empty Schedule' : ($conflictSchedule ? 'Schedule has overlaps' : 'Schedule OK') }}"
                                                                         data-action="open-schedule"
                                                                         data-entry-type="valid"
                                                                         data-entry-index="{{ $index }}"
@@ -830,7 +924,7 @@
                                                                         <i class="fa-solid fa-calendar-days"></i>
                                                                     </span>
 
-                                                                    <span class="ind-pill {{ $missingPhoto ? 'warn' : 'ok' }}"
+                                                                    <span class="ind-pill pill-action {{ $missingPhoto ? 'warn' : 'ok' }}"
                                                                         data-bs-toggle="tooltip"
                                                                         data-bs-title="{{ $missingPhoto ? 'No Photo / Default Photo' : 'Photo OK' }}"
                                                                         data-action="open-photo"
@@ -840,7 +934,6 @@
                                                                         data-picture-src="{{ $picSrc ? addslashes($picSrc) : '' }}">
                                                                         <i class="fa-solid fa-image"></i>
                                                                     </span>
-
                                                                 </button>
 
                                                                 <div class="dropdown-menu entry-actions-menu dropdown-menu-end" role="menu">
@@ -857,7 +950,7 @@
                                                                     <div class="dropdown-divider my-1"></div>
 
                                                                     <button type="button" class="dropdown-item action-edit"
-                                                                        onclick="setLastUsedTable('invalid','{{ $index }}'); openEditVolunteerModal('invalid','{{ $index }}', this)">
+                                                                        onclick="setLastUsedTable('valid','{{ $index }}'); openEditVolunteerModal('valid','{{ $index }}', this)">
                                                                         <i class="fa-solid fa-user-pen"></i>
                                                                         <span>Edit</span>
                                                                     </button>
@@ -1087,6 +1180,8 @@
     @include('layouts.modals.submit.volunteer_import.view_schedule_modal')
     @include('layouts.modals.submit.volunteer_import.view_profile_picture_modal')
 
+    @include('layouts.modals.universal_feedback_modal')
+
     {{-- Scripts --}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -1094,24 +1189,24 @@
     <link rel="stylesheet" href="{{ asset('assets/modals/css/modal.css') }}">
     <script src="{{ asset('assets/modals/js/modal.js') }}"></script>
     <script src="{{ asset('assets/volunteer_import/js/table_actions.js') }}"></script>
+    
+<script src="{{ asset('assets/layouts/modals/universal_feedback_modal.js') }}"></script>
 
-    {{-- ✅ Dropdown pop-out + tooltips (fixed + portal) --}}
-<script>
+   <script>
   function initBootstrapTooltips(root = document) {
-      const els = [].slice.call(root.querySelectorAll('[data-bs-toggle="tooltip"]'));
-      els.forEach(el => {
-          const existing = bootstrap.Tooltip.getInstance(el);
-          if (existing) existing.dispose();
-          new bootstrap.Tooltip(el, {
-              trigger: 'hover focus',
-              container: 'body',
-              html: el.getAttribute('data-bs-html') === 'true',
-              boundary: 'window'
-          });
+    const els = [].slice.call(root.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    els.forEach(el => {
+      const existing = bootstrap.Tooltip.getInstance(el);
+      if (existing) existing.dispose();
+      new bootstrap.Tooltip(el, {
+        trigger: 'hover focus',
+        container: 'body',
+        html: el.getAttribute('data-bs-html') === 'true',
+        boundary: 'window'
       });
+    });
   }
 
-  // NOTE: keep the "last" refs only for positioning, not for closing everything.
   let lastDropdownToggle = null;
   let lastDropdownMenu = null;
   let reopenAfterModal = false;
@@ -1119,170 +1214,205 @@
   function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
 
   function portalMenuToBody(toggleBtn){
-      const wrap = toggleBtn?.closest?.('.entry-actions');
-      const menu = wrap?.querySelector?.('.entry-actions-menu');
-      if (!wrap || !menu) return null;
-      if (menu.dataset.portaled === '1') return menu;
+    const wrap = toggleBtn?.closest?.('.entry-actions');
+    const menu = wrap?.querySelector?.('.entry-actions-menu');
+    if (!wrap || !menu) return null;
+    if (menu.dataset.portaled === '1') return menu;
 
-      const ph = document.createElement('span');
-      ph.className = 'entry-actions-placeholder';
-      wrap.appendChild(ph);
+    const ph = document.createElement('span');
+    ph.className = 'entry-actions-placeholder';
+    wrap.appendChild(ph);
 
-      menu.dataset.portaled = '1';
-      menu.dataset.placeholderId = (crypto?.randomUUID?.() || ('ph_' + Math.random().toString(16).slice(2)));
-      ph.dataset.placeholderId = menu.dataset.placeholderId;
+    menu.dataset.portaled = '1';
+    menu.dataset.placeholderId = (crypto?.randomUUID?.() || ('ph_' + Math.random().toString(16).slice(2)));
+    ph.dataset.placeholderId = menu.dataset.placeholderId;
 
-      document.body.appendChild(menu);
-      toggleBtn.dataset.placeholderId = menu.dataset.placeholderId;
+    document.body.appendChild(menu);
+    toggleBtn.dataset.placeholderId = menu.dataset.placeholderId;
 
-      return menu;
+    return menu;
   }
 
   function restoreMenuFromBody(toggleBtn){
-      const wrap = toggleBtn?.closest?.('.entry-actions');
-      if (!wrap) return;
-      const pid = toggleBtn?.dataset?.placeholderId;
-      if (!pid) return;
+    const wrap = toggleBtn?.closest?.('.entry-actions');
+    if (!wrap) return;
+    const pid = toggleBtn?.dataset?.placeholderId;
+    if (!pid) return;
 
-      const menu = document.querySelector(`.entry-actions-menu[data-portaled="1"][data-placeholder-id="${pid}"]`)
-                || document.querySelector(`.entry-actions-menu[data-portaled="1"]`);
-      const ph = wrap.querySelector(`.entry-actions-placeholder[data-placeholder-id="${pid}"]`);
-      if (!menu || !ph) return;
+    const menu =
+      document.querySelector(`.entry-actions-menu[data-portaled="1"][data-placeholder-id="${pid}"]`)
+      || document.querySelector(`.entry-actions-menu[data-portaled="1"]`);
 
-      wrap.appendChild(menu);
-      menu.removeAttribute('data-portaled');
-      menu.style.position = '';
-      menu.style.left = '';
-      menu.style.top = '';
-      menu.style.zIndex = '';
-      ph.remove();
+    const ph = wrap.querySelector(`.entry-actions-placeholder[data-placeholder-id="${pid}"]`);
+    if (!menu || !ph) return;
+
+    wrap.appendChild(menu);
+    menu.removeAttribute('data-portaled');
+    menu.style.position = '';
+    menu.style.left = '';
+    menu.style.top = '';
+    menu.style.zIndex = '';
+    ph.remove();
   }
 
   function positionMenuFixedOnce(toggleBtn) {
-      const pid = toggleBtn?.dataset?.placeholderId;
-      const menu = pid
-          ? document.querySelector(`.entry-actions-menu.show[data-placeholder-id="${pid}"]`)
-          : null;
+    const pid = toggleBtn?.dataset?.placeholderId;
+    const menu = pid
+      ? document.querySelector(`.entry-actions-menu.show[data-placeholder-id="${pid}"]`)
+      : null;
 
-      const fallback = toggleBtn?.closest?.('.entry-actions')?.querySelector?.('.entry-actions-menu');
-      const m = menu || fallback;
-      if (!toggleBtn || !m) return;
-      if (!m.classList.contains('show')) return;
+    const fallback = toggleBtn?.closest?.('.entry-actions')?.querySelector?.('.entry-actions-menu');
+    const m = menu || fallback;
+    if (!toggleBtn || !m) return;
+    if (!m.classList.contains('show')) return;
 
-      const btnRect = toggleBtn.getBoundingClientRect();
-      const menuRect = m.getBoundingClientRect();
-      const margin = 10;
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
+    const btnRect = toggleBtn.getBoundingClientRect();
+    const menuRect = m.getBoundingClientRect();
+    const margin = 10;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
 
-      let left = btnRect.right - menuRect.width;
-      left = clamp(left, margin, vw - menuRect.width - margin);
+    let left = btnRect.right - menuRect.width;
+    left = clamp(left, margin, vw - menuRect.width - margin);
 
-      let top = btnRect.bottom + 8;
-      if (top + menuRect.height > vh - margin) {
-          top = btnRect.top - menuRect.height - 8;
-      }
-      top = clamp(top, margin, vh - menuRect.height - margin);
+    let top = btnRect.bottom + 8;
+    if (top + menuRect.height > vh - margin) {
+      top = btnRect.top - menuRect.height - 8;
+    }
+    top = clamp(top, margin, vh - menuRect.height - margin);
 
-      m.style.position = 'fixed';
-      m.style.left = left + 'px';
-      m.style.top = top + 'px';
-      m.style.zIndex = '99999';
+    m.style.position = 'fixed';
+    m.style.left = left + 'px';
+    m.style.top = top + 'px';
+    m.style.zIndex = '99999';
 
-      lastDropdownToggle = toggleBtn;
-      lastDropdownMenu = m;
+    lastDropdownToggle = toggleBtn;
+    lastDropdownMenu = m;
   }
 
-  // ✅ close ONLY ONE dropdown (the one you clicked)
   function closeOneEntryDropdown(toggleBtn){
-      const inst = bootstrap.Dropdown.getInstance(toggleBtn) || bootstrap.Dropdown.getOrCreateInstance(toggleBtn, { autoClose: 'outside' });
-      inst.hide();
+    if (!toggleBtn) return;
+    const inst = bootstrap.Dropdown.getInstance(toggleBtn)
+      || bootstrap.Dropdown.getOrCreateInstance(toggleBtn, { autoClose: 'outside' });
+    inst.hide();
   }
   window.closeOneEntryDropdown = closeOneEntryDropdown;
 
-  // ✅ keep this for when you MUST close all (ex: open modal, scroll, etc.)
   function closeAllEntryDropdowns() {
-      document.querySelectorAll('.entry-actions .entry-actions-btn[aria-expanded="true"]').forEach(btn => {
-          const inst = bootstrap.Dropdown.getInstance(btn);
-          if (inst) inst.hide();
-      });
-      lastDropdownToggle = null;
-      lastDropdownMenu = null;
+    document.querySelectorAll('.entry-actions .entry-actions-btn[aria-expanded="true"]').forEach(btn => {
+      const inst = bootstrap.Dropdown.getInstance(btn);
+      if (inst) inst.hide();
+    });
+    lastDropdownToggle = null;
+    lastDropdownMenu = null;
   }
   window.closeAllEntryDropdowns = closeAllEntryDropdowns;
 
+  // ====== SCROLL CLOSE (FIXED) ======
+  // throttle via rAF so it doesn't spam on fast scroll
+  let rafScroll = 0;
+
+  function isToggleOffscreen(btn){
+    if (!btn) return true;
+    const r = btn.getBoundingClientRect();
+    return (
+      r.bottom < 0 ||
+      r.top > window.innerHeight ||
+      r.right < 0 ||
+      r.left > window.innerWidth
+    );
+  }
+
+  function closeIfToggleOffscreenThrottled(){
+    if (!lastDropdownToggle) return;
+    if (rafScroll) return;
+    rafScroll = requestAnimationFrame(() => {
+      rafScroll = 0;
+      if (!lastDropdownToggle) return;
+      if (isToggleOffscreen(lastDropdownToggle)) closeAllEntryDropdowns();
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
+    initBootstrapTooltips();
+
+    document.addEventListener('shown.bs.dropdown', function (e) {
+      const toggleBtn = e.relatedTarget || e.target?.querySelector?.('.entry-actions-btn');
+      if (!toggleBtn) return;
+
+      const menu = portalMenuToBody(toggleBtn);
+      if (menu) menu.dataset.placeholderId = toggleBtn.dataset.placeholderId;
+
+      positionMenuFixedOnce(toggleBtn);
       initBootstrapTooltips();
+    });
 
-      document.addEventListener('shown.bs.dropdown', function (e) {
-          const toggleBtn = e.relatedTarget || e.target?.querySelector?.('.entry-actions-btn');
-          if (!toggleBtn) return;
+    document.addEventListener('hidden.bs.dropdown', function (e) {
+      const toggleBtn = e.relatedTarget || e.target?.querySelector?.('.entry-actions-btn');
+      if (!toggleBtn) return;
+      restoreMenuFromBody(toggleBtn);
+    });
 
-          const menu = portalMenuToBody(toggleBtn);
-          if (menu) menu.dataset.placeholderId = toggleBtn.dataset.placeholderId;
+    window.addEventListener('resize', () => {
+      if (lastDropdownToggle && lastDropdownMenu?.classList.contains('show')) {
+        positionMenuFixedOnce(lastDropdownToggle);
+      }
+    });
 
-          positionMenuFixedOnce(toggleBtn);
-          initBootstrapTooltips();
+    // ✅ 1) still keep window scroll (works if body scrolls)
+    window.addEventListener('scroll', closeIfToggleOffscreenThrottled, { passive: true });
+
+    // ✅ 2) add explicit listener for your real scroll container
+    const scroller = document.querySelector('.scroll-container');
+    if (scroller) {
+      scroller.addEventListener('scroll', closeIfToggleOffscreenThrottled, { passive: true });
+    }
+
+    // ✅ 3) MOST IMPORTANT: capture ANY scroll from ANY overflow container (scroll doesn't bubble)
+    document.addEventListener('scroll', closeIfToggleOffscreenThrottled, { passive: true, capture: true });
+
+    // click outside -> close all
+    document.addEventListener('click', (e) => {
+      const insideMenu    = e.target.closest('.entry-actions-menu');
+      const insideTrigger = e.target.closest('.entry-actions-btn');
+      const insideWrap    = e.target.closest('.entry-actions');
+      if (!insideMenu && !insideTrigger && !insideWrap) {
+        closeAllEntryDropdowns();
+      }
+    });
+
+    // close dropdowns before any modal opens
+    document.querySelectorAll('.modal').forEach(modalEl => {
+      modalEl.addEventListener('show.bs.modal', () => {
+        reopenAfterModal = !!(lastDropdownMenu && lastDropdownMenu.classList.contains('show'));
+        closeAllEntryDropdowns();
       });
 
-      document.addEventListener('hidden.bs.dropdown', function (e) {
-          const toggleBtn = e.relatedTarget || e.target?.querySelector?.('.entry-actions-btn');
-          if (!toggleBtn) return;
-          restoreMenuFromBody(toggleBtn);
+      modalEl.addEventListener('hidden.bs.modal', () => {
+        if (reopenAfterModal && lastDropdownToggle) {
+          const inst = bootstrap.Dropdown.getOrCreateInstance(lastDropdownToggle, { autoClose: 'outside' });
+          inst.show();
+        }
+        reopenAfterModal = false;
       });
-
-      window.addEventListener('resize', () => {
-          if (lastDropdownToggle && lastDropdownMenu?.classList.contains('show')) {
-              positionMenuFixedOnce(lastDropdownToggle);
-          }
-      });
-
-      // 🔴 NEW: close all Actions dropdowns whenever the page scrolls
-      window.addEventListener('scroll', () => {
-          closeAllEntryDropdowns();
-      }, { passive: true });
-
-      // 🔴 NEW: close Actions dropdowns when clicking anywhere outside them
-      document.addEventListener('click', (e) => {
-          const insideMenu    = e.target.closest('.entry-actions-menu');
-          const insideTrigger = e.target.closest('.entry-actions-btn');
-          const insideWrap    = e.target.closest('.entry-actions');
-          if (!insideMenu && !insideTrigger && !insideWrap) {
-              closeAllEntryDropdowns();
-          }
-      });
-
-      // Close dropdowns before any bootstrap modal opens, then restore if needed
-      document.querySelectorAll('.modal').forEach(modalEl => {
-          modalEl.addEventListener('show.bs.modal', () => {
-              reopenAfterModal = !!(lastDropdownMenu && lastDropdownMenu.classList.contains('show'));
-              closeAllEntryDropdowns();
-          });
-
-          modalEl.addEventListener('hidden.bs.modal', () => {
-              if (reopenAfterModal && lastDropdownToggle) {
-                  const inst = bootstrap.Dropdown.getOrCreateInstance(lastDropdownToggle, { autoClose: 'outside' });
-                  inst.show();
-              }
-              reopenAfterModal = false;
-          });
-      });
+    });
   });
 
-  // ✅ CLOSE BUTTON INSIDE DROPDOWN: only closes that dropdown
+  // close button inside dropdown
   document.addEventListener('click', function (e) {
-      const btn = e.target.closest('[data-action="close-dropdown"]');
-      if (!btn) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const menu = btn.closest('.entry-actions-menu');
-      const wrap = menu ? document.querySelector(`.entry-actions-menu.show[data-placeholder-id="${menu.dataset.placeholderId}"]`) : null;
-      const toggle = document.querySelector(`.entry-actions-btn[data-placeholder-id="${menu?.dataset?.placeholderId || ''}"]`)
-                || btn.closest('.entry-actions')?.querySelector('.entry-actions-btn');
-      if (toggle) closeOneEntryDropdown(toggle);
+    const btn = e.target.closest('[data-action="close-dropdown"]');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const menu = btn.closest('.entry-actions-menu');
+    const toggle = document.querySelector(`.entry-actions-btn[data-placeholder-id="${menu?.dataset?.placeholderId || ''}"]`)
+      || btn.closest('.entry-actions')?.querySelector('.entry-actions-btn');
+
+    if (toggle) closeOneEntryDropdown(toggle);
   }, true);
 
-  // ✅ Mini icon click => open schedule/photo/edit modals without fighting dropdown portal
+  // pills open modals without fighting portal
   document.addEventListener('click', function (e) {
     const pill = e.target.closest('.ind-pill[data-action]');
     if (!pill) return;
@@ -1291,44 +1421,42 @@
     e.stopPropagation();
 
     try {
-        const toggle = pill.closest('.entry-actions')?.querySelector('.entry-actions-btn');
-        if (toggle) closeOneEntryDropdown(toggle);
+      const toggle = pill.closest('.entry-actions')?.querySelector('.entry-actions-btn');
+      if (toggle) closeOneEntryDropdown(toggle);
 
-        const action = pill.dataset.action;
+      const action = pill.dataset.action;
 
-        // 🟢 Fields pill -> Edit modal
-        if (action === 'open-edit') {
-            const type = pill.dataset.entryType || '';
-            const idx  = pill.dataset.entryIndex || '';
-            if (typeof window.openEditVolunteerModal === 'function') {
-                // pass the Actions button so we can re-open it later
-                window.openEditVolunteerModal(type, idx, toggle);
-            }
-            return;
+      if (action === 'open-edit') {
+        const type = pill.dataset.entryType || '';
+        const idx  = pill.dataset.entryIndex || '';
+        if (typeof window.openEditVolunteerModal === 'function') {
+          window.openEditVolunteerModal(type, idx, toggle);
         }
+        return;
+      }
 
-
-        if (action === 'open-schedule') {
-          const html = pill.dataset.scheduleHtml || '';
-          const type = pill.dataset.entryType || '';
-          const idx  = pill.dataset.entryIndex || '';
-          if (typeof window.openScheduleModal === 'function') {
-              window.openScheduleModal(html, type, idx);
-          }
-          return;
+      if (action === 'open-schedule') {
+        const html = pill.dataset.scheduleHtml || '';
+        const type = pill.dataset.entryType || '';
+        const idx  = pill.dataset.entryIndex || '';
+        if (typeof window.openScheduleModal === 'function') {
+          window.openScheduleModal(html, type, idx);
         }
+        return;
+      }
 
-        if (action === 'open-photo') {
-          if (typeof window.openImageModalFromButton === 'function') {
-              window.openImageModalFromButton(pill);
-          }
-          return;
+      if (action === 'open-photo') {
+        if (typeof window.openImageModalFromButton === 'function') {
+          window.openImageModalFromButton(pill);
         }
+        return;
+      }
     } catch (err) {
-        console.error('Mini icon modal open failed:', err);
+      console.error('Mini icon modal open failed:', err);
     }
   }, true);
 </script>
+
 
 </body>
 </html>

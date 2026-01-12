@@ -38,12 +38,11 @@
     <div class="right-side">
         <form action="{{ route('auth.login.submit') }}" method="POST" class="form-card">
             @csrf
-            <h1>Login</h1>
 
             {{-- Username / Email / Full Name --}}
             <div class="input-group required-field">
                 <i class="fa fa-user icon"></i>
-                <input type="text" name="username" placeholder="Username, Email" value="{{ old('username') }}" required>
+                <input type="text" name="username" placeholder="Username or Email" value="{{ old('username') }}" required>
             </div>
 
             {{-- Password --}}

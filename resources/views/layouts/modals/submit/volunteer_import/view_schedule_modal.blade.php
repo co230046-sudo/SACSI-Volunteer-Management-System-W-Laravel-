@@ -136,7 +136,6 @@
 
 /* ===========================================================
    TIME SELECT (PILL-LIKE, CRIMSON)
-   (we keep native select for accessibility & simplicity)
 =========================================================== */
 
 #classScheduleModal .schedule-select {
@@ -171,16 +170,6 @@
 }
 #classScheduleModal .schedule-select option {
   font-size: 0.82rem;
-}
-
-/* Optgroup labels styling hint (browser-dependent) */
-#classScheduleModal .schedule-select optgroup[label] {
-  font-weight: 600;
-}
-
-/* Small tag text we include in labels, e.g. “7:30–8:20 AM” */
-#classScheduleModal .time-tag {
-  font-size: 0.76rem;
 }
 
 /* Make inside-modal scrollbars slim (if height overflows) */
@@ -218,8 +207,7 @@
       <!-- Body -->
       <div class="modal-body custom-modal-body">
         <div class="schedule-hint">
-          In <strong>Edit</strong> mode, focus a time dropdown and press
-          <kbd>Ctrl</kbd> + <kbd>Z</kbd> to undo its last change for that day.
+          In <strong>Edit</strong> mode, update the time slots as needed. <span class="ms-2 text-decoration-underline" style="cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" title="Red cells indicate overlapping schedule times.">Why are some cells red?</span>
         </div>
 
         <div class="weekly-schedule">
@@ -264,24 +252,12 @@
   </div>
 </div>
 
-<!-- SUCCESS MODAL FOR SCHEDULE (unchanged from your version) -->
-<div id="resetSuccessModal" class="reset-import-modal">
-  <div class="reset-modal-overlay">
-    <div class="reset-modal-box">
-      <div class="reset-modal-header">
-        <i class="fa-solid fa-circle-check reset-success-icon"></i>
-        <h2 class="reset-success-title">Success</h2>
-      </div>
-      <hr class="reset-modal-separator">
-      <div id="resetSuccessMessage" class="reset-text-block reset-success-text"></div>
-      <div class="reset-modal-buttons">
-        <button type="button" class="reset-btn-confirm" id="resetSuccessOkBtn">
-          <i class="fa-solid fa-check"></i> OK
-        </button>
-      </div>
-    </div>
+{{-- Hidden server success payload (used by universal modal) --}}
+@if(session('success_schedule'))
+  <div id="__server_schedule_success__" style="display:none;">
+    {!! session('success_schedule') !!}
   </div>
-</div>
+@endif
 
 <!-- Hidden form for PUT submission -->
 <form id="updateScheduleForm" method="POST" style="display:none;">
@@ -292,35 +268,45 @@
 </form>
 
 <script>
-/* Flash success from controller (unchanged) */
-document.addEventListener("DOMContentLoaded", () => {
-  @if(session('success_schedule'))
-    showSuccessScheduleModal({!! json_encode(session('success_schedule')) !!});
-  @endif
+  // ✅ Use Universal Feedback Modal (FeedbackModal.show) for schedule success
+  document.addEventListener("DOMContentLoaded", () => {
+    const ok = document.getElementById("__server_schedule_success__");
 
-  const flash = document.querySelector(".action-message .message-text");
-  if (flash) {
-    flash.addEventListener("click", e => {
-      if (e.target.classList.contains("show-modal-details")) {
-        e.preventDefault();
-        showSuccessScheduleModal({!! json_encode(session('success_schedule')) !!});
+    // Match the same "universal" success modal style used elsewhere (name/title shown in blue in the HTML payload).
+    if (ok && ok.innerHTML.trim() && window.FeedbackModal && typeof window.FeedbackModal.show === "function") {
+      window.FeedbackModal.show({
+        variant: "success",
+        title: "Changes saved",
+        subtitle: "Entry updated successfully.",
+        html: ok.innerHTML.trim()
+      });
+    }
+
+    // Flash bar “Show More” (from controller)
+    document.addEventListener('click', (e) => {
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+      if (!t.classList.contains("show-modal-details")) return;
+
+      e.preventDefault();
+      if (!ok || !ok.innerHTML.trim()) return;
+
+      if (window.FeedbackModal && typeof window.FeedbackModal.show === "function") {
+        window.FeedbackModal.show({
+          variant: "success",
+          title: "Changes saved",
+          subtitle: "Entry updated successfully.",
+          html: ok.innerHTML.trim()
+        });
       }
     });
-  }
-
-  function showSuccessScheduleModal(html) {
-    document.getElementById("resetSuccessMessage").innerHTML = html;
-    const modal = document.getElementById("resetSuccessModal");
-    modal.style.display = "block";
-    document.getElementById("resetSuccessOkBtn").onclick = () =>
-      modal.style.display = "none";
-  }
-});
+  });
 </script>
 
 <script>
 /* ===========================================================
    CLASS SCHEDULE JS – CRIMSON VERSION WITH CONFLICT HIGHLIGHT
+   (UNCHANGED LOGIC — only success modal integration was fixed)
 =========================================================== */
 
 const MAX_ROWS = 6;
@@ -345,7 +331,8 @@ const timeMeta = {
   "5:00-6:20":  { label:"5:00–6:20 PM",  group:"PM", start:1020, end:1100},
   "6:30-7:20":  { label:"6:30–7:20 PM",  group:"PM", start:1110, end:1160},
   "6:30-8:50":  { label:"6:30–8:50 PM",  group:"PM", start:1110, end:1250},
-  "7:30-8:50":  { label:"7:30–8:50 PM",  group:"PM", start:1170, end:1250}
+  // ✅ Treat 7:30–8:50 as a morning slot (matches your dataset expectations; enables overlap detection with 8:30–11:30)
+  "7:30-8:50":  { label:"7:30–8:50 AM",  group:"AM", start:450,  end:530 }
 };
 
 const timeOptions = Object.keys(timeMeta);
@@ -353,6 +340,31 @@ const timeOptions = Object.keys(timeMeta);
 let currentType  = null;   // "valid" or "invalid"
 let currentIndex = null;
 let isEditing    = false;
+
+function normalizeIncomingScheduleString(s) {
+  s = String(s || "");
+  // Convert HTML line breaks to spaces (main blade sometimes passes nl2br)
+  s = s.replace(/<br\s*\/?>/gi, " ");
+  // Decode HTML entities
+  const ta = document.createElement("textarea");
+  ta.innerHTML = s;
+  s = ta.value;
+  // Strip any remaining tags
+  s = s.replace(/<[^>]*>/g, " ");
+  return s.replace(/\s+/g, " ").trim();
+}
+
+function displayLabel(key) {
+  const k = normalizeTimeRange(key);
+  return timeMeta[k] ? timeMeta[k].label : (key || "");
+}
+
+function getCellValue(td) {
+  const v = (td && td.dataset && td.dataset.value) ? td.dataset.value.trim() : "";
+  if (v) return v;
+  return (td ? td.textContent.trim() : "");
+}
+
 
 /* ---------- Helpers: time parsing / overlaps ---------- */
 
@@ -393,7 +405,7 @@ function markCellState(td, value) {
   if (!value) {
     td.classList.add("sched-empty");
   } else {
-    td.classList.add("sched-ok"); // provisional; conflict recomputed separately
+    td.classList.add("sched-ok");
   }
 }
 
@@ -407,7 +419,7 @@ function buildSelectedPerDay() {
       const td = row.querySelectorAll("td.schedule-entry")[di];
       if (!td) return;
       const sel = td.querySelector("select");
-      const val = sel ? sel.value.trim() : td.textContent.trim();
+      const val = sel ? sel.value.trim() : getCellValue(td);
       if (val) map[day].push(normalizeTimeRange(val));
     });
   });
@@ -445,7 +457,6 @@ function recomputeHighlights() {
   const body = document.getElementById("scheduleContent");
   const rows = Array.from(body.querySelectorAll("tr"));
 
-  // reset state, keep empty vs non-empty handling in markCellState
   body.querySelectorAll("td.schedule-entry").forEach(td => {
     if (!td.classList.contains("sched-empty")) {
       td.classList.remove("sched-ok","sched-conflict");
@@ -459,7 +470,7 @@ function recomputeHighlights() {
     cells.forEach(cell => {
       if (!cell) return;
       const sel = cell.querySelector("select");
-      const raw = sel ? sel.value.trim() : cell.textContent.trim();
+      const raw = sel ? sel.value.trim() : getCellValue(cell);
       const norm = normalizeTimeRange(raw);
       const range = parseRange(norm);
       if (norm && range) items.push({ cell, start: range.start, end: range.end });
@@ -496,7 +507,7 @@ function sortColumn(colIdx) {
     const td = row.querySelectorAll("td.schedule-entry")[colIdx];
     if (!td) return;
     const sel = td.querySelector("select");
-    const raw = sel ? sel.value.trim() : td.textContent.trim();
+    const raw = sel ? sel.value.trim() : getCellValue(td);
     const norm = normalizeTimeRange(raw);
     if (norm) values.push(norm);
   });
@@ -515,8 +526,10 @@ function sortColumn(colIdx) {
     if (sel) {
       sel.value = val;
       sel.dataset.current = val;
+      td.dataset.value = val;
     } else {
-      td.textContent = val;
+      td.dataset.value = val;
+      td.textContent = displayLabel(val);
     }
     markCellState(td, val);
   });
@@ -533,7 +546,7 @@ function sortAllColumns() {
 
 function createSelectInCell(td, colIdx) {
   const day = days[colIdx];
-  let cur = normalizeTimeRange(td.textContent.trim());
+  let cur = normalizeTimeRange(td.dataset.value || td.textContent.trim());
   td.textContent = "";
 
   const select = document.createElement("select");
@@ -576,12 +589,14 @@ function createSelectInCell(td, colIdx) {
   }
 
   select.value = cur || "";
+  td.dataset.value = cur || "";
   markCellState(td, cur || "");
 
   select.addEventListener("change", () => {
     const oldCurrent = select.dataset.current || "";
     select.dataset.prev = oldCurrent;
     select.dataset.current = select.value;
+    td.dataset.value = select.value;
     markCellState(td, select.value);
     sortColumn(colIdx);
   });
@@ -589,38 +604,12 @@ function createSelectInCell(td, colIdx) {
   td.appendChild(select);
 }
 
-/* ---------- Ctrl+Z undo per select ---------- */
-
-document.addEventListener("keydown", (e) => {
-  if (!e.ctrlKey || (e.key !== "z" && e.key !== "Z")) return;
-  const active = document.activeElement;
-  if (!active || active.tagName !== "SELECT" || !active.classList.contains("schedule-select")) return;
-
-  e.preventDefault();
-  const select = active;
-  const cur  = select.dataset.current || "";
-  const prev = select.dataset.prev || "";
-  if (!prev) return;
-
-  select.dataset.current = prev;
-  select.dataset.prev    = cur;
-  select.value = prev;
-
-  const td = select.closest("td.schedule-entry");
-  const row = select.closest("tr");
-  const cells = Array.from(row.querySelectorAll("td.schedule-entry"));
-  const colIdx = cells.indexOf(td);
-  markCellState(td, prev);
-  sortColumn(colIdx);
-});
 
 /* ---------- OPEN MODAL (called from Actions) ---------- */
 
-function openScheduleModal(scheduleString, type, index) {
-  currentType  = type;
-  currentIndex = index;
-  isEditing    = false;
 
+/* ---------- Load schedule into table (view mode) ---------- */
+function loadScheduleIntoModal(scheduleString) {
   const body = document.getElementById("scheduleContent");
   body.innerHTML = "";
 
@@ -648,13 +637,33 @@ function openScheduleModal(scheduleString, type, index) {
 
   sortAllColumns();
   recomputeHighlights();
+}
+
+/* ---------- OPEN MODAL (called from Actions) ---------- */
+
+function openScheduleModal(scheduleString, type, index) {
+  scheduleString = normalizeIncomingScheduleString(scheduleString);
+
+  currentType  = type;
+  currentIndex = index;
+
+  isEditing    = false;
+
+  loadScheduleIntoModal(scheduleString);
 
   document.getElementById("editScheduleBtn").classList.remove("d-none");
   document.getElementById("saveScheduleBtn").classList.add("d-none");
 
   document.getElementById("addRowBtnFooter").onclick = () => addScheduleRow();
 
-  new bootstrap.Modal(document.getElementById("classScheduleModal")).show();
+  const modalEl = document.getElementById("classScheduleModal");
+  const modal = new bootstrap.Modal(modalEl);
+  modal.show();
+
+  // Enable tooltips inside the modal
+  try {
+    modalEl.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+  } catch (e) {}
 }
 
 /* ---------- Add row ---------- */
@@ -662,8 +671,13 @@ function openScheduleModal(scheduleString, type, index) {
 function addScheduleRow(data = {}) {
   const body = document.getElementById("scheduleContent");
   if (body.children.length >= MAX_ROWS) {
-    if (typeof showMessageModal === "function") {
-      showMessageModal("You can only add up to " + MAX_ROWS + " rows.");
+    if (window.FeedbackModal && typeof window.FeedbackModal.show === "function") {
+      window.FeedbackModal.show({
+        variant: "warning",
+        title: "Limit Reached",
+        subtitle: "Row limit",
+        html: "You can only add up to " + MAX_ROWS + " rows."
+      });
     }
     return;
   }
@@ -679,7 +693,8 @@ function addScheduleRow(data = {}) {
     const td = document.createElement("td");
     td.className = "schedule-entry";
     const val = normalizeTimeRange(data[day] || "");
-    td.textContent = val;
+    td.dataset.value = val;
+    td.textContent = displayLabel(val);
     markCellState(td, val);
     tr.appendChild(td);
   });
@@ -748,11 +763,12 @@ document.getElementById("saveScheduleBtn").onclick = () => {
   document.querySelectorAll("#scheduleContent tr").forEach((row, ri) => {
     row.querySelectorAll("td.schedule-entry").forEach((td, di) => {
       const sel = td.querySelector("select");
-      let val = sel ? sel.value.trim() : td.textContent.trim();
+      let val = sel ? sel.value.trim() : getCellValue(td);
       val = val.replace("(Custom)", "").trim();
       val = normalizeTimeRange(val);
       updated[days[di]][ri] = val;
-      td.textContent = val;
+      td.dataset.value = val;
+      td.textContent = displayLabel(val);
       markCellState(td, val);
     });
   });

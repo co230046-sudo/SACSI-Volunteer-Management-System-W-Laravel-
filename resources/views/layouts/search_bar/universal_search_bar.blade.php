@@ -1,3 +1,4 @@
+{{-- universal_search_bar.blade.php (FULL PATCHED CODE) --}}
 <style>
 /* === Base Container === */
 .search-container {
@@ -11,7 +12,6 @@
   margin: 10px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
-
 
 /* === Row Layout (Search + Results + Sort) === */
 .search-row {
@@ -193,7 +193,6 @@
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-
 /* Trigger button */
 .custom-select-trigger {
   display: block;
@@ -306,7 +305,6 @@
   gap: 10px; /* space between Reset & Apply */
 }
 
-
 .right-actions button {
   border: none;
   padding: 6px 12px;
@@ -327,7 +325,6 @@
   margin-top: 10px;
   align-items: center;
 }
-
 
 /* --- Reset Button --- */
 .reset-btn {
@@ -380,684 +377,9 @@
 }
 
 /* ===== Remove shadows + set background for the search container ===== */
-.search-container {
-  box-shadow: none !important; /* remove container shadow */
-}
-
-/* Remove focus glow on the input if you want no shadow on focus */
-.search-box input:focus {
-  border-color: #c00;    /* keep your red border if desired */
-  outline: none;
-  box-shadow: none;      /* remove the focus shadow */
-}
-
-/* Remove dropdown and select shadows if you want fully flat UI */
-.sort-options,
-.custom-options {
-  box-shadow: none !important;
-  background: inherit; /* inherit container bg or set a specific bg */
-}
-
-/* === Two-column layout for large screens (1920px and up) === */
-
-
-/* === Two-column layout for large screens (1920px and up) === */
-@media (min-width: 1920px) {
-  .sort-options {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr); /* two equal columns */
-    column-gap: 16px;
-    row-gap: 10px;
-    align-items: start;
-    padding: 12px 16px;
-  }
-
-  .custom-select {
-    width: 100%;
-    margin-bottom: 0;
-  }
-
-  /* Actions container spans both columns */
-  .sort-options .actions {
-    grid-column: 1 / -1; /* span both columns */
-    display: flex;
-    justify-content: flex-end; /* push buttons to right */
-    align-items: center;
-    margin-top: 12px;
-    gap: 10px; /* space between Reset & Apply */
-  }
-
-  /* Individual buttons */
-  .sort-options .reset-btn,
-  .sort-options .apply-btn {
-    min-width: 100px;
-    padding: 8px 14px;
-    font-size: 0.9rem;
-    border-radius: 8px;
-  }
-
-  /* Apply button style */
-  .sort-options .apply-btn {
-    background-color: #B2000C;
-    color: #fff !important;
-    border: none;
-  }
-
-  /* Reset button style */
-  .sort-options .reset-btn {
-    background: #b8bcc0ff;
-    color: #333;
-    border: 1px solid #ccc;
-  }
-}
-
-
-/* --- Responsive scaling for smaller screens --- */
-@media (max-width: 768px) {
-  .reset-btn,
-  .apply-btn {
-    padding: 6px 10px;
-    font-size: 0.8rem;
-    border-radius: 8px;
-  }
-
-  .right-actions {
-    gap: 6px;
-  }
-}
-/* If you want the inner elements (like the search input) to remain white,
-   keep them as-is, otherwise make them match the container:
-.search-box input {
-  background: transparent;  / * or set same as container * /
-}
-
-/* Optional small polish: make the top controls sit flush on flat background */
-.search-row {
-  align-items: center;
-}
-
-/* === Sort by Status Enhancements === */
-.custom-options[data-field="status"] .custom-option i {
-  min-width: 18px;
-  text-align: center;
-  transition: transform 0.2s ease, color 0.2s ease;
-}
-
-.custom-options[data-field="status"] .custom-option:hover i {
-  transform: rotate(-10deg) scale(1.1);
-}
-
-
-/* === Responsive Behavior === */
-
-/* Medium screens */
-@media (max-width: 992px) {
-  .search-row {
-    gap: 12px;
-  }
-
-  .search-box {
-    flex: 1 1 40%;
-  }
-
-  .results-count {
-    font-size: 0.9rem;
-  }
-
-  .sort-by {
-    padding: 6px 10px;
-  }
-
-  /* Table actions */
-  .table-actions {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-
-  .table-actions button {
-    flex: 1 1 auto;
-    font-size: 0.85rem;
-  }
-}
-
-/* Small screens */
-@media (max-width: 768px) {
-  .search-row {
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
-  }
-
-  .search-box,
-  .results-count,
-  .sort-by {
-    flex: 1 1 100%;
-    text-align: center;
-  }
-
-  .sort-by {
-    padding: 8px 12px;
-  } 
-
-    /* === Core: prevent clipping === */
-  .data-table-container,
-  .search-container,
-  .table-controls,
-  .database-container {
-    overflow: visible !important;
-  }
-
-  /* Sort panel itself */
-  .sort-options {
-    position: absolute;
-    z-index: 9999;
-    background: #f8f9fa;
-    border-radius: 10px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);           /* narrower default width */
-  }
-
-  /* Individual custom selects */
-  .custom-select {
-    position: relative;
-  }
-
-  /* Detached dropdown popout (after JS reparenting) */
-  .custom-options {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    min-width: 180px;
-    background: #fff;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.25);
-    z-index: 10000;
-    display: none;
-  }
-
-  /* Show state */
-  .custom-select.open .custom-options {
-    display: block;
-  }
-  
-  /* Highlight both trigger and dropdown when active */
-.custom-select.open .custom-select-trigger,
-.custom-select.open .custom-options {
-  border: 2px solid #dc3545; /* Red border same as your trigger */
-  box-shadow: 0 0 5px rgba(220, 53, 69, 0.5); /* Optional subtle glow */
-}
-
-
-  /* Actions inside sort-options */
-  .actions {
-    flex-direction: row;
-    justify-content: space-between;
-    width: 100%;
-    margin-top: 10px;
-    gap: 8px;
-  }
-
-  .apply-btn,
-  .reset-btn {
-    flex: 1 1 48%;
-    padding: 8px 12px;
-  }
-
-  /* Table actions */
-  .table-actions {
-    flex-direction: row;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-
-  .table-actions button {
-    flex: 1 1 48%;
-    font-size: 0.85r  em;
-    padding: 6px 8px;
-  }
-}
-
-/* Extra small screens */
-@media (max-width: 480px) {
-  .search-row {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .search-box input {
-    font-size: 0.9rem;
-    padding: 8px 34px 8px 12px;
-  }
-
-  .results-count,
-  .sort-by {
-    flex: 1 1 100%;
-    text-align: center;
-    width: 100%;
-  }
-
-  .sort-by {
-    padding: 6px 10px;
-    font-size: 0.85rem;
-    
-  }
-
-  /* Actions inside sort-options */
-  .actions {
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .apply-btn,
-  .reset-btn {
-    width: 100%;
-    font-size: 0.85rem;
-    padding: 8px 0;
-  }
-
-  /* Table actions */
-  .table-actions {
-    flex-direction: column;
-    gap: 6px;
-    width: 100%;
-  }
-
-  .table-actions button {
-    width: 100%;
-    font-size: 0.85rem;
-    padding: 8px 0;
-  }
-}
-
-</style>
-
-<style>
-/* === Base Container === */
-.search-container {
-  position: relative;
-  background: #fff;
-  border-radius: 12px;
-  overflow: visible;
-  padding: 8px 12px;
-  width: 100%;
-  max-width: 600px;
-  margin: 10px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-/* === Row Layout (Search + Results + Sort) === */
-.search-row {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 18px;
-  flex-wrap: nowrap;
-  width: 100%;
-}
-
-/* === Search Box === */
-.search-box {
-  position: relative;
-  display: flex;
-  align-items: center;
-  flex: 1 1 45%;
-  min-width: 240px;
-  max-width: 400px;
-}
-
-.search-box input {
-  width: 100%;
-  font-size: clamp(0.85rem, 1vw + 0.5rem, 1rem);
-  padding: 10px 38px 10px 14px;
-  border: 2px solid #ccc;
-  border-radius: 8px;
-  transition: all 0.3s ease;
-}
-
-.search-box input:focus {
-  border-color: #c00;
-  outline: none;
-  box-shadow: 0 0 5px rgba(204, 0, 0, 0.3);
-}
-
-/* Search Icon */
-.search-box .icon {
-  position: absolute;
-  right: 12px;
-  font-size: 1rem;
-  color: #777;
-  pointer-events: none;
-  transition: color 0.3s ease;
-}
-
-.search-box input:focus + .icon {
-  color: #c00;
-}
-
-.search-box .icon {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: clamp(0.9rem, 1vw, 1.2rem);
-  color: #888;
-  transition: transform 0.4s ease, color 0.3s ease;
-}
-
-.search-box .icon:hover {
-  color: #c00;
-}
-
-.search-box:focus-within .icon {
-  transform: translateY(-50%) rotate(20deg);
-  color: #c00;
-}
-
-/* === Results Count === */
-.results-count {
-  font-size: clamp(0.8rem, 0.9vw + 0.3rem, 0.95rem);
-  color: #555;
-  font-weight: 500;
-  white-space: nowrap;
-  text-align: center;
-  flex: 0 1 auto;
-  min-width: 90px;
-}
-
-/* === Sort By Button === */
-.sort-by {
-  font-weight: bold;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  color: #333;
-  padding: 8px 14px;
-  border: 2px solid #ccc;
-  border-radius: 8px;
-  background: #fff;
-  transition: all 0.25s ease;
-  flex-shrink: 0;
-  white-space: nowrap;
-  justify-content: center;
-  align-items: center;
-}
-
-.sort-by:hover {
-  background: #f2f2f2;
-  transform: scale(1.05);
-}
-
-.sort-by .filter-icon {
-  font-size: 16px;
-  transition: color 0.25s ease, transform 0.25s ease;
-}
-
-.sort-by .icon {
-  font-size: 18px;
-  transition: transform 0.3s ease, color 0.25s ease;
-}
-
-.sort-by.active {
-  background: #c00;
-  color: #fff;
-  transform: scale(1.05);
-}
-
-.sort-by.active .icon {
-  transform: rotate(180deg);
-  color: #fff;
-}
-
-.sort-by.active .filter-icon {
-  color: #fff;
-}
-
-/* === Sort Options Dropdown === */
-.sort-options {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  width: 100%;
-  z-index: 99;
-  max-height: 0;
-  opacity: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  padding: 0 10px;
-  transition: all 0.25s ease;
-  pointer-events: none;
-  outline: 2px solid #c00;
-}
-
-.sort-options.open {
-  background: #f5f7fa;
-  max-height: 800px;
-  opacity: 1;
-  pointer-events: auto;
-  padding-top: 10px;
-  padding-bottom: 10px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.sort-options i {
-  margin-right: 6px;
-  transition: transform 0.2s ease, color 0.2s ease;
-}
-
-.sort-options i:hover {
-  transform: rotate(-10deg) scale(1.1);
-  color: #b71c1c;
-}
-
-.custom-select {
-  background: #f5f7fa;
-  position: relative;
-  width: 100%;
-  min-width: 160px;
-  cursor: pointer;
-  margin-bottom: 10px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-/* Trigger button */
-.custom-select-trigger {
-  display: block;
-  width: 100%;
-  background: white;
-  border: 2px solid #ccc;
-  padding: 8px;
-  border-radius: 6px;
-  transition: border-color 0.3s, background 0.3s;
-}
-
-/* Hover icon animation */
-.custom-select-trigger:hover i {
-  transform: rotate(-10deg);
-  color: #e60000;
-  transition: transform 0.2s ease, color 0.2s ease;
-}
-
-.custom-select-trigger i {
-  transition: transform 0.2s ease, color 0.2s ease;
-  color: #c62828;
-}
-
-.custom-select-trigger:hover {
-  border-color: #dc3545;
-  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.15);
-}
-
-.custom-select.open .custom-select-trigger {
-  border-color: #c00;
-}
-
-.custom-select-trigger,
-.custom-option {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 500;
-  transition: color 0.2s ease, transform 0.2s ease;
-}
-
-.custom-select-trigger:hover {
-  color: #e53935;
-  transform: translateX(2px);
-}
-
-/* Dropdown options */
-.custom-options {
-  display: none;
-  position: absolute;
-  top: calc(100% + 2px);
-  left: 0;
-  width: 100%;
-  max-height: 180px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  border: 2px solid #c00;
-  background: #fff;
-  border-radius: 6px;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-  z-index: 999;
-}
-
-.custom-select.open .custom-options {
-  display: block;
-}
-
-/* Scrollbar styling */
-.custom-options::-webkit-scrollbar {
-  width: 6px;
-}
-.custom-options::-webkit-scrollbar-thumb {
-  background-color: #c00;
-  border-radius: 3px;
-}
-
-/* Individual option */
-.custom-option {
-  display: block;
-  padding: 8px;
-  transition: background 0.2s, color 0.2s;
-}
-
-.custom-option:hover {
-  background: #c00;
-  color: #fff;
-}
-.custom-option i {
-  color: #666;
-  min-width: 18px;
-  text-align: center;
-}
-
-.custom-option:hover i {
-  color: #fff;
-}
-
-/* Actions row (Reset / Apply) */
-.actions {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  margin-top: 10px;
-  align-items: center;
-}
-
-.right-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.right-actions button {
-  border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 500;
-}
-
-/* --- Reset Button --- */
-.reset-btn {
-  background: #b8bcc0ff;
-  color: #333;
-  border: 1px solid #ccc;
-  border-radius: 10px;
-  padding: 8px 14px;
-  font-weight: 600;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.25s ease;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.reset-btn:hover {
-  background: #d8dbdfff;
-  border-color: #bbb;
-  transform: translateY(-2px);
-}
-
-.reset-btn:active {
-  transform: scale(0.97);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-}
-
-/* --- Apply Button --- */
-.apply-btn {
-  background: #b2000c;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  padding: 8px 14px;
-  font-weight: 600;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.25s ease;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
-}
-
-.apply-btn:hover {
-  background: #8f000a;
-  transform: translateY(-2px);
-}
-
-.apply-btn:active {
-  background: #6b0007;
-  transform: scale(0.97);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-}
-
-/* Remove container shadow (flat UI) */
-.search-container {
-  box-shadow: none !important;
-}
-
-/* Remove focus glow on the input */
-.search-box input:focus {
-  border-color: #c00;
-  outline: none;
-  box-shadow: none;
-}
-
-/* Remove dropdown shadows */
-.sort-options,
-.custom-options {
-  box-shadow: none !important;
-  background: inherit;
-}
+.search-container { box-shadow: none !important; }
+.search-box input:focus { border-color: #c00; outline: none; box-shadow: none; }
+.sort-options, .custom-options { box-shadow: none !important; background: inherit; }
 
 /* === Two-column layout for large screens (1920px and up) === */
 @media (min-width: 1920px) {
@@ -1069,12 +391,7 @@
     align-items: start;
     padding: 12px 16px;
   }
-
-  .custom-select {
-    width: 100%;
-    margin-bottom: 0;
-  }
-
+  .custom-select { width: 100%; margin-bottom: 0; }
   .sort-options .actions {
     grid-column: 1 / -1;
     display: flex;
@@ -1083,45 +400,24 @@
     margin-top: 12px;
     gap: 10px;
   }
-
-  .sort-options .reset-btn,
-  .sort-options .apply-btn {
+  .sort-options .reset-btn, .sort-options .apply-btn {
     min-width: 100px;
     padding: 8px 14px;
     font-size: 0.9rem;
     border-radius: 8px;
   }
-
-  .sort-options .apply-btn {
-    background-color: #B2000C;
-    color: #fff !important;
-    border: none;
-  }
-
-  .sort-options .reset-btn {
-    background: #b8bcc0ff;
-    color: #333;
-    border: 1px solid #ccc;
-  }
+  .sort-options .apply-btn { background-color: #B2000C; color: #fff !important; border: none; }
+  .sort-options .reset-btn { background: #b8bcc0ff; color: #333; border: 1px solid #ccc; }
 }
 
 /* --- Responsive scaling for smaller screens --- */
 @media (max-width: 768px) {
-  .reset-btn,
-  .apply-btn {
-    padding: 6px 10px;
-    font-size: 0.8rem;
-    border-radius: 8px;
-  }
-
-  .right-actions {
-    gap: 6px;
-  }
+  .reset-btn, .apply-btn { padding: 6px 10px; font-size: 0.8rem; border-radius: 8px; }
+  .right-actions { gap: 6px; }
 }
 
-.search-row {
-  align-items: center;
-}
+/* Optional small polish: make the top controls sit flush on flat background */
+.search-row { align-items: center; }
 
 /* === Sort by Status Enhancements === */
 .custom-options[data-field="status"] .custom-option i {
@@ -1129,64 +425,27 @@
   text-align: center;
   transition: transform 0.2s ease, color 0.2s ease;
 }
-
 .custom-options[data-field="status"] .custom-option:hover i {
   transform: rotate(-10deg) scale(1.1);
 }
 
 /* Medium screens */
 @media (max-width: 992px) {
-  .search-row {
-    gap: 12px;
-  }
-
-  .search-box {
-    flex: 1 1 40%;
-  }
-
-  .results-count {
-    font-size: 0.9rem;
-  }
-
-  .sort-by {
-    padding: 6px 10px;
-  }
-
-  .table-actions {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-
-  .table-actions button {
-    flex: 1 1 auto;
-    font-size: 0.85rem;
-  }
+  .search-row { gap: 12px; }
+  .search-box { flex: 1 1 40%; }
+  .results-count { font-size: 0.9rem; }
+  .sort-by { padding: 6px 10px; }
+  .table-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .table-actions button { flex: 1 1 auto; font-size: 0.85rem; }
 }
 
 /* Small screens */
 @media (max-width: 768px) {
-  .search-row {
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
-  }
+  .search-row { flex-wrap: wrap; justify-content: center; gap: 10px; }
+  .search-box, .results-count, .sort-by { flex: 1 1 100%; text-align: center; }
+  .sort-by { padding: 8px 12px; }
 
-  .search-box,
-  .results-count,
-  .sort-by {
-    flex: 1 1 100%;
-    text-align: center;
-  }
-
-  .sort-by {
-    padding: 8px 12px;
-  }
-
-  .data-table-container,
-  .search-container,
-  .table-controls,
-  .database-container {
+  .data-table-container, .search-container, .table-controls, .database-container {
     overflow: visible !important;
   }
 
@@ -1198,9 +457,7 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   }
 
-  .custom-select {
-    position: relative;
-  }
+  .custom-select { position: relative; }
 
   .custom-options {
     position: absolute;
@@ -1215,9 +472,7 @@
     display: none;
   }
 
-  .custom-select.open .custom-options {
-    display: block;
-  }
+  .custom-select.open .custom-options { display: block; }
 
   .custom-select.open .custom-select-trigger,
   .custom-select.open .custom-options {
@@ -1233,72 +488,24 @@
     gap: 8px;
   }
 
-  .apply-btn,
-  .reset-btn {
-    flex: 1 1 48%;
-    padding: 8px 12px;
-  }
+  .apply-btn, .reset-btn { flex: 1 1 48%; padding: 8px 12px; }
 
-  .table-actions {
-    flex-direction: row;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-
-  .table-actions button {
-    flex: 1 1 48%;
-    font-size: 0.85rem;
-    padding: 6px 8px;
-  }
+  .table-actions { flex-direction: row; gap: 6px; flex-wrap: wrap; }
+  .table-actions button { flex: 1 1 48%; font-size: 0.85rem; padding: 6px 8px; }
 }
 
 /* Extra small screens */
 @media (max-width: 480px) {
-  .search-row {
-    flex-direction: column;
-    gap: 8px;
-  }
+  .search-row { flex-direction: column; gap: 8px; }
+  .search-box input { font-size: 0.9rem; padding: 8px 34px 8px 12px; }
+  .results-count, .sort-by { flex: 1 1 100%; text-align: center; width: 100%; }
+  .sort-by { padding: 6px 10px; font-size: 0.85rem; }
 
-  .search-box input {
-    font-size: 0.9rem;
-    padding: 8px 34px 8px 12px;
-  }
+  .actions { flex-direction: column; gap: 6px; }
+  .apply-btn, .reset-btn { width: 100%; font-size: 0.85rem; padding: 8px 0; }
 
-  .results-count,
-  .sort-by {
-    flex: 1 1 100%;
-    text-align: center;
-    width: 100%;
-  }
-
-  .sort-by {
-    padding: 6px 10px;
-    font-size: 0.85rem;
-  }
-
-  .actions {
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .apply-btn,
-  .reset-btn {
-    width: 100%;
-    font-size: 0.85rem;
-    padding: 8px 0;
-  }
-
-  .table-actions {
-    flex-direction: column;
-    gap: 6px;
-    width: 100%;
-  }
-
-  .table-actions button {
-    width: 100%;
-    font-size: 0.85rem;
-    padding: 8px 0;
-  }
+  .table-actions { flex-direction: column; gap: 6px; width: 100%; }
+  .table-actions button { width: 100%; font-size: 0.85rem; padding: 8px 0; }
 }
 
 /* ---------- D3 NUMERIC FILTER CARD STYLES (Import Logs only) ---------- */
@@ -1310,7 +517,6 @@
     width: 100%;
     box-shadow: 0 3px 10px rgba(0,0,0,0.1);
 }
-
 .numeric-filter-title {
     font-size: 1rem;
     font-weight: bold;
@@ -1320,24 +526,9 @@
     align-items: center;
     gap: 6px;
 }
-
-.numeric-filter-group {
-    margin-bottom: 10px;
-}
-
-.numeric-filter-group label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #444;
-}
-
-.numeric-range {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 4px;
-}
-
+.numeric-filter-group { margin-bottom: 10px; }
+.numeric-filter-group label { font-size: 0.85rem; font-weight: 600; color: #444; }
+.numeric-range { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
 .numeric-range input {
     width: 100%;
     padding: 6px 8px;
@@ -1345,16 +536,8 @@
     border: 2px solid #ccc;
     border-radius: 6px;
 }
-
-.numeric-range input:focus {
-    border-color: #b2000c;
-    outline: none;
-}
-
-.numeric-range .dash {
-    font-weight: bold;
-    color: #555;
-}
+.numeric-range input:focus { border-color: #b2000c; outline: none; }
+.numeric-range .dash { font-weight: bold; color: #555; }
 </style>
 
 @php
@@ -1362,297 +545,225 @@
 @endphp
 
 <!-- Integrated Search + Sort Bar -->
-<div class="search-container"
-     data-target-table="{{ $tableId }}">
-
-    <div class="search-row">
-        <!-- Search Bar -->
-        <div class="search-box">
-            <input type="text"
-                   class="table-search"
-                   placeholder="{{ $placeholder ?? 'Type keywords...' }}">
-            <span class="icon"><i class="fas fa-search"></i></span>
-        </div>
-
-        <!-- Results Count -->
-        <div class="results-count">0 Results</div>
-
-        <!-- Sort Dropdown Toggle -->
-        <div class="sort-by"
-             role="button"
-             tabindex="0"
-             aria-expanded="false">
-            <span class="label">Filter & Sort</span>
-            <i class="fa-solid fa-filter filter-icon"></i>
-            <span class="icon">⏷</span>
-        </div>
+<div class="search-container" data-target-table="{{ $tableId }}">
+  <div class="search-row">
+    <!-- Search Bar -->
+    <div class="search-box">
+      <input type="text" class="table-search" placeholder="{{ $placeholder ?? 'Type keywords...' }}">
+      <span class="icon"><i class="fas fa-search"></i></span>
     </div>
 
-    <!-- SORT / FILTER AREA -->
-    <div class="sort-options">
+    <!-- Results Count -->
+    <div class="results-count">0 Results</div>
 
-        @if(!$isLogs)
-            {{-- ================= VOLUNTEERS (invalid/valid tables) ================= --}}
-            <!-- Sort by Full Name -->
-            <div class="custom-select" data-field="fullname">
-                <div class="custom-select-trigger"
-                     data-original-text="<i class='fa-solid fa-user'></i> Sort by Full Name">
-                    <i class="fa-solid fa-user"></i> Sort by Full Name
-                </div>
-
-                <div class="custom-options">
-                    <span class="custom-option" data-value="remove">
-                        <i class="fa-solid fa-ban"></i> Remove Sort
-                    </span>
-                    <span class="custom-option" data-value="name-az">
-                        <i class="fa-solid fa-arrow-down-a-z"></i> A → Z
-                    </span>
-                    <span class="custom-option" data-value="name-za">
-                        <i class="fa-solid fa-arrow-down-z-a"></i> Z → A
-                    </span>
-                </div>
-            </div>
-
-            <!-- Sort by ID Number -->
-            <div class="custom-select" data-field="idnum">
-                <div class="custom-select-trigger"
-                     data-original-text="<i class='fa-solid fa-id-card'></i> Sort by ID #">
-                    <i class="fa-solid fa-id-card"></i> Sort by ID #
-                </div>
-
-                <div class="custom-options">
-                    <span class="custom-option" data-value="remove">
-                        <i class="fa-solid fa-ban"></i> Remove Sort
-                    </span>
-                    <span class="custom-option" data-value="id-asc">
-                        <i class="fa-solid fa-arrow-up-1-9"></i> Lowest → Highest
-                    </span>
-                    <span class="custom-option" data-value="id-desc">
-                        <i class="fa-solid fa-arrow-down-9-1"></i> Highest → Lowest
-                    </span>
-                </div>
-            </div>
-
-            <!-- Filter by Course -->
-            <div class="custom-select" data-field="course">
-                <div class="custom-select-trigger"
-                     data-original-text="<i class='fa-solid fa-graduation-cap'></i> Filter by Course">
-                    <i class="fa-solid fa-graduation-cap"></i> Filter by Course
-                </div>
-
-                <div class="custom-options">
-                    <span class="custom-option" data-value="remove">
-                        <i class="fa-solid fa-ban"></i> Remove Filter
-                    </span>
-
-                    @foreach ($courses as $course)
-                        <span class="custom-option" data-value="{{ $course->course_name }}">
-                            <i class="fa-solid fa-graduation-cap"></i> {{ $course->course_name }}
-                        </span>
-                    @endforeach
-                </div>
-            </div>
-
-            <!-- Filter by Year -->
-            <div class="custom-select" data-field="year">
-                <div class="custom-select-trigger"
-                     data-original-text="<i class='fa-solid fa-layer-group'></i> Filter by Year Level">
-                    <i class="fa-solid fa-layer-group"></i> Filter by Year Level
-                </div>
-
-                <div class="custom-options">
-                    <span class="custom-option" data-value="remove">
-                        <i class="fa-solid fa-ban"></i> Remove Filter
-                    </span>
-
-                    @foreach ([1,2,3,4] as $year)
-                        <span class="custom-option" data-value="{{ $year }}">
-                            <i class="fa-solid fa-layer-group"></i>
-                            {{ $year }}{{ ['st','nd','rd','th'][$year-1] }} Year
-                        </span>
-                    @endforeach
-                </div>
-            </div>
-
-            <!-- Filter by Barangay -->
-            <div class="custom-select" data-field="barangay">
-                <div class="custom-select-trigger"
-                     data-original-text="<i class='fa-solid fa-house'></i> Filter by Barangay">
-                    <i class="fa-solid fa-house"></i> Filter by Barangay
-                </div>
-
-                <div class="custom-options">
-                    <span class="custom-option" data-value="remove">
-                        <i class="fa-solid fa-ban"></i> Remove Filter
-                    </span>
-
-                    @foreach ($barangays as $loc)
-                        <span class="custom-option" data-value="{{ $loc->barangay }}">
-                            <i class="fa-solid fa-location-dot"></i> {{ $loc->barangay }}
-                        </span>
-                    @endforeach
-                </div>
-            </div>
-
-            <!-- Filter by District -->
-            <div class="custom-select" data-field="district">
-                <div class="custom-select-trigger"
-                     data-original-text="<i class='fa-solid fa-map-location-dot'></i> Filter by District">
-                    <i class="fa-solid fa-map-location-dot"></i> Filter by District
-                </div>
-
-                <div class="custom-options">
-                    <span class="custom-option" data-value="remove">
-                        <i class="fa-solid fa-ban"></i> Remove Filter
-                    </span>
-
-                    @foreach ($districts as $dist)
-                        <span class="custom-option" data-value="District {{ $dist->district_id }}">
-                            <i class="fa-solid fa-location-dot"></i> District {{ $dist->district_id }}
-                        </span>
-                    @endforeach
-                </div>
-            </div>
-
-        @else
-            {{-- ================= IMPORT LOGS TABLE ================= --}}
-            <!-- Sort by File Name -->
-            <div class="custom-select" data-field="filename">
-                <div class="custom-select-trigger"
-                     data-original-text="<i class='fa-solid fa-file'></i> Sort by File Name">
-                    <i class="fa-solid fa-file"></i> Sort by File Name
-                </div>
-
-                <div class="custom-options">
-                    <span class="custom-option" data-value="remove">
-                        <i class="fa-solid fa-ban"></i> Remove Sort
-                    </span>
-                    <span class="custom-option" data-value="filename-az">
-                        <i class="fa-solid fa-arrow-down-a-z"></i> A → Z
-                    </span>
-                    <span class="custom-option" data-value="filename-za">
-                        <i class="fa-solid fa-arrow-down-z-a"></i> Z → A
-                    </span>
-                </div>
-            </div>
-
-            <!-- Sort by Uploaded By -->
-            <div class="custom-select" data-field="uploaded_by">
-                <div class="custom-select-trigger"
-                     data-original-text="<i class='fa-solid fa-user'></i> Sort by Uploaded By">
-                    <i class="fa-solid fa-user"></i> Sort by Uploaded By
-                </div>
-
-                <div class="custom-options">
-                    <span class="custom-option" data-value="remove">
-                        <i class="fa-solid fa-ban"></i> Remove Sort
-                    </span>
-                    <span class="custom-option" data-value="uploaded_by-az">
-                        <i class="fa-solid fa-arrow-down-a-z"></i> A → Z
-                    </span>
-                    <span class="custom-option" data-value="uploaded_by-za">
-                        <i class="fa-solid fa-arrow-down-z-a"></i> Z → A
-                    </span>
-                </div>
-            </div>
-
-            <!-- Sort by Uploaded At -->
-            <div class="custom-select" data-field="uploaded_at">
-                <div class="custom-select-trigger"
-                     data-original-text="<i class='fa-solid fa-clock'></i> Sort by Date">
-                    <i class="fa-solid fa-clock"></i> Sort by Date
-                </div>
-
-                <div class="custom-options">
-                    <span class="custom-option" data-value="remove">
-                        <i class="fa-solid fa-ban"></i> Remove Sort
-                    </span>
-                    <span class="custom-option" data-value="date-asc">
-                        <i class="fa-solid fa-arrow-up-1-9"></i> Oldest → Newest
-                    </span>
-                    <span class="custom-option" data-value="date-desc">
-                        <i class="fa-solid fa-arrow-down-9-1"></i> Newest → Oldest
-                    </span>
-                </div>
-            </div>
-
-            <!-- Filter by Status -->
-            <div class="custom-select" data-field="status">
-              <div class="custom-select-trigger"
-                  data-original-text="<i class='fa-solid fa-traffic-light'></i> Filter by Status">
-                  <i class="fa-solid fa-traffic-light"></i> Filter by Status
-              </div>
-
-              <div class="custom-options">
-                  <span class="custom-option" data-value="remove">
-                      <i class="fa-solid fa-ban"></i> Remove Filter
-                  </span>
-                  <span class="custom-option" data-value="pending">
-                      <i class="fa-solid fa-circle"></i> Pending
-                  </span>
-                  <span class="custom-option" data-value="completed">
-                      <i class="fa-solid fa-circle-check"></i> Completed
-                  </span>
-                  <span class="custom-option" data-value="cancelled">
-                      <i class="fa-solid fa-circle-xmark"></i> Cancelled
-                  </span>
-                  <span class="custom-option" data-value="reset">
-                      <i class="fa-solid fa-arrow-rotate-left"></i> Reset
-                  </span>
-                  <span class="custom-option" data-value="failed">
-                      <i class="fa-solid fa-triangle-exclamation"></i> Failed
-                  </span>
-                  <span class="custom-option" data-value="abandoned">
-                      <i class="fa-solid fa-person-walking-arrow-right"></i> Abandoned
-                  </span>
-              </div>
-          </div>
-        @endif
-
-        <!-- Buttons -->
-        <div class="actions">
-            <div class="left-actions">
-                <span class="results-inline" style="display:none;">0 Results</span>
-            </div>
-
-            <div class="right-actions">
-                <button type="button" class="reset-btn">Reset</button>
-                <button type="button" class="apply-btn">Apply Sort</button>
-            </div>
-        </div>
-
+    <!-- Sort Dropdown Toggle -->
+    <div class="sort-by" role="button" tabindex="0" aria-expanded="false">
+      <span class="label">Filter & Sort</span>
+      <i class="fa-solid fa-filter filter-icon"></i>
+      <span class="icon">⏷</span>
     </div>
+  </div>
+
+  <!-- SORT / FILTER AREA -->
+  <div class="sort-options">
+    @if(!$isLogs)
+      {{-- ================= VOLUNTEERS (invalid/valid tables) ================= --}}
+      <!-- Sort by Full Name -->
+      <div class="custom-select" data-field="fullname">
+        <div class="custom-select-trigger" data-original-text="<i class='fa-solid fa-user'></i> Sort by Full Name">
+          <i class="fa-solid fa-user"></i> Sort by Full Name
+        </div>
+        <div class="custom-options">
+          <span class="custom-option" data-value="remove"><i class="fa-solid fa-ban"></i> Remove Sort</span>
+          <span class="custom-option" data-value="name-az"><i class="fa-solid fa-arrow-down-a-z"></i> A → Z</span>
+          <span class="custom-option" data-value="name-za"><i class="fa-solid fa-arrow-down-z-a"></i> Z → A</span>
+        </div>
+      </div>
+
+      <!-- Sort by ID Number -->
+      <div class="custom-select" data-field="idnum">
+        <div class="custom-select-trigger" data-original-text="<i class='fa-solid fa-id-card'></i> Sort by ID #">
+          <i class="fa-solid fa-id-card"></i> Sort by ID #
+        </div>
+        <div class="custom-options">
+          <span class="custom-option" data-value="remove"><i class="fa-solid fa-ban"></i> Remove Sort</span>
+          <span class="custom-option" data-value="id-asc"><i class="fa-solid fa-arrow-up-1-9"></i> Lowest → Highest</span>
+          <span class="custom-option" data-value="id-desc"><i class="fa-solid fa-arrow-down-9-1"></i> Highest → Lowest</span>
+        </div>
+      </div>
+
+      <!-- Filter by Course -->
+      <div class="custom-select" data-field="course">
+        <div class="custom-select-trigger" data-original-text="<i class='fa-solid fa-graduation-cap'></i> Filter by Course">
+          <i class="fa-solid fa-graduation-cap"></i> Filter by Course
+        </div>
+        <div class="custom-options">
+          <span class="custom-option" data-value="remove"><i class="fa-solid fa-ban"></i> Remove Filter</span>
+          @foreach ($courses as $course)
+            <span class="custom-option" data-value="{{ $course->course_name }}">
+              <i class="fa-solid fa-graduation-cap"></i> {{ $course->course_name }}
+            </span>
+          @endforeach
+        </div>
+      </div>
+
+      <!-- Filter by Year -->
+      <div class="custom-select" data-field="year">
+        <div class="custom-select-trigger" data-original-text="<i class='fa-solid fa-layer-group'></i> Filter by Year Level">
+          <i class="fa-solid fa-layer-group"></i> Filter by Year Level
+        </div>
+        <div class="custom-options">
+          <span class="custom-option" data-value="remove"><i class="fa-solid fa-ban"></i> Remove Filter</span>
+          @foreach ([1,2,3,4] as $year)
+            <span class="custom-option" data-value="{{ $year }}">
+              <i class="fa-solid fa-layer-group"></i>
+              {{ $year }}{{ ['st','nd','rd','th'][$year-1] }} Year
+            </span>
+          @endforeach
+        </div>
+      </div>
+
+      <!-- Filter by Batch (Year) -->
+      <div class="custom-select" data-field="batch">
+        <div class="custom-select-trigger" data-original-text="<i class='fa-solid fa-layer-group'></i> Filter by Batch (Year)">
+          <i class="fa-solid fa-layer-group"></i> Filter by Batch (Year)
+        </div>
+        <div class="custom-options">
+          <span class="custom-option" data-value="remove"><i class="fa-solid fa-ban"></i> Remove Filter</span>
+          {{-- Batch options injected by JS --}}
+        </div>
+      </div>
+
+      <!-- Filter by Barangay -->
+      <div class="custom-select" data-field="barangay">
+        <div class="custom-select-trigger" data-original-text="<i class='fa-solid fa-house'></i> Filter by Barangay">
+          <i class="fa-solid fa-house"></i> Filter by Barangay
+        </div>
+        <div class="custom-options">
+          <span class="custom-option" data-value="remove"><i class="fa-solid fa-ban"></i> Remove Filter</span>
+          @foreach ($barangays as $loc)
+            <span class="custom-option" data-value="{{ $loc->barangay }}">
+              <i class="fa-solid fa-location-dot"></i> {{ $loc->barangay }}
+            </span>
+          @endforeach
+        </div>
+      </div>
+
+      <!-- Filter by District -->
+      <div class="custom-select" data-field="district">
+        <div class="custom-select-trigger" data-original-text="<i class='fa-solid fa-map-location-dot'></i> Filter by District">
+          <i class="fa-solid fa-map-location-dot"></i> Filter by District
+        </div>
+        <div class="custom-options">
+          <span class="custom-option" data-value="remove"><i class="fa-solid fa-ban"></i> Remove Filter</span>
+          @foreach ($districts as $dist)
+            <span class="custom-option" data-value="District {{ $dist->district_id }}">
+              <i class="fa-solid fa-location-dot"></i> District {{ $dist->district_id }}
+            </span>
+          @endforeach
+        </div>
+      </div>
+    @else
+      {{-- ================= IMPORT LOGS TABLE ================= --}}
+      <!-- Sort by File Name -->
+      <div class="custom-select" data-field="filename">
+        <div class="custom-select-trigger" data-original-text="<i class='fa-solid fa-file'></i> Sort by File Name">
+          <i class="fa-solid fa-file"></i> Sort by File Name
+        </div>
+        <div class="custom-options">
+          <span class="custom-option" data-value="remove"><i class="fa-solid fa-ban"></i> Remove Sort</span>
+          <span class="custom-option" data-value="filename-az"><i class="fa-solid fa-arrow-down-a-z"></i> A → Z</span>
+          <span class="custom-option" data-value="filename-za"><i class="fa-solid fa-arrow-down-z-a"></i> Z → A</span>
+        </div>
+      </div>
+
+      <!-- Sort by Uploaded By -->
+      <div class="custom-select" data-field="uploaded_by">
+        <div class="custom-select-trigger" data-original-text="<i class='fa-solid fa-user'></i> Sort by Uploaded By">
+          <i class="fa-solid fa-user"></i> Sort by Uploaded By
+        </div>
+        <div class="custom-options">
+          <span class="custom-option" data-value="remove"><i class="fa-solid fa-ban"></i> Remove Sort</span>
+          <span class="custom-option" data-value="uploaded_by-az"><i class="fa-solid fa-arrow-down-a-z"></i> A → Z</span>
+          <span class="custom-option" data-value="uploaded_by-za"><i class="fa-solid fa-arrow-down-z-a"></i> Z → A</span>
+        </div>
+      </div>
+
+      <!-- Sort by Uploaded At -->
+      <div class="custom-select" data-field="uploaded_at">
+        <div class="custom-select-trigger" data-original-text="<i class='fa-solid fa-clock'></i> Sort by Date">
+          <i class="fa-solid fa-clock"></i> Sort by Date
+        </div>
+        <div class="custom-options">
+          <span class="custom-option" data-value="remove"><i class="fa-solid fa-ban"></i> Remove Sort</span>
+          <span class="custom-option" data-value="date-asc"><i class="fa-solid fa-arrow-up-1-9"></i> Oldest → Newest</span>
+          <span class="custom-option" data-value="date-desc"><i class="fa-solid fa-arrow-down-9-1"></i> Newest → Oldest</span>
+        </div>
+      </div>
+
+      <!-- Filter by Batch (Year) -->
+      <div class="custom-select" data-field="batch_number">
+        <div class="custom-select-trigger" data-original-text="<i class='fa-solid fa-layer-group'></i> Filter by Batch (Year)">
+          <i class="fa-solid fa-layer-group"></i> Filter by Batch (Year)
+        </div>
+        <div class="custom-options">
+          <span class="custom-option" data-value="remove"><i class="fa-solid fa-ban"></i> Remove Filter</span>
+          {{-- Batch options injected by JS --}}
+        </div>
+      </div>
+
+      <!-- Filter by Status -->
+      <div class="custom-select" data-field="status">
+        <div class="custom-select-trigger" data-original-text="<i class='fa-solid fa-traffic-light'></i> Filter by Status">
+          <i class="fa-solid fa-traffic-light"></i> Filter by Status
+        </div>
+        <div class="custom-options">
+          <span class="custom-option" data-value="remove"><i class="fa-solid fa-ban"></i> Remove Filter</span>
+          <span class="custom-option" data-value="pending"><i class="fa-solid fa-circle"></i> Pending</span>
+          <span class="custom-option" data-value="completed"><i class="fa-solid fa-circle-check"></i> Completed</span>
+          <span class="custom-option" data-value="cancelled"><i class="fa-solid fa-circle-xmark"></i> Cancelled</span>
+          <span class="custom-option" data-value="reset"><i class="fa-solid fa-arrow-rotate-left"></i> Reset</span>
+          <span class="custom-option" data-value="failed"><i class="fa-solid fa-triangle-exclamation"></i> Failed</span>
+          <span class="custom-option" data-value="abandoned"><i class="fa-solid fa-person-walking-arrow-right"></i> Abandoned</span>
+        </div>
+      </div>
+    @endif
+
+    <!-- Buttons -->
+    <div class="actions">
+      <div class="left-actions">
+        <span class="results-inline" style="display:none;">0 Results</span>
+      </div>
+      <div class="right-actions">
+        <button type="button" class="reset-btn">Reset</button>
+        <button type="button" class="apply-btn">Apply Sort</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ✅ ADD THIS (or paste into your existing CSS at the VERY BOTTOM to override reds + style dropdown-search) -->
 <style>
   :root{
-    /* toned-down red palette */
-    --accent: #b23a48;       /* main */
-    --accent-dark: #8f2c37;  /* hover/active */
+    --accent: #b23a48;
+    --accent-dark: #8f2c37;
     --accent-soft: rgba(178, 58, 72, .18);
   }
-
-  /* replace harsh reds with the new palette (override only) */
   .search-box input:focus { border-color: var(--accent) !important; box-shadow: none !important; }
   .search-box:focus-within .icon,
   .search-box input:focus + .icon { color: var(--accent) !important; }
-
   .sort-options { outline-color: var(--accent) !important; }
   .sort-by.active { background: var(--accent) !important; }
   .sort-options i:hover { color: var(--accent-dark) !important; }
-
   .custom-select.open .custom-select-trigger { border-color: var(--accent) !important; }
   .custom-options { border-color: var(--accent) !important; }
   .custom-options::-webkit-scrollbar-thumb { background-color: var(--accent) !important; }
-
   .custom-option:hover { background: var(--accent) !important; }
   .custom-select-trigger:hover { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-soft) !important; }
-
   .apply-btn { background: var(--accent) !important; }
   .apply-btn:hover { background: var(--accent-dark) !important; }
 
-  /* Dropdown search input (inside Course + Barangay dropdowns) */
+  /* Dropdown search input */
   .custom-options .dropdown-search-wrap{
     position: sticky;
     top: 0;
@@ -1681,12 +792,15 @@
   }
 </style>
 
-<!-- ✅ Only JS changes (kept your structure). Adds:
-     1) Prefix matching: "BS INFORMATION TECHNOLOGY" will match "BSIT" (and vice-versa)
-     2) Better fuzzy for abbreviations + tokens
-     3) "No matches" message inside Course/Barangay dropdown search when zero results
--->
 <script>
+/**
+ * PATCH NOTES (Batch fix):
+ * ✅ Fixes Batch filter not working by:
+ * 1) Injecting batch year options for BOTH volunteers (field "batch") and import logs (field "batch_number")
+ * 2) Parsing years correctly (supports "2024-2025", "Batch 2024", etc.)
+ * 3) Fixing custom-option click handling (delegation was broken / duplicated before)
+ * 4) Making "Remove" reset the trigger back to its original label (so Apply won’t accidentally keep a stale selection)
+ */
 (function () {
   function universalSearchEngine(container) {
     const tableId = container.dataset.targetTable;
@@ -1696,10 +810,41 @@
     const tbody = table.querySelector("tbody");
     if (!tbody) return;
 
-    function getAllRows() {
-      return Array.from(tbody.querySelectorAll("tr:not(.no-search-results)"));
+    // ---------------------------------------------
+    // Rows helpers
+    // ---------------------------------------------
+    function isPlaceholderRow(row) {
+      if (!row) return true;
+      if (row.classList.contains("no-search-results")) return true;
+      if (row.dataset && (row.dataset.noResults === "1" || row.dataset.placeholder === "1")) return true;
+
+      const tds = row.querySelectorAll("td");
+      if (!tds.length) return true;
+
+      if (tds.length === 1 && tds[0].hasAttribute("colspan")) {
+        const msg = (tds[0].textContent || "").toLowerCase().trim();
+        if (
+          msg.startsWith("no") ||
+          msg.includes("no result") ||
+          msg.includes("no record") ||
+          msg.includes("no entry") ||
+          msg.includes("no data") ||
+          msg.includes("empty") ||
+          msg.includes("nothing")
+        ) {
+          return true;
+        }
+      }
+      return false;
     }
-    const noResultsRow = tbody.querySelector(".no-search-results");
+
+    function getAllRows() {
+      return Array.from(tbody.querySelectorAll("tr")).filter(r => !isPlaceholderRow(r));
+    }
+
+    const noResultsRow = tbody.querySelector(".no-search-results")
+      || tbody.querySelector("tr[data-no-results='1']")
+      || tbody.querySelector("tr[data-placeholder='1']");
 
     const searchInput   = container.querySelector(".table-search");
     const resultsCount  = container.querySelector(".results-count");
@@ -1717,6 +862,7 @@
     const FIELD_TO_COL =
       tableId === "import-logs-table"
         ? {
+            batch_number:   1,
             filename:        2,
             uploaded_by:     3,
             uploaded_at:     4,
@@ -1731,13 +877,14 @@
             idnum:     4,
             course:    5,
             year:      6,
-            contact:   7,
-            email:     8,
-            emergency: 9,
-            fb:        10,
-            barangay:  11,
-            district:  12,
-            schedule:  13
+            batch:     7,
+            contact:   8,
+            email:     9,
+            emergency: 10,
+            fb:        11,
+            barangay:  12,
+            district:  13,
+            schedule:  14
           };
 
     let activeFilters = {}; // colIndex -> string
@@ -1753,30 +900,20 @@
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .replace(/&/g, " and ")
-        // keep @ . - _ for email searches; strip the rest
         .replace(/[^a-z0-9\s@._-]/g, " ")
         .replace(/\s+/g, " ")
         .trim();
     }
-    function compact(s) {
-      return normalize(s).replace(/\s+/g, "");
-    }
+    function compact(s) { return normalize(s).replace(/\s+/g, ""); }
 
-    // ✅ Cell text: prefer data-value, then input/select/textarea, then innerText
     function getCellText(cell) {
       if (!cell) return "";
-      if (cell.dataset && cell.dataset.value !== undefined) {
-        return (cell.dataset.value || "").toString().trim();
-      }
+      if (cell.dataset && cell.dataset.value !== undefined) return (cell.dataset.value || "").toString().trim();
       const input = cell.querySelector("input, textarea, select");
-      if (input && input.value !== undefined) {
-        return (input.value || "").toString().trim();
-      }
-      const raw = cell.innerText;
-      return (raw || "").toString().trim();
+      if (input && input.value !== undefined) return (input.value || "").toString().trim();
+      return (cell.innerText || "").toString().trim();
     }
 
-    // ✅ Row-wide search text (includes data-value + inputs)
     function getRowSearchText(row) {
       let combined = "";
       row.querySelectorAll("td").forEach(cell => {
@@ -1804,27 +941,22 @@
 
     function isShortCode(qRaw) {
       const c = compact(qRaw);
-      return /^[a-z]{2,10}$/.test(c); // bsit, bscs, bsa, etc.
+      return /^[a-z]{2,10}$/.test(c);
     }
 
     function makeAcronym(str) {
       const stop = new Set(["and","of","the","in","for","to","on","at","with","a","an","major","certificate"]);
       const toks = normalize(str)
-        .replace(/[@._-]/g, " ") // don't let email punctuation affect acronyms
+        .replace(/[@._-]/g, " ")
         .split(" ")
         .filter(Boolean)
         .filter(t => !stop.has(t));
       return toks.map(t => t[0]).join("");
     }
 
-    // ✅ Course-aware acronym:
-    // "BS Information Technology" => "bsit"
-    // "Bachelor of Science in Information Technology" => "bsit"
     function courseAcronym(str) {
       const t = normalize(str).replace(/[@._-]/g, " ");
       if (!t) return "";
-
-      // already a shortcode like BSIT, BSCS...
       if (isShortCode(str)) return compact(t);
 
       const toks = t.split(" ").filter(Boolean);
@@ -1842,16 +974,12 @@
         const restInit = rest.map(w => w[0]).join("");
         return compact(first + restInit);
       }
-
       return compact(makeAcronym(t));
     }
 
-    function acr(str){ return compact(makeAcronym(str)); } // generic acronym
+    function acr(str){ return compact(makeAcronym(str)); }
 
-    // ✅ Email helpers: allow searching "@gmail.com", "gmail.com", "@adzu.edu.ph", etc.
-    function emailClean(s) {
-      return (s || "").toString().toLowerCase().replace(/\s+/g, "");
-    }
+    function emailClean(s) { return (s || "").toString().toLowerCase().replace(/\s+/g, ""); }
     function isEmailishQuery(qRaw) {
       const q = emailClean(qRaw);
       return q.includes("@") || q.includes(".com") || q.includes(".edu") || q.includes(".ph");
@@ -1859,36 +987,25 @@
     function emailMatch(qRaw, textRaw) {
       const q = emailClean(qRaw);
       const t = emailClean(textRaw);
-
       if (!q) return true;
       if (!t) return false;
-
-      // If query contains '@', match exact substring (supports "@gmail.com")
       if (q.includes("@")) return t.includes(q);
-
-      // If query is "gmail.com" or "adzu.edu.ph", match domain part
       return t.includes(q);
     }
 
-    // ✅ This is the key fix: fuzzyMatch now uses courseAcronym for BSIT <-> BS Information Technology
     function fuzzyMatch(qRaw, textRaw) {
       const q = normalize(qRaw);
       const t = normalize(textRaw);
       if (!q) return true;
       if (!t) return false;
 
-      // email-friendly route
-      if (isEmailishQuery(qRaw)) {
-        return emailMatch(qRaw, textRaw);
-      }
+      if (isEmailishQuery(qRaw)) return emailMatch(qRaw, textRaw);
 
       const qc = compact(q);
       const tc = compact(t);
 
-      // direct contains
       if (t.includes(q) || tc.includes(qc)) return true;
 
-      // token prefix: every query token must match start of some text token
       const qToks = q.split(" ").filter(Boolean);
       const tToks = t.split(" ").filter(Boolean);
       if (qToks.length) {
@@ -1896,35 +1013,62 @@
         if (ok) return true;
       }
 
-      // acronym compare (generic + course-aware)
-      const tA  = acr(t);                 // e.g. "BS Information Technology" => "bit"
-      const tCA = courseAcronym(textRaw); // e.g. "BS Information Technology" => "bsit"
+      const tA  = acr(t);
+      const tCA = courseAcronym(textRaw);
       const qA  = acr(q);
       const qCA = courseAcronym(qRaw);
 
       if (isShortCode(qRaw)) {
-        // query like "BSIT"
         if (
           (tA  && (tA === qc || tA.startsWith(qc))) ||
           (tCA && (tCA === qc || tCA.startsWith(qc) || qc.startsWith(tCA)))
         ) return true;
       } else {
-        // query like "BS Information Technology" or "BS IT"
         if (
           (qA  && tA  && (tA === qA  || tA.startsWith(qA))) ||
           (qCA && tCA && (tCA === qCA || tCA.startsWith(qCA) || qCA.startsWith(tCA)))
         ) return true;
       }
 
-      // compact prefix
       if (tc.startsWith(qc) || qc.startsWith(tc)) return true;
-
-      // subsequence
       return isSubsequence(qc, tc);
     }
 
     // ----------------------------
-    // Course smart synonyms (extend freely)
+    // Batch year helpers (✅ NEW)
+    // ----------------------------
+    function extractYears(text) {
+      const s = (text || "").toString();
+      const matches = s.match(/\b(19|20)\d{2}\b/g) || [];
+      const years = matches
+        .map(y => parseInt(y, 10))
+        .filter(y => !isNaN(y) && y >= 2000 && y <= 2100);
+      // unique
+      return Array.from(new Set(years));
+    }
+
+    function isBatchField(field) {
+      return field === "batch" || field === "batch_number";
+    }
+
+    function isBatchCol(colIdx) {
+      const batchCol = FIELD_TO_COL.batch;
+      const batchNumCol = FIELD_TO_COL.batch_number;
+      return (batchCol != null && colIdx === batchCol) || (batchNumCol != null && colIdx === batchNumCol);
+    }
+
+    function batchCellMatchesYear(cellText, selectedYear) {
+      const y = parseInt(selectedYear, 10);
+      if (isNaN(y)) return false;
+      const yearsInCell = extractYears(cellText);
+      if (yearsInCell.includes(y)) return true;
+
+      // fallback: whole-word contains (handles "Batch 2024")
+      return new RegExp(`\\b${y}\\b`).test((cellText || "").toString());
+    }
+
+    // ----------------------------
+    // Course smart synonyms
     // ----------------------------
     const COURSE_NORMALIZE_MAP = [
       { keys: ["bsit","bs it","bs-it","it","information technology","info tech"], canon: "bs information technology" },
@@ -1959,7 +1103,7 @@
     }
 
     // ----------------------------
-    // Logs smart: status + date parsing
+    // Logs smart: status + date parsing (unchanged)
     // ----------------------------
     const STATUS_SYNONYMS = {
       pending:   ["pending","awaiting","queued","queue"],
@@ -2036,7 +1180,7 @@
     }
 
     // ----------------------------
-    // Smart row match for TOP SEARCH
+    // Smart row match for TOP SEARCH (unchanged)
     // ----------------------------
     function smartRowMatch(row, qRaw) {
       const q = normalize(qRaw);
@@ -2045,16 +1189,13 @@
       const rowText = normalize(getRowSearchText(row));
       if (rowText.includes(q)) return true;
 
-      // Volunteers special: course + barangay
       if (tableId !== "import-logs-table") {
         const courseText = getCellText(row.children[FIELD_TO_COL.course]);
         const brgyText   = getCellText(row.children[FIELD_TO_COL.barangay]);
         const emailText  = getCellText(row.children[FIELD_TO_COL.email]);
 
-        // email: allow "@gmail.com" / "@adzu.edu.ph"
         if (isEmailishQuery(qRaw) && emailMatch(qRaw, emailText)) return true;
 
-        // course expansions + course acronym both ways
         const expanded = expandCourseQuery(qRaw);
         const courseA  = courseAcronym(courseText);
 
@@ -2066,14 +1207,10 @@
           );
         })) return true;
 
-        // barangay
         if (fuzzyMatch(qRaw, brgyText)) return true;
-
-        // fallback: check a couple more fields
         return fuzzyMatch(qRaw, emailText);
       }
 
-      // Logs special
       const statusText = getCellText(row.children[FIELD_TO_COL.status]);
       const dateText   = getCellText(row.children[FIELD_TO_COL.uploaded_at]);
       const fileText   = getCellText(row.children[FIELD_TO_COL.filename]);
@@ -2092,11 +1229,10 @@
     }
 
     // ----------------------------
-    // Sorting
+    // Sorting (unchanged)
     // ----------------------------
     function getCellValue(cell, type) {
       const raw = getCellText(cell);
-
       if (type === "number") {
         const n = parseFloat(raw.replace(/[^0-9.-]/g, ""));
         return isNaN(n) ? 0 : n;
@@ -2114,14 +1250,55 @@
         if (colIndex === 4) return "date";
         return "string";
       }
-      if ([1,3,5].includes(colIndex)) return "number";
+      if ([1,3,4,7].includes(colIndex)) return "number";
       return "string";
     }
 
     // ----------------------------
-    // Dropdown search (Course + Barangay)  ✅ (course supports BSIT/BS IT/BS Information Technology)
+    // Dropdown search (Course + Barangay + Batch)
     // ----------------------------
-    const searchableFields = new Set(["course", "barangay"]);
+    const searchableFields = new Set(["course", "barangay", "batch", "batch_number"]);
+
+    // ✅ PATCH: Build Batch options from the actual table column for BOTH fields
+    function populateBatchOptionsFromTable(fieldName) {
+      const select = container.querySelector(`.custom-select[data-field="${fieldName}"]`);
+      if (!select) return;
+
+      const colIndex = FIELD_TO_COL[fieldName];
+      if (colIndex == null) return;
+
+      const optionsWrap = select.querySelector(".custom-options");
+      if (!optionsWrap) return;
+
+      const years = new Set();
+      getAllRows().forEach(row => {
+        const cell = row.children[colIndex];
+        const raw = getCellText(cell);
+        extractYears(raw).forEach(y => years.add(y));
+      });
+
+      if (!years.size) return;
+
+      const sorted = Array.from(years).sort((a,b) => a - b);
+
+      // remove previously injected
+      Array.from(optionsWrap.querySelectorAll('.custom-option[data-batch="1"]')).forEach(el => el.remove());
+
+      const removeOpt = optionsWrap.querySelector('.custom-option[data-value="remove"]');
+
+      sorted.forEach(y => {
+        const opt = document.createElement("span");
+        opt.className = "custom-option";
+        opt.dataset.value = String(y);
+        opt.dataset.batch = "1";
+        opt.innerHTML = `<i class="fa-solid fa-calendar"></i> ${y}`;
+        if (removeOpt && removeOpt.parentNode === optionsWrap) {
+          optionsWrap.insertBefore(opt, removeOpt.nextSibling);
+        } else {
+          optionsWrap.appendChild(opt);
+        }
+      });
+    }
 
     function ensureDropdownSearch(select) {
       const field = select.dataset.field;
@@ -2134,7 +1311,11 @@
       const wrap = document.createElement("div");
       wrap.className = "dropdown-search-wrap";
 
-      const label = field === "course" ? "course" : "barangay";
+      const label =
+        field === "course" ? "course" :
+        field === "barangay" ? "barangay" :
+        "batch";
+
       wrap.innerHTML = `
         <input class="dropdown-search" type="text" placeholder="Search ${label}..." />
         <div class="no-option-match">No ${label} found</div>
@@ -2144,10 +1325,14 @@
       const input = wrap.querySelector(".dropdown-search");
       const noMatch = wrap.querySelector(".no-option-match");
 
-      const optionEls = Array.from(optionsWrap.querySelectorAll(".custom-option"))
-        .filter(el => (el.dataset.value || "") !== "remove");
+      function listOptions() {
+        return Array.from(optionsWrap.querySelectorAll(".custom-option"))
+          .filter(el => (el.dataset.value || "") !== "remove")
+          .filter(el => !el.closest(".dropdown-search-wrap"));
+      }
 
       function runFilter() {
+        const optionEls = listOptions();
         const qRaw = input.value || "";
         if (!qRaw.trim()) {
           optionEls.forEach(el => (el.style.display = ""));
@@ -2164,7 +1349,6 @@
           if (field === "course") {
             const expanded = expandCourseQuery(qRaw);
             const optA = courseAcronym(valueText || labelText);
-
             ok = expanded.some(eq => {
               const eqC = compact(eq);
               return (
@@ -2188,17 +1372,9 @@
 
       select.addEventListener("dropdown:open", () => {
         input.value = "";
-        optionEls.forEach(el => (el.style.display = ""));
+        listOptions().forEach(el => (el.style.display = ""));
         noMatch.style.display = "none";
         setTimeout(() => input.focus(), 0);
-      });
-
-      optionsWrap.addEventListener("click", (e) => {
-        const opt = e.target.closest(".custom-option");
-        if (!opt) return;
-        input.value = "";
-        optionEls.forEach(el => (el.style.display = ""));
-        noMatch.style.display = "none";
       });
     }
 
@@ -2220,7 +1396,12 @@
         visibleRows = visibleRows.filter(row => {
           const cellVal = getCellText(row.children[colIdx]);
 
-          // course filter: support BSIT/BS IT/full name
+          // ✅ PATCH: batch filter must match year reliably
+          if (isBatchCol(colIdx) && /^\d{4}$/.test(String(filterVal))) {
+            return batchCellMatchesYear(cellVal, filterVal);
+          }
+
+          // course filter: supports BSIT/BS IT/full name
           const isCourseCol = (tableId !== "import-logs-table") && (colIdx === FIELD_TO_COL.course);
           if (isCourseCol) {
             const expanded = expandCourseQuery(filterVal);
@@ -2242,11 +1423,9 @@
 
       if (activeSort && activeSort.colIndex != null) {
         const { colIndex, direction, type } = activeSort;
-
         visibleRows.sort((a, b) => {
           const A = getCellValue(a.children[colIndex], type);
           const B = getCellValue(b.children[colIndex], type);
-
           if (direction === "az")   return A.localeCompare(B);
           if (direction === "za")   return B.localeCompare(A);
           if (direction === "asc")  return A - B;
@@ -2318,11 +1497,14 @@
       }
     });
 
-    // Custom select open logic + option select
+    // ✅ PATCH: stable custom select behavior (delegation per select, works for injected options)
     customSelects.forEach(select => {
       const trigger = select.querySelector(".custom-select-trigger");
-      const options = select.querySelectorAll(".custom-option");
-      if (!trigger) return;
+      const optionsWrap = select.querySelector(".custom-options");
+      if (!trigger || !optionsWrap) return;
+
+      // store original trigger html
+      if (!trigger.dataset.originalText) trigger.dataset.originalText = trigger.innerHTML;
 
       ensureDropdownSearch(select);
 
@@ -2337,16 +1519,35 @@
           select.dispatchEvent(new Event("dropdown:open"));
         } else {
           select.classList.remove("open");
+          setTopSearchEnabled(true);
         }
       });
 
-      options.forEach(opt => {
-        opt.addEventListener("click", () => {
-          trigger.innerHTML = opt.innerHTML;
-          select.dataset.selected = opt.dataset.value;
+      optionsWrap.addEventListener("click", (e) => {
+        e.stopPropagation();
+
+        // ignore clicks in sticky search area
+        if (e.target.closest(".dropdown-search-wrap")) return;
+
+        const optEl = e.target.closest(".custom-option");
+        if (!optEl || !optionsWrap.contains(optEl)) return;
+
+        const val = optEl.dataset.value;
+        if (!val) return;
+
+        // ✅ PATCH: remove resets trigger + clears selection
+        if (val === "remove") {
+          trigger.innerHTML = trigger.dataset.originalText || trigger.innerHTML;
+          delete select.dataset.selected;
           select.classList.remove("open");
-          if (!sortPanel || !sortPanel.classList.contains("open")) setTopSearchEnabled(true);
-        });
+          setTopSearchEnabled(!(sortPanel && sortPanel.classList.contains("open")));
+          return;
+        }
+
+        trigger.innerHTML = optEl.innerHTML;
+        select.dataset.selected = val;
+        select.classList.remove("open");
+        setTopSearchEnabled(!(sortPanel && sortPanel.classList.contains("open")));
       });
     });
 
@@ -2403,19 +1604,20 @@
         customSelects.forEach(sel => {
           const trigger = sel.querySelector(".custom-select-trigger");
           if (trigger && trigger.dataset.originalText) trigger.innerHTML = trigger.dataset.originalText;
-          sel.removeAttribute("data-selected");
-          sel.querySelectorAll(".custom-option").forEach(o => (o.style.display = ""));
+          delete sel.dataset.selected;
+
           const noMatch = sel.querySelector(".no-option-match");
           if (noMatch) noMatch.style.display = "none";
           const dd = sel.querySelector("input.dropdown-search");
           if (dd) dd.value = "";
+          sel.querySelectorAll(".custom-option").forEach(o => (o.style.display = ""));
         });
 
         applySearchAndFilterAndSort();
       });
     }
 
-    // Header click sort
+    // Header click sort (unchanged)
     const headerCells = table.querySelectorAll("thead th");
     headerCells.forEach((th, index) => {
       if (index === 0) return;
@@ -2433,10 +1635,9 @@
       });
     });
 
-    // store original trigger html
-    container.querySelectorAll(".custom-select-trigger").forEach(t => {
-      if (!t.dataset.originalText) t.dataset.originalText = t.innerHTML;
-    });
+    // ✅ PATCH: Inject batch options for BOTH contexts
+    populateBatchOptionsFromTable("batch");
+    populateBatchOptionsFromTable("batch_number");
 
     applySearchAndFilterAndSort();
   }

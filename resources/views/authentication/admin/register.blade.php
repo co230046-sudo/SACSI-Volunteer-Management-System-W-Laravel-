@@ -127,95 +127,93 @@
 
   {{-- Password visibility --}}
   <script>
-  // Password toggle logic remains unchanged
-  const passwordInput = document.getElementById('password');
-  const confirmInput = document.getElementById('password_confirmation');
-  const eyeIcon = document.querySelector('.toggle-password');
+    // Password toggle logic remains unchanged
+    const passwordInput = document.getElementById('password');
+    const confirmInput = document.getElementById('password_confirmation');
+    const eyeIcon = document.querySelector('.toggle-password');
 
-  passwordInput.addEventListener('input', function () {
-    eyeIcon.style.display = this.value.trim() !== '' ? 'block' : 'none';
-  });
-
-  function togglePasswords(el) {
-    [passwordInput, confirmInput].forEach(input => {
-      input.type = input.type === 'password' ? 'text' : 'password';
+    passwordInput.addEventListener('input', function () {
+      eyeIcon.style.display = this.value.trim() !== '' ? 'block' : 'none';
     });
-    el.classList.toggle('fa-eye');
-    el.classList.toggle('fa-eye-slash');
-  }
 
-  // File upload + modal
-  let uploadedImageURL = "";
-  let modalShownOnce = false; // ensure modal shows once automatically
-
-  function handleFileUpload(input) {
-    const file = input.files[0];
-    const seePhotoBtn = document.getElementById("see-photo-btn");
-    const fileNameDisplay = document.getElementById("file-name");
-
-    if (file) {
-      uploadedImageURL = URL.createObjectURL(file);
-      fileNameDisplay.textContent = file.name; // show file name
-      seePhotoBtn.style.display = "inline-block";
-
-      // Show modal automatically only once
-      if (!modalShownOnce) {
-        openPhotoModal();
-        modalShownOnce = true;
-      }
-    } else {
-      fileNameDisplay.textContent = "Upload Picture";
-      seePhotoBtn.style.display = "none";
-      uploadedImageURL = "";
-      modalShownOnce = false;
+    function togglePasswords(el) {
+      [passwordInput, confirmInput].forEach(input => {
+        input.type = input.type === 'password' ? 'text' : 'password';
+      });
+      el.classList.toggle('fa-eye');
+      el.classList.toggle('fa-eye-slash');
     }
-  }
 
-  function openPhotoModal() {
-    const modal = document.getElementById("photoModal");
-    const preview = document.getElementById("photoPreview");
-    if (uploadedImageURL) {
-      preview.src = uploadedImageURL;
-      modal.style.display = "flex";
-    }
-  }
+    // File upload + modal
+    let uploadedImageURL = "";
+    let modalShownOnce = false; // ensure modal shows once automatically
 
-  function closePhotoModal() {
-    document.getElementById("photoModal").style.display = "none";
-  }
+    function handleFileUpload(input) {
+      const file = input.files[0];
+      const seePhotoBtn = document.getElementById("see-photo-btn");
+      const fileNameDisplay = document.getElementById("file-name");
 
-  window.addEventListener("click", function(event) {
-    const modal = document.getElementById("photoModal");
-    if (event.target === modal) closePhotoModal();
-  });
-</script>
+      if (file) {
+        uploadedImageURL = URL.createObjectURL(file);
+        fileNameDisplay.textContent = file.name; // show file name
+        seePhotoBtn.style.display = "inline-block";
 
-    {{-- Password Hint --}}
-    <script>
-      function togglePasswordHint(input) {
-        const hint = document.getElementById('password-hint');
-        if (input.value.length > 0) {
-          hint.classList.add('visible');
-        } else {
-          hint.classList.remove('visible');
+        // Show modal automatically only once
+        if (!modalShownOnce) {
+          openPhotoModal();
+          modalShownOnce = true;
         }
+      } else {
+        fileNameDisplay.textContent = "Upload Picture";
+        seePhotoBtn.style.display = "none";
+        uploadedImageURL = "";
+        modalShownOnce = false;
       }
+    }
 
-    </script>
+    function openPhotoModal() {
+      const modal = document.getElementById("photoModal");
+      const preview = document.getElementById("photoPreview");
+      if (uploadedImageURL) {
+        preview.src = uploadedImageURL;
+        modal.style.display = "flex";
+      }
+    }
 
-    {{-- Custom Role Dropdown --}}
-    <script>
-        document.querySelectorAll('.custom-dropdown').forEach(dropdown => {
+    function closePhotoModal() {
+      document.getElementById("photoModal").style.display = "none";
+    }
+
+    window.addEventListener("click", function(event) {
+      const modal = document.getElementById("photoModal");
+      if (event.target === modal) closePhotoModal();
+    });
+  </script>
+
+  {{-- Password Hint --}}
+  <script>
+    function togglePasswordHint(input) {
+      const hint = document.getElementById('password-hint');
+      if (input.value.length > 0) {
+        hint.classList.add('visible');
+      } else {
+        hint.classList.remove('visible');
+      }
+    }
+  </script>
+
+  {{-- Custom Role Dropdown --}}
+  <script>
+    dzocument.querySelectorAll('.custom-dropdown').forEach(dropdown => {
     const selected = dropdown.querySelector('.dropdown-selected');
     const options = dropdown.querySelector('.dropdown-options');
     const hiddenInput = document.getElementById('role-hidden');
-
     // Toggle dropdown
     selected.addEventListener('click', () => {
         dropdown.classList.toggle('focused');
         options.style.display = options.style.display === 'block' ? 'none' : 'block';
     });
-
+    
     // Select option
     options.querySelectorAll('li').forEach(option => {
         option.addEventListener('click', () => {
@@ -225,17 +223,14 @@
             dropdown.classList.remove('focused');
         });
     });
-
     // Close if clicking outside
     document.addEventListener('click', e => {
-        if (!dropdown.contains(e.target)) {
-            options.style.display = 'none';
-            dropdown.classList.remove('focused');
-        }
+      if (!dropdown.contains(e.target)) {
+        options.style.display = 'none';
+        dropdown.classList.remove('focused');
+      }
     });
-});
-
-
-    </script>
+    });
+  </script>
 </body>
 </html>

@@ -1,5 +1,7 @@
 /* =========================================================
    VOLUNTEER LIST: cards, filters, search → profile behaviour
+   ✅ PATCH: Batch dropdown now uses DB-provided list (data-batches)
+   ✅ PATCH: Rows dropdown now uses custom portal dropdown (NO native select)
 ========================================================= */
 (() => {
   const root = document.getElementById("vlRoot");
@@ -31,9 +33,13 @@
   const ddBarangay = root.querySelector('.vl-dd[data-dd="barangay"]');
   const ddDistrict = root.querySelector('.vl-dd[data-dd="district"]');
   const ddYear     = root.querySelector('.vl-dd[data-dd="year"]');
+  const ddBatch    = root.querySelector('.vl-dd[data-dd="batch"]'); // ✅ PATCH
   const ddDay      = root.querySelector('.vl-dd[data-dd="day"]');
   const ddBlock    = root.querySelector('.vl-dd[data-dd="block"]');
-  const ddStatus  = root.querySelector('.vl-dd[data-dd="status"]');
+  const ddStatus   = root.querySelector('.vl-dd[data-dd="status"]');
+
+  // ✅ PATCH: Custom Rows dropdown (no native select)
+  const ddPerPage  = root.querySelector('.vl-dd[data-dd="perpage"]');
 
   // Add-volunteer modal preview
   const photoInput        = document.getElementById("vlPhotoInput");
@@ -44,12 +50,16 @@
     (root.getAttribute("data-default-avatar") || "").trim() ||
     "/storage/defaults/default_user.png";
 
-  const perPage = 12;
+  // ✅ PATCH: user-selectable rows per page (3 / 6 / 9)
+  const PER_PAGE_ALLOWED = [3,6,9];
+  let perPage = (() => {
+    const saved = Number(localStorage.getItem('vl_perPage') || '6');
+    return PER_PAGE_ALLOWED.includes(saved) ? saved : 6;
+  })();
 
-  // Data from Blade
-  const courses   = safeJson(root.getAttribute("data-courses"),   []);
-  const barangays = safeJson(root.getAttribute("data-barangays"), []);
-  const districts = safeJson(root.getAttribute("data-districts"), []);
+  // URLs (so it also works if your app isn't at domain root)
+  const DATA_URL = (root.getAttribute("data-data-url") || "/volunteers/data").trim();
+  const PROFILE_BASE = (root.getAttribute("data-profile-url-base") || "/volunteer-profile").trim();
 
   function safeJson(str, fallback) {
     try { return str ? JSON.parse(str) : fallback; } catch { return fallback; }
@@ -63,6 +73,30 @@
     }[c]));
   }
 
+  // Data from Blade
+  const courses   = safeJson(root.getAttribute("data-courses"),   []);
+  const barangays = safeJson(root.getAttribute("data-barangays"), []);
+  const districts = safeJson(root.getAttribute("data-districts"), []);
+
+  // ✅ PATCH: batch list from Blade (DB distinct)
+  const batchesRaw = safeJson(root.getAttribute("data-batches"), []);
+
+  // ✅ PATCH: sanitized + sorted batchItems for dropdown
+  const batchItems = (() => {
+    const nums = (Array.isArray(batchesRaw) ? batchesRaw : [])
+      .map(v => String(v ?? "").trim())
+      .filter(v => v !== "")
+      .map(v => Number(v))
+      .filter(n => Number.isFinite(n) && n >= 1900 && n <= 2100);
+
+    nums.sort((a, b) => b - a);
+
+    return [
+      { value: "", label: "All Batches" },
+      ...nums.map(n => ({ value: String(n), label: String(n) }))
+    ];
+  })();
+
   const applied = {
     page: 1,
     search: "",
@@ -71,6 +105,7 @@
     barangay: "",
     district: "",
     year_level: "",
+    batch_year: "",          // ✅ PATCH
     day: "",
     schedule_day: "",
     status: ""
@@ -81,8 +116,202 @@
   let lastPage    = 1;
   let lastItems   = [];
 
+  /* =========================================================
+     RICH SEARCH SUGGESTIONS (✅ RESTORED)
+     - Uses /volunteers/data with small per_page and DOES NOT rerender cards
+  ========================================================= */
+  const SUGGEST_LIMIT = 6;
+  let suggestAbort = null;
+  let suggestCache = new Map(); // key -> { at:number, items:Array }
+
+  function hideSuggest() {
+    if (!suggestEl) return;
+    suggestEl.hidden = true;
+    suggestEl.innerHTML = "";
+  }
+
+  function showSuggestLoading() {
+    if (!suggestEl) return;
+    suggestEl.hidden = false;
+    suggestEl.innerHTML = `
+      <div class="vl-suggestItem is-muted" style="pointer-events:none;">
+        <span>Searching…</span>
+      </div>
+    `;
+  }
+
+  function debounce(fn, wait = 200) {
+    let t = null;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), wait);
+    };
+  }
+
+  function normalizeQ(q) {
+    return (q || "").toString().trim();
+  }
+
+  function applySearch(q) {
+    const query = normalizeQ(q);
+    if (searchInput) searchInput.value = query;
+
+    pending.search = query;
+    applied.search = query;
+
+    pending.page = 1;
+    applied.page = 1;
+
+    hideSuggest();
+    fetchPage({ page: 1 });
+  }
+
+  async function fetchSuggest(qRaw) {
+    const q = normalizeQ(qRaw);
+    if (!q || q.length < 2) { hideSuggest(); return; }
+    if (!suggestEl) return;
+
+    const cacheKey = JSON.stringify({
+      q,
+      course_id: applied.course_id || "",
+      barangay: applied.barangay || "",
+      district: applied.district || "",
+      year_level: applied.year_level || "",
+      batch_year: applied.batch_year || "",
+      day: applied.day || "",
+      schedule_day: applied.schedule_day || "",
+      status: applied.status || "",
+      sort: applied.sort || ""
+    });
+
+    const cached = suggestCache.get(cacheKey);
+    if (cached && (Date.now() - cached.at) < 2000) {
+      renderSuggest(q, cached.items);
+      return;
+    }
+
+    try { suggestAbort?.abort(); } catch {}
+    suggestAbort = new AbortController();
+
+    showSuggestLoading();
+
+    const params = {
+      page: 1,
+      per_page: SUGGEST_LIMIT,
+      search: q,
+      sort: applied.sort || "name_asc",
+      course_id: applied.course_id || "",
+      barangay: applied.barangay || "",
+      district: applied.district || "",
+      year_level: applied.year_level || "",
+      batch_year: applied.batch_year || "",
+      day: applied.day || "",
+      schedule_day: applied.schedule_day || "",
+      status: applied.status || ""
+    };
+
+    const url = buildUrl(params);
+
+    try {
+      const res = await fetch(url, {
+        headers: { Accept: "application/json" },
+        signal: suggestAbort.signal
+      });
+
+      const text = await res.text();
+      if (!res.ok) {
+        hideSuggest();
+        console.error("Suggest API error:", res.status, text);
+        return;
+      }
+
+      let json;
+      try { json = JSON.parse(text); }
+      catch {
+        hideSuggest();
+        console.error("Suggest JSON parse error:", text);
+        return;
+      }
+
+      const items = Array.isArray(json.data) ? json.data : [];
+      suggestCache.set(cacheKey, { at: Date.now(), items });
+      renderSuggest(q, items);
+    } catch (err) {
+      if (String(err?.name) === "AbortError") return;
+      hideSuggest();
+      console.error("Suggest fetch error:", err);
+    }
+  }
+
+  function metaLine(v) {
+    const parts = [];
+    const course = v?.course?.abbr
+      ? `${v.course.abbr}`
+      : (v?.course?.course_name || "");
+    if (course) parts.push(course);
+
+    if (v?.year_level) parts.push(formatYearLevel(v.year_level));
+    if (v?.barangay) parts.push(v.barangay);
+    if (v?.district) parts.push(`District ${v.district}`);
+    if (v?.batch_year) parts.push(`Batch ${v.batch_year}`);
+
+    const status = (v?.status || "active") === "active" ? "Active" : "Inactive";
+    parts.push(status);
+
+    return parts.filter(Boolean).join(" • ");
+  }
+
+  function renderSuggest(q, volunteers) {
+    if (!suggestEl) return;
+
+    const list = Array.isArray(volunteers) ? volunteers.slice(0, SUGGEST_LIMIT) : [];
+
+    const parts = [];
+    parts.push(`
+      <button type="button" class="vl-suggestItem" data-suggest-action="search" data-q="${escapeHtml(q)}">
+        <i class="fa-solid fa-magnifying-glass me-2"></i>
+        <span>Search for <strong>${escapeHtml(q)}</strong></span>
+      </button>
+    `);
+
+    if (!list.length) {
+      parts.push(`
+        <div class="vl-suggestItem is-muted" style="pointer-events:none;">
+          <span>No matches</span>
+        </div>
+      `);
+      suggestEl.hidden = false;
+      suggestEl.innerHTML = parts.join("");
+      return;
+    }
+
+    list.forEach(v => {
+      const id = encodeURIComponent(v.volunteer_id);
+      const name = v.full_name || "Unnamed Volunteer";
+      const meta = metaLine(v);
+
+      parts.push(`
+        <button type="button"
+                class="vl-suggestItem"
+                data-suggest-action="goto"
+                data-id="${escapeHtml(id)}">
+          <div class="vl-suggestMain">
+            <i class="fa-solid fa-user me-2"></i>
+            <span class="vl-suggestName">${escapeHtml(name)}</span>
+          </div>
+          <div class="vl-suggestMeta">${escapeHtml(meta)}</div>
+        </button>
+      `);
+    });
+
+    suggestEl.hidden = false;
+    suggestEl.innerHTML = parts.join("");
+  }
+
+  const runSuggestDebounced = debounce(() => fetchSuggest(searchInput?.value || ""), 220);
+
   function buildUrl(params) {
-    const url = new URL("/volunteers/data", window.location.origin);
+    const url = new URL(DATA_URL, window.location.origin);
     Object.entries(params).forEach(([k, v]) => {
       if (v !== undefined && v !== null && v !== "") {
         url.searchParams.set(k, v);
@@ -147,99 +376,91 @@
     "7:30-8:50":  { label:"7:30–8:50 PM",  group:"PM", start:1170, end:1250}
   };
 
-    function formatYearLevel(year) {
-    const map = {
-        1: "1st Year",
-        2: "2nd Year",
-        3: "3rd Year",
-        4: "4th Year",
-    };
+  function formatYearLevel(year) {
+    const map = { 1:"1st Year", 2:"2nd Year", 3:"3rd Year", 4:"4th Year" };
     const key = Number(year);
     return map[key] || "Year N/A";
-    }
+  }
 
   /* =========================================================
-     CARD RENDERING (new aligned layout)
+     CARD RENDERING (same)
   ========================================================= */
   function renderCard(v) {
-  const avatar = resolveAvatar(v);
-  const id     = encodeURIComponent(v.volunteer_id);
+    const avatar = resolveAvatar(v);
+    const id     = encodeURIComponent(v.volunteer_id);
 
-  const fullName   = v.full_name || "Unnamed Volunteer";
-  const courseName = v.course?.course_name || "";
-  const courseAbbr = v.course?.abbr || "";
-  const courseDisplay = courseAbbr
-    ? `${courseAbbr} — ${courseName}`
-    : (courseName || "No course");
+    const fullName   = v.full_name || "Unnamed Volunteer";
+    const courseName = v.course?.course_name || "";
+    const courseAbbr = v.course?.abbr || "";
+    const courseDisplay = courseAbbr
+      ? `${courseAbbr} — ${courseName}`
+      : (courseName || "No course");
 
-  const yearLevel = formatYearLevel(v.year_level); // your existing helper
-  const barangay  = v.barangay || "No barangay";
-  const districtLabel = v.district ? `District ${v.district}` : "District N/A";
+    const yearLevel = formatYearLevel(v.year_level);
+    const barangay  = v.barangay || "No barangay";
+    const districtLabel = v.district ? `District ${v.district}` : "District N/A";
 
-  const contact   = v.contact_number || "";
-  const contactLabel = contact ? `Contact # ${contact}` : "";
+    const contact   = v.contact_number || "";
+    const contactLabel = contact ? `Contact # ${contact}` : "";
 
-  const isActive     = (v.status || "active") === "active";
-  const statusTitle  = isActive ? "Active volunteer" : "Alumni / Inactive";
-  const statusClass  = isActive ? "status-dot--active" : "status-dot--inactive";
+    const isActive     = (v.status || "active") === "active";
+    const statusTitle  = isActive ? "Active volunteer" : "Alumni / Inactive";
+    const statusClass  = isActive ? "status-dot--active" : "status-dot--inactive";
 
-  const a = document.createElement("a");
-  a.className = "student-card";
-  a.href = `/volunteer-profile/${id}`;
+    const a = document.createElement("a");
+    a.className = "student-card";
+    a.href = `/volunteer-profile/${id}`;
 
-  a.innerHTML = `
-    <div class="avatar-wrap" title="${escapeHtml(statusTitle)}">
-      <img class="avatar"
-           src="${escapeHtml(avatar)}"
-           alt="${escapeHtml(fullName)}" />
-      <span class="status-dot ${statusClass}"></span>
-    </div>
-
-    <div class="meta">
-      <div class="vl-row vl-rowName">
-        <div class="vl-name" title="${escapeHtml(fullName)}">
-          ${escapeHtml(fullName)}
-        </div>
+    a.innerHTML = `
+      <div class="avatar-wrap" title="${escapeHtml(statusTitle)}">
+        <img class="avatar"
+             src="${escapeHtml(avatar)}"
+             alt="${escapeHtml(fullName)}" />
+        <span class="status-dot ${statusClass}"></span>
       </div>
 
-      <div class="vl-row vl-rowCourse">
-        <div class="vl-course" title="${escapeHtml(courseDisplay)}">
-          ${escapeHtml(courseDisplay)}
+      <div class="meta">
+        <div class="vl-row vl-rowName">
+          <div class="vl-name" title="${escapeHtml(fullName)}">
+            ${escapeHtml(fullName)}
+          </div>
         </div>
-        <span class="vl-pillSmall" title="${escapeHtml(yearLevel)}">
-          ${escapeHtml(yearLevel)}
-        </span>
-      </div>
 
-      <div class="vl-row vl-rowLocation">
-        <div class="vl-location" title="${escapeHtml(barangay)}">
-          ${escapeHtml(barangay)}
+        <div class="vl-row vl-rowCourse">
+          <div class="vl-course" title="${escapeHtml(courseDisplay)}">
+            ${escapeHtml(courseDisplay)}
+          </div>
+          <span class="vl-pillSmall" title="${escapeHtml(yearLevel)}">
+            ${escapeHtml(yearLevel)}
+          </span>
         </div>
-        <span class="vl-pillSmall" title="${escapeHtml(districtLabel)}">
-          ${escapeHtml(districtLabel)}
-        </span>
-      </div>
 
-      ${contactLabel ? `
-        <div class="vl-row vl-rowContact">
+        <div class="vl-row vl-rowLocation">
+          <div class="vl-location" title="${escapeHtml(barangay)}">
+            ${escapeHtml(barangay)}
+          </div>
+          <span class="vl-pillSmall" title="${escapeHtml(districtLabel)}">
+            ${escapeHtml(districtLabel)}
+          </span>
+        </div>
+
+        ${contactLabel ? `
+          <div class="vl-row vl-rowContact">
             <div class="vl-course vl-contact" title="${escapeHtml(contactLabel)}">
-            ${escapeHtml(contactLabel)}
+              ${escapeHtml(contactLabel)}
             </div>
-        </div>` : ""}
+          </div>` : ""}
+      </div>
+    `;
 
-    </div>
-  `;
+    const img = a.querySelector("img.avatar");
+    img?.addEventListener("error", () => { img.src = DEFAULT_AVATAR; }, { once: true });
 
-  const img = a.querySelector("img.avatar");
-  img?.addEventListener("error", () => { img.src = DEFAULT_AVATAR; }, { once: true });
-
-  return a;
-}
-
-
+    return a;
+  }
 
   /* =========================================================
-     FETCH PAGE (for list view)
+     FETCH PAGE (✅ includes batch_year param + perPage variable)
   ========================================================= */
   async function fetchPage(paramsOverride = {}) {
     const params = {
@@ -253,6 +474,7 @@
       barangay:     applied.barangay     ?? "",
       district:     applied.district     ?? "",
       year_level:   applied.year_level   ?? "",
+      batch_year:   applied.batch_year   ?? "", // ✅ PATCH
       day:          applied.day          ?? "",
       schedule_day: applied.schedule_day ?? "",
       status:       applied.status       ?? ""
@@ -287,9 +509,7 @@
         const label = total === 1 ? "student" : "students";
         gridCount.textContent = `${total} ${label}`;
       }
-      if (totalEl) {
-        totalEl.textContent = String(total);
-      }
+      if (totalEl) totalEl.textContent = String(total);
 
       currentPage = Number(json.current_page ?? 1);
       lastPage    = Number(json.last_page    ?? 1);
@@ -312,68 +532,7 @@
   }
 
   /* =========================================================
-     SEARCH → BEST-MATCH PROFILE
-     - Enter in search box
-     - Or click on suggestion
-     Calls the same /volunteers/data endpoint with per_page=1
-     and redirects to that volunteer-profile.
-  ========================================================= */
-  async function goToBestMatch(query) {
-    const term = (query || "").trim();
-    if (!term) {
-      applied.search = "";
-      applied.page   = 1;
-      return fetchPage({ page: 1 });
-    }
-
-    const url = buildUrl({
-      search: term,
-      page: 1,
-      per_page: 1,
-      sort: applied.sort || "name_asc"
-    });
-
-    try {
-      const res  = await fetch(url, { headers: { Accept: "application/json" } });
-      const text = await res.text();
-
-      if (!res.ok) {
-        // Fallback: just filter the list
-        applied.search = term;
-        applied.page   = 1;
-        return fetchPage({ page: 1 });
-      }
-
-      let json;
-      try { json = JSON.parse(text); }
-      catch {
-        applied.search = term;
-        applied.page   = 1;
-        return fetchPage({ page: 1 });
-      }
-
-      const first = Array.isArray(json.data) && json.data.length ? json.data[0] : null;
-      if (first && first.volunteer_id != null) {
-        const id = encodeURIComponent(first.volunteer_id);
-        window.location.href = `/volunteer-profile/${id}`;
-        return;
-      }
-
-      // If no direct match, just show filtered list
-      applied.search = term;
-      applied.page   = 1;
-      return fetchPage({ page: 1 });
-
-    } catch (err) {
-      console.error("Best-match search failed:", err);
-      applied.search = term;
-      applied.page   = 1;
-      return fetchPage({ page: 1 });
-    }
-  }
-
-  /* =========================================================
-     PORTAL DROPDOWN
+     PORTAL DROPDOWN (same as yours)
   ========================================================= */
   let portalEl       = null;
   let portalOwner    = null;
@@ -402,6 +561,7 @@
     portalHasSearch = false;
     portalIsTimeBlock = false;
     portalTimeMode = "all";
+    portalEl.classList.remove("vl-ddPortal--time");
   }
 
   function renderPortalItems(filterText = ""){
@@ -462,11 +622,7 @@
     portalIsTimeBlock = !!options.timeBlock;
     portalTimeMode   = "all";
 
-    // NEW: mark this portal as the time-block one
     portal.classList.toggle("vl-ddPortal--time", portalIsTimeBlock);
-
-    // you already added this – keep it
-    //document.body.classList.add("vl-portalOpen");
 
     const btn = dd.querySelector(".vl-ddBtn");
     if (!btn) return;
@@ -474,32 +630,32 @@
     let headerHtml = "";
 
     if (portalIsTimeBlock) {
-        headerHtml = `
+      headerHtml = `
         <div class="vl-timeFilter">
-            <div class="vl-timeHeading">Filter by Time</div>
-            <div class="vl-timeTabs">
+          <div class="vl-timeHeading">Filter by Time</div>
+          <div class="vl-timeTabs">
             <button type="button" class="vl-timeTab is-active" data-time-mode="all">All</button>
             <button type="button" class="vl-timeTab" data-time-mode="am">AM</button>
             <button type="button" class="vl-timeTab" data-time-mode="pm">PM</button>
-            </div>
-            <div class="vl-ddPortalHeader vl-ddPortalHeader--time">
+          </div>
+          <div class="vl-ddPortalHeader vl-ddPortalHeader--time">
             <i class="fa-solid fa-magnifying-glass"></i>
             <input class="vl-ddPortalSearch" type="text" placeholder="Search time slot..." autocomplete="off" />
-            </div>
+          </div>
         </div>
-        `;
+      `;
     } else if (portalHasSearch) {
-        headerHtml = `
+      headerHtml = `
         <div class="vl-ddPortalHeader">
-            <i class="fa-solid fa-magnifying-glass"></i>
-            <input class="vl-ddPortalSearch" type="text" placeholder="Search..." autocomplete="off" />
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input class="vl-ddPortalSearch" type="text" placeholder="Search..." autocomplete="off" />
         </div>
-        `;
+      `;
     }
 
     portal.innerHTML = `
-        ${headerHtml}
-        <div class="vl-ddPortalBody"></div>
+      ${headerHtml}
+      <div class="vl-ddPortalBody"></div>
     `;
 
     const r = btn.getBoundingClientRect();
@@ -511,7 +667,6 @@
     portal.style.top  = `${top}px`;
     portal.style.minWidth = `${r.width}px`;
     portal.style.maxWidth = `${Math.min(window.innerWidth - 20 - left, 520)}px`;
-
     portal.style.display = "block";
 
     const input = portal.querySelector(".vl-ddPortalSearch");
@@ -550,22 +705,6 @@
       closePortalMenu();
     };
   }
-
-    function closePortalMenu(){
-    if (!portalEl) return;
-    portalEl.style.display = "none";
-    portalEl.innerHTML = "";
-    portalOwner = null;
-    portalAllItems = [];
-    portalOnPick = null;
-    portalHasSearch = false;
-    portalIsTimeBlock = false;
-    portalTimeMode = "all";
-
-    // NEW: clean up time-block + body-scroll class
-    portalEl.classList.remove("vl-ddPortal--time");
-    //document.body.classList.remove("vl-portalOpen");
-    }
 
   function wireDropdown(dd, items, onPick, options = {}){
     if (!dd) return;
@@ -631,10 +770,17 @@
     }))
   ];
 
-    const statusItems = [
+  const statusItems = [
     { value: "",         label: "All Status" },
     { value: "active",   label: "Active Only" },
     { value: "inactive", label: "Inactive / Alumni" }
+  ];
+
+  // ✅ PATCH: Rows dropdown items (uses portal dropdown; NO native select)
+  const perPageItems = [
+    { value: "3", label: "3 rows" },
+    { value: "6", label: "6 rows" },
+    { value: "9", label: "9 rows" },
   ];
 
   wireDropdown(ddSort, sortItems, (value, label) => {
@@ -662,6 +808,11 @@
     setDropdownValue(ddYear, pending.year_level, label || "All Year Levels");
   });
 
+  wireDropdown(ddBatch, batchItems, (value, label) => {
+    pending.batch_year = value || "";
+    setDropdownValue(ddBatch, pending.batch_year, label || "All Batches");
+  }, { search: true });
+
   wireDropdown(ddDay, dayItems, (value, label) => {
     pending.day = value || "";
     setDropdownValue(ddDay, pending.day, label || "Any Day");
@@ -675,6 +826,74 @@
   wireDropdown(ddStatus, statusItems, (value, label) => {
     pending.status = value || "";
     setDropdownValue(ddStatus, pending.status, label || "All Status");
+  });
+
+  // ✅ PATCH: wire rows dropdown to perPage + refresh
+  wireDropdown(ddPerPage, perPageItems, (value, label) => {
+    const v = Number(value || "6");
+    perPage = PER_PAGE_ALLOWED.includes(v) ? v : 6;
+    localStorage.setItem('vl_perPage', String(perPage));
+
+    setDropdownValue(ddPerPage, String(perPage), label || `${perPage} rows`);
+
+    applied.page = 1;
+    fetchPage({ page: 1 });
+  });
+
+  /* ---------------- search (✅ restored) ---------------- */
+  function setClearVisible() {
+    if (!searchClear || !searchInput) return;
+    const has = !!normalizeQ(searchInput.value);
+    searchClear.style.visibility = has ? "visible" : "hidden";
+  }
+
+  setClearVisible();
+
+  searchInput?.addEventListener("input", () => {
+    setClearVisible();
+    runSuggestDebounced();
+  });
+
+  searchInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      applySearch(searchInput.value || "");
+      return;
+    }
+    if (e.key === "Escape") {
+      hideSuggest();
+    }
+  });
+
+  searchClear?.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (searchInput) searchInput.value = "";
+    setClearVisible();
+    hideSuggest();
+    applySearch("");
+  });
+
+  suggestEl?.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+  });
+
+  suggestEl?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-suggest-action]");
+    if (!btn) return;
+
+    const action = btn.getAttribute("data-suggest-action");
+    if (action === "search") {
+      const q = btn.getAttribute("data-q") || (searchInput?.value || "");
+      applySearch(q);
+      setClearVisible();
+      return;
+    }
+
+    if (action === "goto") {
+      const id = btn.getAttribute("data-id");
+      if (!id) return;
+      window.location.href = `${PROFILE_BASE}/${id}`;
+    }
   });
 
   /* ---------------- toolbar / panel ---------------- */
@@ -708,114 +927,6 @@
   window.addEventListener("scroll", () => closePortalMenu(), { passive:true });
   window.addEventListener("resize", () => closePortalMenu());
 
-  /* ---------------- autosuggest (uses current page data) ---------------- */
-  function buildSuggest(query) {
-    if (!suggestEl) return;
-    const q = (query || "").trim().toLowerCase();
-    if (q.length < 2) {
-      suggestEl.hidden = true;
-      suggestEl.innerHTML = "";
-      return;
-    }
-
-    const hits = [];
-    for (const v of lastItems) {
-        const name   = (v.full_name || "").toLowerCase();
-        const course = (v.course?.course_name || "").toLowerCase();
-        const brgy   = (v.barangay || "").toLowerCase();
-        const dist   = String(v.district || "").toLowerCase();
-        const email  = (v.email || "").toLowerCase();
-        const contact   = (v.contact_number || "").toLowerCase();
-        const emergency = (v.emergency_contact || "").toLowerCase();
-
-        let score = 0;
-        if (name.includes(q))      score += 3;
-        if (course.includes(q))    score += 2;
-        if (brgy.includes(q))      score += 2;
-        if (dist.includes(q))      score += 1;
-        if (email.includes(q))     score += 2;
-        if (contact.includes(q))   score += 2;
-        if (emergency.includes(q)) score += 2;
-        if (status.includes(q))    score += 2;
-
-      if (score > 0) hits.push({ v, score });
-    }
-
-    hits.sort((a, b) => b.score - a.score);
-    const top = hits.slice(0, 6);
-
-    if (!top.length) {
-      suggestEl.hidden = true;
-      suggestEl.innerHTML = "";
-      return;
-    }
-
-    suggestEl.innerHTML = top.map(({ v }) => {
-      const statusLabel =
-        v.status === "inactive"
-            ? "Status: Inactive / Alumni"
-            : "Status: Active";
-
-        const meta = [
-        v.course?.course_name ? v.course.course_name : null,
-        v.barangay ? v.barangay : null,
-        v.district ? `District ${v.district}` : null,
-        v.email ? v.email : null,
-        v.contact_number ? `Contact # ${v.contact_number}` : null,
-        v.emergency_contact ? `Emergency # ${v.emergency_contact}` : null,
-        statusLabel
-        ].filter(Boolean).join(" • ");
-
-      return `
-        <div class="vl-suggestItem" data-pick="${escapeHtml(v.full_name)}">
-          <div class="vl-suggestMain">${escapeHtml(v.full_name)}</div>
-          <div class="vl-suggestMeta">${escapeHtml(meta)}</div>
-        </div>
-      `;
-    }).join("");
-
-    suggestEl.hidden = false;
-  }
-
-  searchInput?.addEventListener("input", () => {
-    pending.search = searchInput.value || "";
-    buildSuggest(pending.search);
-  });
-
-  searchInput?.addEventListener("keydown", async (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      const q = searchInput.value || "";
-      if (suggestEl) { suggestEl.hidden = true; suggestEl.innerHTML = ""; }
-      await goToBestMatch(q);
-    }
-    if (e.key === "Escape" && suggestEl) {
-      suggestEl.hidden = true;
-      suggestEl.innerHTML = "";
-    }
-  });
-
-  suggestEl?.addEventListener("mousedown", (e) => e.preventDefault());
-  suggestEl?.addEventListener("click", async (e) => {
-    const item = e.target.closest(".vl-suggestItem");
-    if (!item) return;
-    const pick = item.getAttribute("data-pick") || "";
-    if (searchInput) searchInput.value = pick;
-    pending.search = pick;
-    suggestEl.hidden = true;
-    suggestEl.innerHTML = "";
-    await goToBestMatch(pick);
-  });
-
-  searchClear?.addEventListener("click", () => {
-    if (searchInput) searchInput.value = "";
-    pending.search = "";
-    if (suggestEl) { suggestEl.hidden = true; suggestEl.innerHTML = ""; }
-    applied.search = "";
-    applied.page   = 1;
-    fetchPage({ page: 1 });
-  });
-
   /* ---------------- apply / reset ---------------- */
   applyBtn?.addEventListener("click", () => {
     Object.assign(applied, pending);
@@ -831,13 +942,15 @@
     pending.barangay     = "";
     pending.district     = "";
     pending.year_level   = "";
+    pending.batch_year   = "";
     pending.day          = "";
     pending.schedule_day = "";
-    pending.status      = "";
-    
+    pending.status       = "";
+
     Object.assign(applied, pending);
 
     if (searchInput) searchInput.value = "";
+    setClearVisible();
     if (suggestEl) { suggestEl.hidden = true; suggestEl.innerHTML = ""; }
 
     setDropdownValue(ddSort,     "name_asc", "Sort by Name (A–Z)");
@@ -845,10 +958,14 @@
     setDropdownValue(ddBarangay, "",         "All Barangays");
     setDropdownValue(ddDistrict, "",         "All Districts");
     setDropdownValue(ddYear,     "",         "All Year Levels");
+    setDropdownValue(ddBatch,    "",         "All Batches");
     setDropdownValue(ddDay,      "",         "Any Day");
     setDropdownValue(ddBlock,    "",         "Any Time");
-    setDropdownValue(ddStatus, "", "All Status");
-    
+    setDropdownValue(ddStatus,   "",         "All Status");
+
+    // ✅ keep rows label in sync (does not reset to 6 automatically)
+    setDropdownValue(ddPerPage, String(perPage), `${perPage} rows`);
+
     fetchPage({ page: 1 });
   });
 
@@ -948,16 +1065,31 @@
   setDropdownValue(ddBarangay, "",         "All Barangays");
   setDropdownValue(ddDistrict, "",         "All Districts");
   setDropdownValue(ddYear,     "",         "All Year Levels");
+  setDropdownValue(ddBatch,    "",         "All Batches");
   setDropdownValue(ddDay,      "",         "Any Day");
   setDropdownValue(ddBlock,    "",         "Any Time");
   setDropdownValue(ddStatus,   "",         "All Status");
-  
+
+  // ✅ PATCH: init rows label from saved perPage
+  setDropdownValue(ddPerPage, String(perPage), `${perPage} rows`);
+
+  // ✅ PATCH: navbar overlap safety (sets CSS var based on actual navbar height)
+  (() => {
+    const nav = document.querySelector('nav.navbar, .navbar, #navbar');
+    const h = nav ? nav.getBoundingClientRect().height : 0;
+    if (h && Number.isFinite(h)) {
+      document.documentElement.style.setProperty('--vlNavOffset', `${Math.ceil(h) + 18}px`);
+    }
+  })();
+
   setPanel(false);
+  setClearVisible();
   fetchPage({ page: 1 });
 })();
 
 /* =========================================================
    Add Volunteer: schedule builder (vlScheduleModal)
+   (UNCHANGED — keep your existing code)
 ========================================================= */
 (() => {
   const vlScheduleField   = document.getElementById("vlScheduleField");
@@ -1146,7 +1278,6 @@
     if (vlScheduleModal) vlScheduleModal.hide();
   });
 
-  // Initial summary text
   if (vlScheduleSummary) {
     vlScheduleSummary.textContent = buildSummary(scheduleData);
   }

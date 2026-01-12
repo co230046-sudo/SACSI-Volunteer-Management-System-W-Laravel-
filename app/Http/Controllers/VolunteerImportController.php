@@ -7,7 +7,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 use App\Models\VolunteerProfile;
 use App\Models\ImportLog;
@@ -17,11 +16,11 @@ use App\Models\Location;
 
 class VolunteerImportController extends Controller
 {
-
     public function index()
     {
-        $validEntries = session('validEntries', []);
-        $invalidEntries = session('invalidEntries', []);
+        $validEntries     = session('validEntries', []);
+        $invalidEntries   = session('invalidEntries', []);
+        $duplicateEntries = session('duplicateEntries', []); // ✅ FIX: load duplicates too
         $uploadedFileName = session('uploaded_file_name', null);
         $uploadedFilePath = session('uploaded_file_path', null);
 
@@ -36,12 +35,15 @@ class VolunteerImportController extends Controller
                 $entry['class_schedule'] = 'No class schedule';
             }
         }
+        foreach ($duplicateEntries as &$entry) {
+            if (!isset($entry['class_schedule'])) {
+                $entry['class_schedule'] = 'No class schedule';
+            }
+        }
 
         // Dynamic dropdown data
         $courses = Course::orderBy('course_name')->get();
-
         $barangays = Location::orderBy('barangay')->get();
-
         $districts = Location::select('district_id')
             ->distinct()
             ->orderBy('district_id')
@@ -53,6 +55,7 @@ class VolunteerImportController extends Controller
         return view('volunteer_import.volunteer_import', compact(
             'validEntries',
             'invalidEntries',
+            'duplicateEntries', // ✅ pass to blade if needed later
             'uploadedFileName',
             'uploadedFilePath',
             'importLogs',
@@ -94,9 +97,8 @@ class VolunteerImportController extends Controller
                 return 'defaults/default_user.png';
             }
 
-            // Try downloading
             $context = stream_context_create([
-                "http" => ["timeout" => 8]  // Prevent long hangs
+                "http" => ["timeout" => 8]
             ]);
 
             $contents = @file_get_contents($url, false, $context);
@@ -105,7 +107,6 @@ class VolunteerImportController extends Controller
                 return 'defaults/default_user.png';
             }
 
-            // Detect MIME type (image only)
             $finfo = new \finfo(FILEINFO_MIME_TYPE);
             $mime  = $finfo->buffer($contents);
 
@@ -113,7 +114,6 @@ class VolunteerImportController extends Controller
                 return 'defaults/default_user.png';
             }
 
-            // Ensure folder exists
             Storage::disk('public')->makeDirectory('profile_pictures/volunteers');
 
             $ext = match ($mime) {
@@ -204,14 +204,16 @@ class VolunteerImportController extends Controller
             $data = $this->normalizeRow($row, $header);
             $errors = $this->validateRow($data);
 
+            // if column count mismatch, mark as invalid
             if (count($row) !== count($header)) {
-                $errors = array_fill_keys(array_keys($data), true);
+                $errors = $errors ?? [];
+                $errors['csv_format'] = 'Column mismatch: row does not match header count.';
             }
 
             $data['row_number'] = $i + 2;
             $uniqueKey = strtolower($data['email'] ?? $data['full_name'] ?? 'row_' . $i);
 
-            if (in_array($uniqueKey, $seenKeys)) {
+            if (in_array($uniqueKey, $seenKeys, true)) {
                 $duplicates[] = $data;
             } elseif (!empty($errors)) {
                 $data['errors'] = $errors;
@@ -294,10 +296,8 @@ class VolunteerImportController extends Controller
 
         $details .= "</div>";
 
-        // Encode safely
         $encodedDetails = base64_encode($details);
 
-        // Flash bar message
         $message = "
             <div style='display:flex; align-items:center; flex-wrap:wrap; gap:12px;
                         font-size:1.05rem; font-weight:600; margin-bottom:6px;'>
@@ -323,9 +323,6 @@ class VolunteerImportController extends Controller
 
     /**
      * Time Range Helper
-     * Supports:
-     *  - Standard HH:MM-HH:MM
-     *  - 12:30-1:50 style ranges (treated as 12:30-13:50)
      */
     private function parseTimeRange($range)
     {
@@ -338,31 +335,25 @@ class VolunteerImportController extends Controller
         $start = trim($start);
         $end   = trim($end);
 
-        // Must be HH:MM-HH:MM
         if (!preg_match('/^\d{1,2}:\d{2}$/', $start)) return null;
         if (!preg_match('/^\d{1,2}:\d{2}$/', $end))   return null;
 
         [$sh, $sm] = array_map('intval', explode(':', $start));
         [$eh, $em] = array_map('intval', explode(':', $end));
 
-        // Basic sanity: 0–23 hours, 0–59 minutes
         if ($sh < 0 || $sh > 23 || $eh < 0 || $eh > 23) return null;
         if ($sm < 0 || $sm > 59 || $em < 0 || $em > 59) return null;
 
         $startMin = $sh * 60 + $sm;
         $endMin   = $eh * 60 + $em;
 
-        // Handle 12:30-1:50 (12-hour schedule, PM)
         if ($endMin <= $startMin) {
-            // If start is noon or later (>=12) and end is a small hour (1–7),
-            // assume end time is PM and add 12h.
             if ($sh >= 12 && $eh >= 1 && $eh <= 7) {
                 $eh     += 12;
                 $endMin  = $eh * 60 + $em;
             }
         }
 
-        // Still invalid? Reject (end not after start)
         if ($endMin <= $startMin) {
             return null;
         }
@@ -373,23 +364,11 @@ class VolunteerImportController extends Controller
         ];
     }
 
-    /**
-     * Schedule Overlap Checker
-     */
     private function rangesOverlap($a, $b)
     {
-        // Standard open-interval overlap
         return $a->start < $b->end && $b->start < $a->end;
     }
 
-    /**
-     * Try to smart-match a barangay string to locations table.
-     * - Ignores case
-     * - Collapses extra spaces
-     * - Allows small misspellings via levenshtein distance
-     *
-     * @return object|null  (barangay, district_id)
-     */
     private function smartMatchBarangay(?string $raw)
     {
         $raw = trim((string) $raw);
@@ -397,10 +376,8 @@ class VolunteerImportController extends Controller
             return null;
         }
 
-        // Normalize: lowercase, collapse spaces
         $needle = strtolower(preg_replace('/\s+/', ' ', $raw));
 
-        // Cache locations in static variable to avoid repeated queries
         static $locationCache = null;
 
         if ($locationCache === null) {
@@ -410,7 +387,6 @@ class VolunteerImportController extends Controller
 
             $locationCache = [];
             foreach ($rows as $row) {
-                // skip rows with empty barangay to avoid weird matches
                 if (!trim((string) $row->barangay)) {
                     continue;
                 }
@@ -437,7 +413,6 @@ class VolunteerImportController extends Controller
         $bestDist = PHP_INT_MAX;
 
         foreach ($locationCache as $loc) {
-            // Exact normalized match → immediate win
             if ($loc->normalized === $needle) {
                 return (object)[
                     'barangay'    => $loc->barangay,
@@ -445,7 +420,6 @@ class VolunteerImportController extends Controller
                 ];
             }
 
-            // Approximate match
             $dist = levenshtein($needle, $loc->normalized);
 
             if ($dist < $bestDist) {
@@ -454,9 +428,8 @@ class VolunteerImportController extends Controller
             }
         }
 
-        // Decide if "close enough"
         $len = strlen($needle);
-        $threshold = max(2, (int) floor($len / 4)); // tune if needed
+        $threshold = max(2, (int) floor($len / 4));
 
         if ($best && $bestDist <= $threshold) {
             return (object)[
@@ -468,31 +441,21 @@ class VolunteerImportController extends Controller
         return null;
     }
 
-    /**
-     * normalizeRow
-     */
     private function normalizeRow(array $row, array $header): array
     {
-        /**
-         * Flexible Header Mapping
-         */
         $mapping = [
-            // --- FULL NAME ---
             'full_name' => 'full_name', 'fullname' => 'full_name', 'full name' => 'full_name',
             'first name' => 'first_name', 'firstname' => 'first_name',
             'middle name' => 'middle_name', 'middlename' => 'middle_name',
             'last name' => 'last_name', 'lastname' => 'last_name', 'surname' => 'last_name',
 
-            // --- SCHOOL ID ---
             'id number' => 'id_number', 'school id' => 'id_number',
             'school id number' => 'id_number', 'id' => 'id_number',
 
-            // --- CONTACT NUMBER ---
             'contact number' => 'contact_number', 'contact_number' => 'contact_number',
             'phone' => 'contact_number', 'phone number' => 'contact_number',
             'contact no' => 'contact_number', 'contact #' => 'contact_number',
 
-            // --- EMERGENCY CONTACT ---
             'emergency number' => 'emergency_contact',
             'emergency_contact' => 'emergency_contact',
             'emergency contact' => 'emergency_contact',
@@ -500,33 +463,26 @@ class VolunteerImportController extends Controller
             'emergency no' => 'emergency_contact',
             'emergency #' => 'emergency_contact',
 
-            // --- EMAIL ---
             'email address' => 'email', 'email' => 'email',
             'school email address' => 'email', 'school email' => 'email',
             'adzu email' => 'email', 'email add' => 'email',
 
-            // --- FB ---
             'fb link' => 'fb_messenger', 'facebook profile link' => 'fb_messenger',
             'messenger' => 'fb_messenger', 'fb' => 'fb_messenger',
 
-            // --- BARANGAY ---
             'barangay' => 'barangay', 'brgy' => 'barangay',
             'district' => 'district',
 
-            // --- COURSE ---
             'course' => 'course', 'strand' => 'course', 'program' => 'course',
 
-            // --- YEAR LEVEL ---
             'year' => 'year_level', 'year level' => 'year_level', 'yearlevel' => 'year_level',
             'year_level' => 'year_level',
 
-            // --- BATCH / COHORT ---
             'batch' => 'batch_year',
             'batch number' => 'batch_year',
             'batch no' => 'batch_year',
             'cohort' => 'batch_year',
-            
-            // --- SCHEDULES ---
+
             'monday schedule' => 'monday', 'monday' => 'monday',
             'tuesday schedule' => 'tuesday', 'tuesday' => 'tuesday',
             'wednesday schedule' => 'wednesday', 'wednesday' => 'wednesday',
@@ -534,11 +490,9 @@ class VolunteerImportController extends Controller
             'friday schedule' => 'friday', 'friday' => 'friday',
             'saturday schedule' => 'saturday', 'saturday' => 'saturday',
 
-            // --- CERTIFICATES ---
             'certificates' => 'certificates',
             'certificate uploads' => 'certificates',
 
-            // --- PROFILE PICTURE ---
             'profile picture' => 'profile_picture',
             'profile_photo' => 'profile_picture',
             'google drive link to your profile picture (jpg or png)' => 'profile_picture',
@@ -546,9 +500,6 @@ class VolunteerImportController extends Controller
 
         $normalized = [];
 
-        /**
-         * Helpers
-         */
         $fixTime = function ($t) {
             $t = trim($t);
             return preg_match('/^\d{1,2}$/', $t) ? $t . ":00" : $t;
@@ -557,8 +508,8 @@ class VolunteerImportController extends Controller
         $cleanSchedule = function ($raw) use ($fixTime) {
             if (!$raw) return [];
 
-            $raw = preg_replace('/\[[MAE]\]/i', '', $raw);           // strip [M], [A], [E]
-            $raw = str_replace(['–', ';', ','], ['-', ' ', ' '], $raw);  // normalize separators
+            $raw = preg_replace('/\[[MAE]\]/i', '', $raw);
+            $raw = str_replace(['–', ';', ','], ['-', ' ', ' '], $raw);
             $raw = preg_replace('/\s+/', ' ', trim($raw));
 
             if ($raw === "" || stripos($raw, "no class") !== false) return [];
@@ -575,30 +526,22 @@ class VolunteerImportController extends Controller
         $scheduleDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
         foreach ($scheduleDays as $d) $normalized[$d] = [];
 
-        /**
-         * Process headers
-         */
         foreach ($header as $i => $colRaw) {
             $keyRaw = strtolower(trim((string) $colRaw));
             $value  = isset($row[$i]) ? trim((string)$row[$i]) : '';
 
-            // Ignore timestamp/date columns
             if (in_array($keyRaw, ['timestamp', 'time submitted', 'date'], true)) continue;
 
-            // Ignore yes/no helper questions like "Do you have a Monday class?"
             if (preg_match('/do you have.*class\?/i', $keyRaw)) {
                 continue;
             }
 
-            // Map header → internal field
             $mapped =
                 ($mapping[$keyRaw] ?? null)
                 ?? ($mapping[preg_replace('/\s+/', ' ', $keyRaw)] ?? null)
                 ?? ($mapping[str_replace([' ', '-'], '_', $keyRaw)] ?? null);
 
-            // Schedule columns
             if (in_array($mapped, $scheduleDays, true)) {
-                // Skip if there are absolutely no digits (e.g. all text)
                 if (!preg_match('/\d/', $value)) continue;
 
                 $slots = $cleanSchedule($value);
@@ -610,7 +553,6 @@ class VolunteerImportController extends Controller
                 continue;
             }
 
-            // Profile picture
             if ($mapped === 'profile_picture') {
                 if ($value !== '') {
                     $converted = $this->convertDriveLinkToDownloadUrl($value);
@@ -621,15 +563,11 @@ class VolunteerImportController extends Controller
                 continue;
             }
 
-            // Normal mapped fields
             if ($mapped) {
                 $normalized[$mapped] = $value;
             }
         }
 
-        /**
-         * Merge names → full_name
-         */
         $fn = $normalized['first_name'] ?? '';
         $mn = $normalized['middle_name'] ?? '';
         $ln = $normalized['last_name'] ?? '';
@@ -643,21 +581,15 @@ class VolunteerImportController extends Controller
                 );
         }
 
-        /**
-         * Normalize Barangay (fuzzy match)
-         */
         if (!empty($normalized['barangay'])) {
             $cleanBrgy = ucwords(strtolower(trim($normalized['barangay'])));
             $match = $this->smartMatchBarangay($cleanBrgy);
             if ($match) {
                 $normalized['barangay'] = $match->barangay;
-                $normalized['district'] = $match->district_id; // this is district_id semantically
+                $normalized['district'] = $match->district_id;
             }
         }
 
-        /**
-         * Normalize Course
-         */
         if (!empty($normalized['course'])) {
             $c = trim($normalized['course']);
             $db = DB::table('courses')
@@ -666,9 +598,6 @@ class VolunteerImportController extends Controller
             $normalized['course'] = $db ?? ucwords(strtolower($c));
         }
 
-        /**
-         * Normalize year level
-         */
         if (!empty($normalized['year_level'])) {
             $yl = strtolower($normalized['year_level']);
             foreach (['1', '2', '3', '4'] as $n) {
@@ -678,40 +607,42 @@ class VolunteerImportController extends Controller
                 }
             }
         }
-        
+
         /**
          * Derive batch_year if missing or messy
-         * Priority:
-         *   1) Use explicit "Batch" field from CSV if present
-         *   2) Else derive from School ID Number (first 2 digits → 20xx)
-        */
+         * Accepts: 2023, 23, 23-24, Batch 23-24, etc.
+         * Rule: if it's a range like 23-24 => use starting year (2023)
+         */
         if (!empty($normalized['batch_year'])) {
-            // Clean up whatever user typed: "Batch 2023", "2023", etc.
-            $digits = preg_replace('/\D+/', '', (string)$normalized['batch_year']);
-            if (strlen($digits) === 4) {
-                $normalized['batch_year'] = (int)$digits;        // e.g. 2023
-            } elseif (strlen($digits) === 2) {
-                // assume 20xx (you can tweak logic if school uses different style)
-                $normalized['batch_year'] = 2000 + (int)$digits; // e.g. "23" → 2023
+
+            $raw = (string) $normalized['batch_year'];
+
+            // ✅ detect range like 23-24 (or 23/24, 23 24)
+            if (preg_match('/\b(\d{2})\D+(\d{2})\b/', $raw, $m)) {
+                $normalized['batch_year'] = 2000 + (int)$m[1]; // 23-24 => 2023
             } else {
-                $normalized['batch_year'] = null; // weird input, we just drop it
+
+                $digits = preg_replace('/\D+/', '', $raw);
+
+                if (preg_match('/^20\d{2}$/', $digits)) {
+                    $normalized['batch_year'] = (int)$digits;        // 2023
+                } elseif (preg_match('/^(\d{2})$/', $digits, $m)) {
+                    $normalized['batch_year'] = 2000 + (int)$m[1];    // 23 => 2023
+                } else {
+                    $normalized['batch_year'] = null; // weird input
+                }
             }
         }
 
-        // If still empty, derive from id_number
         if (empty($normalized['batch_year']) && !empty($normalized['id_number'])) {
             $id = preg_replace('/\D+/', '', (string)$normalized['id_number']);
 
-            // pattern: YYxxxxx, e.g. 230279, 210232
             if (preg_match('/^(\d{2})\d{4,5}$/', $id, $m)) {
-                $yy = (int)$m[1];      // 23 → 23, 21 → 21
-                $normalized['batch_year'] = 2000 + $yy;  // 23 → 2023, 21 → 2021
+                $yy = (int)$m[1];
+                $normalized['batch_year'] = 2000 + $yy;
             }
         }
 
-        /**
-         * Build final class schedule string
-         */
         $out = [];
         foreach (['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as $day) {
             $slots = $normalized[strtolower($day)] ?? [];
@@ -719,9 +650,6 @@ class VolunteerImportController extends Controller
         }
         $normalized['class_schedule'] = implode(' ', $out);
 
-        /**
-         * Ensure required keys exist
-         */
         foreach ([
             'full_name','id_number','email','contact_number','emergency_contact',
             'fb_messenger','barangay','district','course','year_level',
@@ -733,10 +661,6 @@ class VolunteerImportController extends Controller
             }
         }
 
-
-        /**
-         * Normalize PH numbers
-         */
         foreach (['contact_number', 'emergency_contact'] as $field) {
             if (!empty($normalized[$field])) {
                 $normalized[$field] = preg_replace('/[^\d+]/', '', $normalized[$field]);
@@ -746,44 +670,36 @@ class VolunteerImportController extends Controller
         return $normalized;
     }
 
-    /**
-     * Validate ONE normalized row
-     */
     private function validateRow(array $data)
     {
         $errors = [];
 
-        // Full Name
         if (empty($data['full_name']) ||
             !preg_match("/^[A-Za-zÑñ\s\.\'-]+$/u", $data['full_name'])) {
             $errors['full_name'] = 'Full Name is required and only letters allowed.';
         }
 
-        // Batch Number
-        if (!empty($data['batch_year']) &&
-            !preg_match('/^20\d{2}$/', (string)$data['batch_year'])) {
+        if (empty($data['batch_year'])) {
+            $errors['batch_year'] = 'Batch year is required.';
+        } elseif (!preg_match('/^20\d{2}$/', (string)$data['batch_year'])) {
             $errors['batch_year'] = 'Batch year must be a 4-digit year like 2023.';
         }
 
-        // School ID
         if (empty($data['id_number']) ||
             !preg_match('/^\d{6,7}$/', (string)$data['id_number'])) {
             $errors['id_number'] = 'School ID must be 6 or 7 digits.';
         }
 
-        // Course
         if (empty($data['course']) ||
             !preg_match('/^[A-Za-z\s]+$/u', $data['course'])) {
             $errors['course'] = 'Course is required.';
         }
 
-        // Year
         if (empty($data['year_level']) ||
             !in_array((string)$data['year_level'], ['1', '2', '3', '4'], true)) {
             $errors['year_level'] = 'Year must be 1–4.';
         }
 
-        // Numbers
         $cn = $data['contact_number'] ?? '';
         $ec = $data['emergency_contact'] ?? '';
 
@@ -800,14 +716,26 @@ class VolunteerImportController extends Controller
                 'Emergency Contact must be DIFFERENT from Contact Number.';
         }
 
-        // Email
         if (empty($data['email']) ||
             !filter_var($data['email'], FILTER_VALIDATE_EMAIL) ||
             !preg_match('/@(gmail\.com|adzu\.edu\.ph)$/i', $data['email'])) {
             $errors['email'] = 'Email must end with @gmail.com or @adzu.edu.ph.';
         }
 
-        // Barangay
+        $fb = trim((string)($data['fb_messenger'] ?? ''));
+        if ($fb !== '') {
+            $ok = filter_var($fb, FILTER_VALIDATE_URL);
+            $host = strtolower(parse_url($fb, PHP_URL_HOST) ?: '');
+
+            $allowedHosts = [
+                'facebook.com', 'www.facebook.com', 'fb.com', 'www.fb.com',
+                'm.facebook.com', 'fb.me', 'm.me'
+            ];
+            if (!$ok || !in_array($host, $allowedHosts, true)) {
+                $errors['fb_messenger'] = 'FB/Messenger must be a valid Facebook/Messenger link.';
+            }
+        }
+
         if (empty(trim($data['barangay'] ?? ''))) {
             $errors['barangay'] = 'Barangay is required.';
         } else {
@@ -817,11 +745,9 @@ class VolunteerImportController extends Controller
             }
         }
 
-        // Schedules
         foreach (['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as $day) {
             $slots = $data[$day] ?? [];
 
-            // Safety: if somehow a string sneaks in, turn into single slot array
             if (!is_array($slots)) {
                 $slots = trim((string)$slots) !== '' ? [trim((string)$slots)] : [];
             }
@@ -852,13 +778,21 @@ class VolunteerImportController extends Controller
     }
 
     /**
-     * Update / Correct Volunteer Fields
+     * ✅ NEW: Keep monday..saturday arrays in sync with class_schedule string
+     * (validateRow uses day arrays; without this, schedule edits "save" but never validate)
      */
+    private function syncDayArraysFromClassSchedule(array &$entry): void
+    {
+        $schedule = (string)($entry['class_schedule'] ?? '');
+        $parts = $this->scheduleStringToDayArrays($schedule);
+
+        foreach (['monday','tuesday','wednesday','thursday','friday','saturday'] as $day) {
+            $entry[$day] = $parts[$day] ?? [];
+        }
+    }
+
     public function updateVolunteerEntry(Request $request, $index, $type)
     {
-        /* ============================================================
-        LOAD ENTRY + NORMALIZE INPUT
-        ============================================================ */
         $entries = session($type . 'Entries', []);
 
         if (!isset($entries[$index])) {
@@ -869,33 +803,39 @@ class VolunteerImportController extends Controller
         $before = $entry;
         $input  = array_map('trim', $request->all());
 
-        // strip labels like "District 1" → "1"
         if (isset($before['district'])) $before['district'] = preg_replace('/\D/', '', $before['district']);
         if (isset($input['district']))  $input['district']  = preg_replace('/\D/', '', $input['district']);
 
-        // normalize schedule whitespace
         if (isset($before['class_schedule'])) $before['class_schedule'] = preg_replace('/\s+/', ' ', trim($before['class_schedule']));
         if (isset($input['class_schedule']))  $input['class_schedule']  = preg_replace('/\s+/', ' ', trim($input['class_schedule']));
 
-        // phone numbers
         foreach (['contact_number','emergency_contact'] as $field) {
             if (!empty($input[$field])) {
                 $input[$field] = preg_replace('/[^\d+]/', '', $input[$field]);
             }
         }
 
-        // ID
         if (!empty($input['id_number'])) {
             $input['id_number'] = strtoupper($input['id_number']);
         }
 
-        // 🔹 Normalize batch_year on BOTH before + input (so comparisons are fair)
-        if (isset($before['batch_year']) && $before['batch_year'] !== '') {
-            $digits = preg_replace('/\D+/', '', (string) $before['batch_year']);
-            if (strlen($digits) === 4) {
-                $before['batch_year'] = (int) $digits;
-            } elseif (strlen($digits) === 2) {
-                $before['batch_year'] = 2000 + (int) $digits;
+        if (!empty($input['batch_year'])) {
+
+            $raw = (string) $input['batch_year'];
+
+            if (preg_match('/\b(\d{2})\D+(\d{2})\b/', $raw, $m)) {
+                $input['batch_year'] = 2000 + (int)$m[1]; // 23-24 => 2023
+            } else {
+
+                $digits = preg_replace('/\D+/', '', $raw);
+
+                if (preg_match('/^20\d{2}$/', $digits)) {
+                    $input['batch_year'] = (int)$digits;
+                } elseif (preg_match('/^(\d{2})$/', $digits, $m)) {
+                    $input['batch_year'] = 2000 + (int)$m[1];
+                } else {
+                    $input['batch_year'] = null; // let validator complain
+                }
             }
         }
 
@@ -903,18 +843,14 @@ class VolunteerImportController extends Controller
             $digits = preg_replace('/\D+/', '', (string) $input['batch_year']);
 
             if (strlen($digits) === 4) {
-                $input['batch_year'] = (int) $digits;          // 2023
+                $input['batch_year'] = (int) $digits;
             } elseif (strlen($digits) === 2) {
-                $input['batch_year'] = 2000 + (int) $digits;   // "23" → 2023
+                $input['batch_year'] = 2000 + (int) $digits;
             } else {
-                // weird input, let validation complain
                 $input['batch_year'] = null;
             }
         }
 
-        /* ============================================================
-        VALIDATION
-        ============================================================ */
         $validator = \Validator::make($input, [
             'full_name'         => ['required','regex:/^[A-Za-zÑñ\s\.\'-]+$/u','max:255'],
             'id_number'         => ['required','regex:/^\d{6,7}$/'],
@@ -927,8 +863,6 @@ class VolunteerImportController extends Controller
             'barangay'          => ['required'],
             'district'          => ['required'],
             'class_schedule'    => ['required','string','regex:/^[\w\s,:()\.\-\/]+$/'],
-
-            // 🔹 batch_year: optional, but must be a sensible 4-digit year
             'batch_year'        => ['nullable','digits:4','integer','min:2000','max:2100'],
         ],[
             'year_level.in'           => 'Year must be 1, 2, 3, or 4.',
@@ -943,7 +877,24 @@ class VolunteerImportController extends Controller
 
         $errors = $validator->fails() ? $validator->errors()->toArray() : [];
 
-        // FB link extra validation
+        // ✅ FIX: recompute schedule errors from current schedule (do not preserve stale ones)
+        $currentSchedule = (string)($entries[$index]['class_schedule'] ?? $before['class_schedule'] ?? '');
+        if (array_key_exists('class_schedule', $input) && empty($errors['class_schedule'])) {
+            $currentSchedule = (string)$input['class_schedule'];
+        }
+
+        $scheduleErrors = $this->scheduleErrorsFromString($currentSchedule);
+
+        // remove stale day errors then apply fresh schedule errors
+        foreach (['monday','tuesday','wednesday','thursday','friday','saturday'] as $day) {
+            unset($errors[$day]);
+        }
+        foreach ($scheduleErrors as $day => $msgs) {
+            if (!empty($msgs)) {
+                $errors[$day] = $msgs;
+            }
+        }
+
         if (!empty($input['fb_messenger'])) {
             $fb = $input['fb_messenger'];
             if (!filter_var($fb, FILTER_VALIDATE_URL) ||
@@ -953,9 +904,8 @@ class VolunteerImportController extends Controller
             }
         }
 
-        // barangay ↔ district check
         if (!empty($input['barangay'])) {
-            $districtId = $input['district_id'] ?? null;
+            $districtId = $input['district'] ?? null;
 
             if (!$districtId) {
                 $errors['district'] = ['No district selected.'];
@@ -973,9 +923,6 @@ class VolunteerImportController extends Controller
             }
         }
 
-        /* ============================================================
-        DETECT CHANGES (only real fields, incl. batch_year)
-        ============================================================ */
         $editableFields = [
             'full_name',
             'id_number',
@@ -993,65 +940,106 @@ class VolunteerImportController extends Controller
             'class_schedule',
         ];
 
+        /* ============================================================
+        ✅ NO-CHANGES DETECTION (normalized compare)
+        - if user retypes same values, we DO NOT overwrite session/DB
+        ============================================================ */
+        $compareFields = [
+            'full_name',
+            'id_number',
+            'course',
+            'year_level',
+            'batch_year',
+            'contact_number',
+            'emergency_contact',
+            'email',
+            'fb_messenger',
+            'barangay',
+            'district',
+            'class_schedule',
+        ];
+
+        $beforeCompare = [];
+        $inputCompare  = [];
+
+        foreach ($compareFields as $f) {
+            $old = $before[$f] ?? '';
+            $new = $input[$f]  ?? '';
+
+            if ($f === 'district') {
+                $old = preg_replace('/\D/', '', (string)$old);
+                $new = preg_replace('/\D/', '', (string)$new);
+            }
+
+            if ($f === 'class_schedule') {
+                $old = preg_replace('/\s+/', ' ', trim((string)$old));
+                $new = preg_replace('/\s+/', ' ', trim((string)$new));
+            }
+
+            if ($f === 'batch_year') {
+                $old = ($old === '' || $old === null) ? null : (int)$old;
+                $new = ($new === '' || $new === null) ? null : (int)$new;
+            } else {
+                $old = preg_replace('/\s+/', ' ', trim((string)$old));
+                $new = preg_replace('/\s+/', ' ', trim((string)$new));
+            }
+
+            $beforeCompare[$f] = $old;
+            $inputCompare[$f]  = $new;
+        }
+
+        // ✅ compute "real" changes (ignore fields with validation errors)
         $updatedFields = [];
+        foreach ($inputCompare as $field => $newVal) {
+            if (isset($errors[$field])) continue;
+            $oldVal = $beforeCompare[$field] ?? null;
 
+            if ($newVal !== $oldVal) {
+                $updatedFields[$field] = $input[$field] ?? null;
+            }
+        }
+
+        /* ============================================================
+        APPLY UPDATES: only apply changed & valid fields
+        ============================================================ */
         foreach ($editableFields as $field) {
-            if (!array_key_exists($field, $input)) {
-                continue;
-            }
-            if (isset($errors[$field])) {
-                // keep old value if invalid
-                continue;
-            }
+            if (!array_key_exists($field, $input)) continue;
+            if (isset($errors[$field])) continue;
 
-            $old = $before[$field] ?? '';
-            $new = $input[$field];
-
-            if ($field === 'district') {
-                $old = preg_replace('/\D/', '', (string) $old);
-                $new = preg_replace('/\D/', '', (string) $new);
-            }
-
-            if ($field === 'class_schedule') {
-                $old = preg_replace('/\s+/', ' ', trim((string) $old));
-                $new = preg_replace('/\s+/', ' ', trim((string) $new));
-            }
-
-            if ($field === 'batch_year') {
-                // compare as integers so "2023" and 2023 are treated the same
-                $old = ($old === '' || $old === null) ? null : (int) $old;
-                $new = ($new === '' || $new === null) ? null : (int) $new;
-            }
-
-            if ($new !== $old) {
-                $updatedFields[$field] = $input[$field]; // store original normalized value
-            }
+            // ✅ don't overwrite if not actually changed
+            if (!array_key_exists($field, $updatedFields)) continue;
 
             $entries[$index][$field] = $input[$field];
         }
 
+        // ✅ CRITICAL: if schedule changed, sync day arrays so validation + submit uses updated schedule
+        if (array_key_exists('class_schedule', $updatedFields)) {
+            $this->syncDayArraysFromClassSchedule($entries[$index]);
+        }
+
         $entries[$index]['errors'] = $errors;
+
+        // ✅ If entry is now clean, remove errors key entirely
+        if (empty($errors)) {
+            unset($entries[$index]['errors']);
+        }
+
         session([$type . 'Entries' => $entries]);
 
-        /* ============================================================
-        UPDATE DB (IF LINKED)
-        ============================================================ */
+        // ✅ DB update only when changes exist
         if (!empty($entries[$index]['volunteer_id']) && !empty($updatedFields)) {
             if ($vol = VolunteerProfile::find($entries[$index]['volunteer_id'])) {
                 $vol->update(array_merge($updatedFields, ['status' => 'active']));
             }
         }
 
-        /* ============================================================
-        LOG CHANGES  (Batch Year now included & ordered)
-        ============================================================ */
         $adminId = Auth::guard('admin')->id();
         $labels = [
             'full_name'         => 'Full Name',
             'id_number'         => 'School ID',
             'course'            => 'Course',
             'year_level'        => 'Year Level',
-            'batch_year'        => 'Batch Year',      // ⬅️ now right after Year Level
+            'batch_year'        => 'Batch Year',
             'contact_number'    => 'Contact #',
             'emergency_contact' => 'Emergency #',
             'email'             => 'Email',
@@ -1061,6 +1049,7 @@ class VolunteerImportController extends Controller
             'class_schedule'    => 'Class Schedule',
         ];
 
+        // ✅ Log only when changes exist
         if ($adminId && !empty($updatedFields)) {
             $fieldDetails = [];
             foreach ($updatedFields as $field => $value) {
@@ -1083,9 +1072,6 @@ class VolunteerImportController extends Controller
             );
         }
 
-        /* ============================================================
-        SUCCESS MODAL CONTENT (Batch Year in the right place)
-        ============================================================ */
         $row  = $index + 1;
         $name = htmlspecialchars($before['full_name'] ?? 'Unknown', ENT_QUOTES, 'UTF-8');
 
@@ -1097,70 +1083,62 @@ class VolunteerImportController extends Controller
             </div>
         ";
 
-    foreach ($labels as $field => $niceLabel) {
+        foreach ($labels as $field => $niceLabel) {
 
-        // what we show as "before" and "after"
-        $oldDisplay = $entry[$field] ?? ($before[$field] ?? '');
-        $newDisplay = $entries[$index][$field] ?? ($input[$field] ?? '');
+            $oldDisplay = $entry[$field] ?? ($before[$field] ?? '');
+            $newDisplay = $entries[$index][$field] ?? ($input[$field] ?? '');
 
-        $oldSafe = htmlspecialchars((string)$oldDisplay, ENT_QUOTES, 'UTF-8');
-        $newSafe = htmlspecialchars((string)$newDisplay, ENT_QUOTES, 'UTF-8');
+            $oldSafe = htmlspecialchars((string)$oldDisplay, ENT_QUOTES, 'UTF-8');
+            $newSafe = htmlspecialchars((string)$newDisplay, ENT_QUOTES, 'UTF-8');
 
-        $hasError   = !empty($errors[$field] ?? []);
-        $wasChanged = array_key_exists($field, $updatedFields);
+            $hasError   = !empty($errors[$field] ?? []);
+            $wasChanged = array_key_exists($field, $updatedFields);
 
-        $errorMsg = $hasError
-            ? htmlspecialchars(implode(', ', (array)$errors[$field]), ENT_QUOTES, 'UTF-8')
-            : '';
+            $errorMsg = $hasError
+                ? htmlspecialchars(implode(', ', (array)$errors[$field]), ENT_QUOTES, 'UTF-8')
+                : '';
 
-        $block .= "
-        <div style='margin-bottom:10px; font-size:0.98rem;'>
-            <div style='font-weight:600; color:#333; margin-bottom:2px;'>
-                {$niceLabel}:
-            </div>
-            <div style='display:flex; align-items:flex-start; gap:6px;'>
-        ";
-
-        if ($hasError) {
-            // ⚠️ ERROR (same as before – warning triangle)
             $block .= "
-                <span style='margin-top:2px;'>&#9888;</span>
-                <span>
-                    <span style='color:#B2000C; font-weight:600;'>Error:</span>
-                    <span style='color:#B2000C;'> {$errorMsg}</span>
-                </span>
+            <div style='margin-bottom:10px; font-size:0.98rem;'>
+                <div style='font-weight:600; color:#333; margin-bottom:2px;'>
+                    {$niceLabel}:
+                </div>
+                <div style='display:flex; align-items:flex-start; gap:6px;'>
             ";
-        } elseif ($wasChanged) {
-            // ✔️ CHANGED (now used for *all* fields, including Batch Year)
+
+            if ($hasError) {
+                $block .= "
+                    <span style='margin-top:2px;'>&#9888;</span>
+                    <span>
+                        <span style='color:#B2000C; font-weight:600;'>Error:</span>
+                        <span style='color:#B2000C;'> {$errorMsg}</span>
+                    </span>
+                ";
+            } elseif ($wasChanged) {
+                $block .= "
+                    <span style='margin-top:2px;'>&#10004;</span>
+                    <span>
+                        <span style='color:#28a745; font-weight:600;'>Changed:</span>
+                        <span style='color:#555;'> {$oldSafe}</span>
+                        <span style='color:#999; margin:0 4px;'>&rarr;</span>
+                        <span style='color:#007bff; font-weight:600;'>{$newSafe}</span>
+                    </span>
+                ";
+            } else {
+                $block .= "
+                    <span style='margin-top:2px;'>&#8505;&#65039;</span>
+                    <span style='color:#444;'>No changes made</span>
+                ";
+            }
+
             $block .= "
-                <span style='margin-top:2px;'>&#10004;</span>
-                <span>
-                    <span style='color:#28a745; font-weight:600;'>Changed:</span>
-                    <span style='color:#555;'> {$oldSafe}</span>
-                    <span style='color:#999; margin:0 4px;'>&rarr;</span>
-                    <span style='color:#007bff; font-weight:600;'>{$newSafe}</span>
-                </span>
-            ";
-        } else {
-            // ℹ️ NO CHANGE (blue info)
-            $block .= "
-                <span style='margin-top:2px;'>&#8505;&#65039;</span>
-                <span style='color:#444;'>No changes made</span>
-            ";
+                </div>
+                <div style='border-bottom:1px solid #e0e0e0; margin:8px 0 4px;'></div>
+            </div>";
         }
-
-        $block .= "
-            </div>
-            <div style='border-bottom:1px solid #e0e0e0; margin:8px 0 4px;'></div>
-        </div>";
-    }
-
 
         $encodedDetails = base64_encode($block);
 
-        /* ============================================================
-        FLASH MESSAGE
-        ============================================================ */
         $title = !empty($updatedFields)
             ? "✔ Changes Saved #{$row}"
             : "✔ No Changes Made #{$row}";
@@ -1182,11 +1160,7 @@ class VolunteerImportController extends Controller
             ->with('last_updated_table', $type)
             ->with('last_updated_index', $index);
     }
-
-
-    /**
-     * Move selected INVALID entries → VALID
-     */
+        
     public function moveInvalidToValid(Request $request)
     {
         $invalid = session('invalidEntries', []);
@@ -1194,12 +1168,9 @@ class VolunteerImportController extends Controller
         $adminId = Auth::guard('admin')->user()->admin_id ?? null;
 
         $selected = (array) $request->input('selected_invalid', []);
-
-        // normalize + unique + stable order
         $selected = array_values(array_unique(array_map('intval', $selected)));
         sort($selected);
 
-        // ❌ NOTHING SELECTED
         if (empty($selected)) {
 
             $this->logFact(
@@ -1247,55 +1218,65 @@ class VolunteerImportController extends Controller
             $entry = $invalid[$index];
             $name  = $entry['full_name'] ?? 'Unknown';
 
-            // capture origin BEFORE unsetting / reindexing
             $entry['origin_bucket']   = 'invalid';
-            $entry['origin_index']    = $index;        // 0-based
-            $entry['origin_entry_no'] = $index + 1;    // 1-based display number
+            $entry['origin_index']    = $index;
+            $entry['origin_entry_no'] = $index + 1;
 
-            // ❌ cannot move because still invalid
-            if (!empty($entry['errors'])) {
+            // ✅ CRITICAL: sync day arrays from class_schedule before validation
+            $this->syncDayArraysFromClassSchedule($entry);
+
+            $reErrors = $this->validateRow($entry);
+            if (!empty($reErrors)) {
                 $failed[] = [
                     'index'  => $index + 1,
                     'name'   => $name,
-                    'errors' => $entry['errors'],
+                    'errors' => $reErrors,
                 ];
                 continue;
             }
 
-            // ✅ move entry
             $moved[] = $entry;
             unset($invalid[$index]);
         }
 
-        /**
-         * ❌ SOME FAILED
-         */
+        /* ============================================================
+        ✅ FIX: ALWAYS COMMIT MOVED ENTRIES TO SESSION
+        - even when some entries failed validation
+        ============================================================ */
+        session([
+            'invalidEntries' => array_values($invalid),
+            'validEntries'   => array_merge($valid, $moved),
+        ]);
+
+        // Log moved (even partial)
+        foreach ($moved as $e) {
+            $name = $e['full_name'] ?? 'Unknown';
+
+            $id = $e['volunteer_id']
+                ?? ($e['row_number'] ?? null)
+                ?? ($e['origin_entry_no'] ?? null);
+
+            $fromNo = $e['origin_entry_no'] ?? '?';
+
+            $this->logFact(
+                'Import Move',
+                $adminId,
+                'VolunteerImport',
+                $id,
+                'Moved Invalid → Valid',
+                "Moved Entry #{$fromNo} — {$name}"
+            );
+        }
+
+        // If some failed, return error modal but moved ones will now show in Verified
         if (!empty($failed)) {
 
-            // log moved ones individually (since some did move)
-            foreach ($moved as $e) {
-                $name = $e['full_name'] ?? 'Unknown';
-
-                $id = $e['volunteer_id']
-                    ?? ($e['row_number'] ?? null)
-                    ?? ($e['origin_entry_no'] ?? null);
-
-                $fromNo = $e['origin_entry_no'] ?? '?';
-
-                $this->logFact(
-                    'Import Move',
-                    $adminId,
-                    'VolunteerImport',
-                    $id,
-                    'Moved Invalid → Valid',
-                    "Moved Entry #{$fromNo} — {$name}"
-                );
-            }
-
-            $count = count($failed);
+            $failedCount = count($failed);
+            $movedCount  = count($moved);
 
             $flash = "
-                <strong style='color:#B2000C;'>❌ Failed to move {$count} entr" . ($count > 1 ? "ies" : "y") . "</strong>
+                <strong style='color:#d38b00;'>⚠️ Partially moved</strong>
+                <span style='color:#666;'>— moved {$movedCount}, failed {$failedCount}</span>
                 &nbsp;|&nbsp;
                 <span class='error-details-link'
                     style='color:#1565c0; cursor:pointer; text-decoration:none;'>
@@ -1337,37 +1318,11 @@ class VolunteerImportController extends Controller
                 ->with('show_error_modal', true)
                 ->with('error_modal_message', $html)
                 ->with('failed_entries_json', $failed)
-                ->with('redirect_anchor', '#import-Section-invalid');
+                // ✅ IMPORTANT: if you want to SEE the moved ones immediately, anchor to valid section
+                ->with('redirect_anchor', '#import-Section-valid');
         }
 
-        /**
-         * ✅ SAVE SUCCESSFULLY MOVED
-         */
-        session([
-            'invalidEntries' => array_values($invalid),
-            'validEntries'   => array_merge($valid, $moved),
-        ]);
-
-        // ✅ per-entry fact logs (NOT summary)
-        foreach ($moved as $e) {
-            $name = $e['full_name'] ?? 'Unknown';
-
-            $id = $e['volunteer_id']
-                ?? ($e['row_number'] ?? null)
-                ?? ($e['origin_entry_no'] ?? null);
-
-            $fromNo = $e['origin_entry_no'] ?? '?';
-
-            $this->logFact(
-                'Import Move',
-                $adminId,
-                'VolunteerImport',
-                $id,
-                'Moved Invalid → Valid',
-                "Moved Entry #{$fromNo} — {$name}"
-            );
-        }
-
+        // All good (no failures)
         $count = count($moved);
 
         $flash = "
@@ -1379,7 +1334,6 @@ class VolunteerImportController extends Controller
             </span>
         ";
 
-        // Modal: show ORIGINAL invalid entry number for each moved item
         $html = "
             <div style='font-size:1.3rem; font-weight:700;'>Moved Entries</div>
             <div style='border-bottom:1px solid #dcdcdc; margin:10px 0;'></div>
@@ -1408,9 +1362,6 @@ class VolunteerImportController extends Controller
             ->with('redirect_anchor', '#import-Section-valid');
     }
 
-    /**
-     * Move VALID → INVALID
-     */
     public function moveValidToInvalid(Request $request, $index)
     {
         $valid   = session('validEntries', []);
@@ -1419,7 +1370,6 @@ class VolunteerImportController extends Controller
 
         $index = (int)$index;
 
-        // ❌ INVALID INDEX
         if (!isset($valid[$index])) {
 
             $this->logFact(
@@ -1460,10 +1410,13 @@ class VolunteerImportController extends Controller
         $entry = $valid[$index];
         $name  = $entry['full_name'] ?? 'Unknown';
 
-        // capture origin BEFORE unsetting / reindexing
         $entry['origin_bucket']   = 'valid';
         $entry['origin_index']    = $index;
         $entry['origin_entry_no'] = $index + 1;
+
+        // ✅ OPTIONAL (but safe): clear stale "errors" when moving into invalid bucket
+        // (if you want it to appear as invalid without old validation state confusion)
+        // unset($entry['errors']);
 
         unset($valid[$index]);
         $invalid[] = $entry;
@@ -1473,7 +1426,6 @@ class VolunteerImportController extends Controller
             'invalidEntries' => array_values($invalid),
         ]);
 
-        // ✅ per-entry log
         $id = $entry['volunteer_id']
             ?? ($entry['row_number'] ?? null)
             ?? ($entry['origin_entry_no'] ?? null);
@@ -1518,12 +1470,9 @@ class VolunteerImportController extends Controller
             ->with('redirect_anchor', '#import-Section-invalid');
     }
 
-    /**
-     * Delete Entries
-     */
     public function deleteEntries(Request $request)
     {
-        $tableType = $request->input('table_type'); // invalid / valid / logs
+        $tableType = $request->input('table_type');
         $selected  = $request->input('selected', []);
         $adminId   = auth()->guard('admin')->id();
 
@@ -1538,33 +1487,35 @@ class VolunteerImportController extends Controller
             case 'invalid':
             case 'valid':
                 $entries = session($tableType . 'Entries', []);
+
                 foreach ($selected as $index) {
-                    if (isset($entries[$index])) {
+                    if (!isset($entries[$index])) continue;
 
-                        $deletedData[$index] = $entries[$index];
-                        unset($entries[$index]);
+                    $deletedData[$index] = $entries[$index];
+                    unset($entries[$index]);
 
-                        $volunteerId = $deletedData[$index]['volunteer_id']
-                                    ?? $deletedData[$index]['row_number']
-                                    ?? null;
+                    $volunteerId = $deletedData[$index]['volunteer_id']
+                                ?? $deletedData[$index]['row_number']
+                                ?? null;
 
-                        $name = $deletedData[$index]['full_name'] ?? 'No Name';
+                    $name = $deletedData[$index]['full_name'] ?? 'No Name';
 
-                        $this->logFact(
-                            'Delete Entry',
-                            $adminId,
-                            'Volunteer Import',
-                            $volunteerId,
-                            'Deleted',
-                            "Deleted Volunteer Entry #" . ($index + 1) . " {$name}"
-                        );
-                    }
+                    $this->logFact(
+                        'Delete Entry',
+                        $adminId,
+                        'Volunteer Import',
+                        $volunteerId,
+                        'Deleted',
+                        "Deleted Volunteer Entry #" . ($index + 1) . " {$name}"
+                    );
                 }
+
                 session([$tableType . 'Entries' => array_values($entries)]);
                 break;
 
             case 'logs':
                 $deletedEntries = ImportLog::whereIn('import_id', $selected)->get();
+
                 foreach ($deletedEntries as $entry) {
                     $deletedData[] = $entry->toArray();
                     $name = $entry->file_name ?? 'No Name';
@@ -1578,6 +1529,7 @@ class VolunteerImportController extends Controller
                         "Deleted Import Log '{$name}' (ID {$entry->import_id})"
                     );
                 }
+
                 ImportLog::whereIn('import_id', $selected)->delete();
                 break;
 
@@ -1585,89 +1537,84 @@ class VolunteerImportController extends Controller
                 return back()->with('error', '⚠️ Invalid table type.');
         }
 
-        // ---------------------------------------------------------------------
-        //                  FORMAT FLASH MESSAGE — ONE CLEAN LINE
-        // ---------------------------------------------------------------------
-        if (!empty($deletedData)) {
-
-            session([
-                'deletedEntriesUndo' => [
-                    'tableType' => $tableType,
-                    'data'      => $deletedData,
-                    'timestamp' => now()
-                ]
-            ]);
-
-            $formatted = [];
-            foreach ($deletedData as $index => $item) {
-                $name = $item['full_name'] ?? ($item['file_name'] ?? 'No Name');
-                $formatted[] =
-                    "Entry #" . ($index + 1) .
-                    ": <span style='color:#B2000C; font-weight:600;'>{$name}</span>";
-            }
-
-            $total = count($formatted);
-
-            // Begin message
-            $message = "
-            <div style='display:flex; align-items:center; flex-wrap:wrap; gap:14px;
-                        font-size:1.05rem; font-weight:600; color:#333;'>
-
-                <span style='color:#B2000C;'>🗑️ Deleted {$total} entr" . ($total > 1 ? "ies" : "y") . "</span>
-            ";
-
-            if ($total === 1) {
-
-                $message .= "
-                    <span>{$formatted[0]}</span>
-
-                    <a href='" . route('volunteer.import.undo-delete') . "'
-                    style='margin-left:6px; padding:4px 12px;
-                            background:#007bff; color:#fff; border-radius:6px;
-                            font-size:0.9rem; font-weight:600; text-decoration:none;'>
-                        Undo
-                    </a>
-                ";
-
-            } else {
-
-                $detailsHtml = implode('<br>', $formatted);
-
-                $message .= "
-                    <a href='#'
-                    class='deleted-details-link'
-                    data-details=\"{$detailsHtml}\"
-                    style='font-size:0.95rem; font-weight:600;
-                            color:#007bff; text-decoration:none;'>
-                        View details
-                    </a>
-
-                    <a href='" . route('volunteer.import.undo-delete') . "'
-                    style='margin-left:6px; padding:4px 12px;
-                            background:#007bff; color:#fff; border-radius:6px;
-                            font-size:0.9rem; font-weight:600; text-decoration:none;'>
-                        Undo
-                    </a>
-                ";
-            }
-
-            $message .= "</div>";
-
+        if (empty($deletedData)) {
             return back()
-                ->with('delete_success', $message)
-                ->with('success', $message)
-                ->with('last_updated_table', $tableType)
-                ->with('last_updated_indices', $selected);
+                ->with('success', 'No entries deleted.')
+                ->with('last_updated_table', $tableType);
         }
 
+        // Store undo payload
+        session([
+            'deletedEntriesUndo' => [
+                'tableType'  => $tableType,
+                'data'       => $deletedData,
+                'timestamp'  => now(),
+            ]
+        ]);
+
+        // Build formatted lines
+        $formatted = [];
+        foreach ($deletedData as $index => $item) {
+            $name = $item['full_name'] ?? ($item['file_name'] ?? 'No Name');
+            $formatted[] =
+                "Entry #" . ($index + 1) .
+                ": <span style='color:#B2000C; font-weight:600;'>{$name}</span>";
+        }
+
+        $total = count($formatted);
+
+        $message = "
+        <div style='display:flex; align-items:center; flex-wrap:wrap; gap:14px;
+                    font-size:1.05rem; font-weight:600; color:#333;'>
+            <span style='color:#B2000C;'>🗑️ Deleted {$total} entr" . ($total > 1 ? "ies" : "y") . "</span>
+        ";
+
+        if ($total === 1) {
+
+            $message .= "
+                <span>{$formatted[0]}</span>
+
+                <a href='" . route('volunteer.import.undo-delete') . "'
+                style='margin-left:6px; padding:4px 12px;
+                        background:#007bff; color:#fff; border-radius:6px;
+                        font-size:0.9rem; font-weight:600; text-decoration:none;'>
+                    Undo
+                </a>
+            ";
+
+        } else {
+
+            // ✅ IMPORTANT FIX: escape for attribute-safe HTML (prevents modal/link breakage)
+            $detailsHtmlRaw = implode('<br>', $formatted);
+            $detailsAttr    = e($detailsHtmlRaw);
+
+            $message .= "
+                <a href='#'
+                class='deleted-details-link'
+                data-details=\"{$detailsAttr}\"
+                style='font-size:0.95rem; font-weight:600;
+                        color:#007bff; text-decoration:none;'>
+                    View details
+                </a>
+
+                <a href='" . route('volunteer.import.undo-delete') . "'
+                style='margin-left:6px; padding:4px 12px;
+                        background:#007bff; color:#fff; border-radius:6px;
+                        font-size:0.9rem; font-weight:600; text-decoration:none;'>
+                    Undo
+                </a>
+            ";
+        }
+
+        $message .= "</div>";
+
         return back()
-            ->with('success', 'No entries deleted.')
-            ->with('last_updated_table', $tableType);
+            ->with('delete_success', $message)
+            ->with('success', $message)
+            ->with('last_updated_table', $tableType)
+            ->with('last_updated_indices', $selected);
     }
 
-    /**
-     * Undo Deleted Entries
-     */
     public function undoDelete(Request $request)
     {
         $deleted = session('deletedEntriesUndo');
@@ -1685,8 +1632,8 @@ class VolunteerImportController extends Controller
             case 'invalid':
             case 'valid':
                 $entries = session($tableType . 'Entries', []);
-                foreach ($data as $index => $item) {
 
+                foreach ($data as $index => $item) {
                     $entries[$index] = $item;
 
                     $volunteerId = $item['volunteer_id'] ?? $item['row_number'] ?? null;
@@ -1701,28 +1648,30 @@ class VolunteerImportController extends Controller
                         "Restored Volunteer Entry #" . ($index + 1) . " {$name}"
                     );
                 }
+
                 session([$tableType . 'Entries' => array_values($entries)]);
                 break;
 
             case 'logs':
-                foreach ($data as $index => $item) {
+                foreach ($data as $item) {
 
-                    if (!ImportLog::where('import_id', $item['import_id'])->exists()) {
-
-                        ImportLog::create($item);
-
-                        $entityId = $item['import_id'] ?? null;
-                        $name     = $item['file_name'] ?? 'No Name';
-
-                        $this->logFact(
-                            'Restore Import Log',
-                            $adminId,
-                            'Volunteer Import',
-                            $entityId,
-                            'Restored',
-                            "Restored Import Log '{$name}' (ID {$entityId})"
-                        );
+                    if (ImportLog::where('import_id', $item['import_id'])->exists()) {
+                        continue;
                     }
+
+                    ImportLog::create($item);
+
+                    $entityId = $item['import_id'] ?? null;
+                    $name     = $item['file_name'] ?? 'No Name';
+
+                    $this->logFact(
+                        'Restore Import Log',
+                        $adminId,
+                        'Volunteer Import',
+                        $entityId,
+                        'Restored',
+                        "Restored Import Log '{$name}' (ID {$entityId})"
+                    );
                 }
                 break;
 
@@ -1732,10 +1681,10 @@ class VolunteerImportController extends Controller
 
         session()->forget('deletedEntriesUndo');
 
+        // Build formatted lines
         $formatted = [];
         foreach ($data as $index => $item) {
             $name = $item['full_name'] ?? ($item['file_name'] ?? 'No Name');
-
             $formatted[] =
                 "Entry #" . ($index + 1) .
                 ": <span style='color:#B2000C; font-weight:600;'>{$name}</span>";
@@ -1743,30 +1692,26 @@ class VolunteerImportController extends Controller
 
         $total = count($formatted);
 
-        // ---------------------------------------------------------------------
-        //                  CLEAN ONE-LINE RESTORE FLASH BAR
-        // ---------------------------------------------------------------------
         $message = "
         <div style='display:flex; align-items:center; flex-wrap:wrap; gap:14px;
                     font-size:1.05rem; font-weight:600; color:#333;'>
-
             <span style='color:#28a745;'>♻️ Restored {$total} entr" . ($total > 1 ? "ies" : "y") . "</span>
         ";
 
         if ($total === 1) {
 
-            $message .= "
-                <span>{$formatted[0]}</span>
-            ";
+            $message .= "<span>{$formatted[0]}</span>";
 
         } else {
 
-            $detailsHtml = implode('<br>', $formatted);
+            // ✅ IMPORTANT FIX: escape for attribute-safe HTML
+            $detailsHtmlRaw = implode('<br>', $formatted);
+            $detailsAttr    = e($detailsHtmlRaw);
 
             $message .= "
                 <a href='#'
                 class='restored-details-link'
-                data-details=\"{$detailsHtml}\"
+                data-details=\"{$detailsAttr}\"
                 style='font-size:0.95rem; font-weight:600;
                         color:#007bff; text-decoration:none;'>
                     View details
@@ -1783,196 +1728,294 @@ class VolunteerImportController extends Controller
             ->with('last_updated_indices', array_keys($data));
     }
 
-    /**
-     * Validate and Save Selected Valid Entries
-     */
-    public function validateAndSave(Request $request)
-    {
-        Log::info('DEBUG_SUBMIT: raw selected_valid input', ['raw' => $request->input('selected_valid', [])]);
-        Log::info('DEBUG_SUBMIT: session validEntries count', ['count' => count(session('validEntries', []))]);
-        Log::info('DEBUG_SUBMIT: session invalidEntries count', ['count' => count(session('invalidEntries', []))]);
+        public function validateAndSave(Request $request)
+        {
+            Log::info('DEBUG_SUBMIT: raw selected_valid input', ['raw' => $request->input('selected_valid', [])]);
+            Log::info('DEBUG_SUBMIT: session validEntries count', ['count' => count(session('validEntries', []))]);
+            Log::info('DEBUG_SUBMIT: session invalidEntries count', ['count' => count(session('invalidEntries', []))]);
 
-        $selectedIndexes = array_values(array_unique(array_map('intval',
-            (array)$request->input('selected_valid', [])
-        )));
+            $selectedIndexes = array_values(array_unique(array_map('intval',
+                (array)$request->input('selected_valid', [])
+            )));
 
-        $validEntries   = session('validEntries', []);
-        $invalidEntries = session('invalidEntries', []);
-        $fileName       = session('uploaded_file_name', 'N/A');
+            $validEntries   = session('validEntries', []);
+            $invalidEntries = session('invalidEntries', []);
+            $fileName       = session('uploaded_file_name', 'N/A');
 
-        $admin = Auth::guard('admin')->user();
-        if (!$admin) {
-            return back()
-                ->with('error_modal', "❌ Admin not authenticated.")
-                ->with('error_modal_entries', [
-                    [
-                        'row' => '-',
-                        'name' => 'Authentication Failure',
-                        'details' => 'Admin guard returned null user.'
-                    ]
-                ]);
-        }
-
-        $adminId   = $admin->admin_id;
-        $adminName = $admin->name ?? $admin->username ?? "Unknown Admin";
-
-        // Block if invalid entries still exist
-        if (!empty($invalidEntries)) {
-
-            $entryList = array_map(function($item){
-                return [
-                    'row'    => $item['row_number'] ?? '?',
-                    'name'   => $item['full_name'] ?? 'Unknown',
-                    'details'=> json_encode($item, JSON_PRETTY_PRINT)
-                ];
-            }, $invalidEntries);
-
-            $rows = implode(', ', array_column($invalidEntries, 'row_number'));
-
-            return back()
-                ->with('error_modal', "❌ Cannot upload. Invalid entries found in row(s): <strong>{$rows}</strong>.")
-                ->with('error_modal_entries', $entryList);
-        }
-
-        if (empty($selectedIndexes)) {
-            return back()
-                ->with('error_modal', "❌ No verified entries selected to save.")
-                ->with('error_modal_entries', [
-                    [
-                        'row' => '-',
-                        'name' => 'No Selection',
-                        'details' => 'selected_valid[] array was empty.'
-                    ]
-                ]);
-        }
-
-        $entriesToSave = [];
-        foreach ($selectedIndexes as $index) {
-
-            if (!isset($validEntries[$index])) continue;
-
-            $entry = $validEntries[$index];
-
-            if ($this->validateRow($entry)) {
-
-                $rowNumber = $entry['row_number'] ?? $index;
-
+            $admin = Auth::guard('admin')->user();
+            if (!$admin) {
                 return back()
-                    ->with('error_modal', "❌ Validation failed for row <strong>{$rowNumber}</strong>.")
+                    ->with('error_modal', "❌ Admin not authenticated.")
                     ->with('error_modal_entries', [
                         [
-                            'row' => $rowNumber,
-                            'name' => $entry['full_name'] ?? 'Unknown',
-                            'details' => json_encode($entry, JSON_PRETTY_PRINT)
+                            'row'    => '-',
+                            'name'   => 'Authentication Failure',
+                            'status' => 'invalid',
+                            'issues' => ['Admin guard returned null user.'],
                         ]
                     ]);
             }
 
-            $entriesToSave[] = [
-                'index' => $index,
-                'data'  => $entry
-            ];
-        }
+            $adminId   = $admin->admin_id;
+            $adminName = $admin->name ?? $admin->username ?? "Unknown Admin";
 
-        if (empty($entriesToSave)) {
-            return back()
-                ->with('error_modal', "❌ No valid entries found to save.")
-                ->with('error_modal_entries', [
-                    [
-                        'row' => '-',
-                        'name' => 'No Valid Entries',
-                        'details' => 'entriesToSave array was empty.'
-                    ]
-                ]);
-        }
+            // ✅ If session has invalid entries, block immediately (and return as "invalid")
+            if (!empty($invalidEntries)) {
 
-        // Save to DB
-        try {
+                $entryList = array_map(function($item){
+                    $row  = $item['row_number'] ?? '?';
+                    $name = $item['full_name'] ?? 'Unknown';
 
-            DB::transaction(function () use ($entriesToSave, $adminId, $adminName, $fileName) {
+                    // Try to convert per-field errors into short issues
+                    $issues = [];
 
-                $previewId  = session('import_log_id');
-                $previewLog = ImportLog::find($previewId);
+                    $errs = $item['errors'] ?? null;
+                    if (is_array($errs)) {
+                        foreach ($errs as $field => $msgs) {
+                            foreach ((array)$msgs as $m) {
+                                $issues[] = ucwords(str_replace('_',' ', (string)$field)) . ": " . (string)$m;
+                            }
+                        }
+                    }
 
-                $timestamp = now()->format('M d, Y h:i A');
+                    if (empty($issues)) {
+                        $issues[] = "Invalid data found in this entry.";
+                    }
 
-                if ($previewLog) {
-                    $previewLog->update([
-                        'status'          => 'Completed',
-                        'total_records'   => count($entriesToSave),
-                        'valid_count'     => count($entriesToSave),
-                        'invalid_count'   => 0,
-                        'duplicate_count' => 0,
-                        'remarks'         =>
-                            "Imported " . count($entriesToSave) . " row(s) on {$timestamp} by {$adminName}.<br>" .
-                            "File: {$fileName}"
+                    return [
+                        'row'    => $row,
+                        'name'   => $name,
+                        'status' => 'invalid',
+                        'issues' => $issues,
+                    ];
+                }, $invalidEntries);
+
+                $rows = implode(', ', array_filter(array_map(function($x){
+                    return $x['row_number'] ?? null;
+                }, $invalidEntries)));
+
+                return back()
+                    ->with('error_modal', "❌ Cannot upload. Invalid entries found in row(s): <strong>{$rows}</strong>.")
+                    ->with('error_modal_entries', $entryList);
+            }
+
+            if (empty($selectedIndexes)) {
+                return back()
+                    ->with('error_modal', "❌ No verified entries selected to save.")
+                    ->with('error_modal_entries', [
+                        [
+                            'row'    => '-',
+                            'name'   => 'No Selection',
+                            'status' => 'invalid',
+                            'issues' => ['No rows were selected (selected_valid[] was empty).'],
+                        ]
                     ]);
+            }
+
+            // ✅ Build entriesToSave (synced schedules)
+            $entriesToSave = [];
+            foreach ($selectedIndexes as $index) {
+
+                if (!isset($validEntries[$index])) continue;
+
+                $entry = $validEntries[$index];
+
+                // ✅ CRITICAL: ensure schedule arrays are synced before validating/saving
+                $this->syncDayArraysFromClassSchedule($entry);
+
+                // local validation
+                $localErrors = $this->validateRow($entry);
+                if ($localErrors) {
+
+                    $rowNumber = $entry['row_number'] ?? ($index + 1);
+
+                    // Build short issues
+                    $issues = [];
+                    foreach ($localErrors as $field => $msgs) {
+                        foreach ((array)$msgs as $m) {
+                            $issues[] = ucwords(str_replace('_',' ', (string)$field)) . ": " . (string)$m;
+                        }
+                    }
+
+                    return back()
+                        ->with('error_modal', "❌ Validation failed for row <strong>{$rowNumber}</strong>.")
+                        ->with('error_modal_entries', [
+                            [
+                                'row'    => $rowNumber,
+                                'name'   => $entry['full_name'] ?? 'Unknown',
+                                'status' => 'invalid',
+                                'issues' => $issues ?: ['Invalid entry.'],
+                            ]
+                        ]);
                 }
 
-                foreach ($entriesToSave as $entryData) {
+                $entriesToSave[] = [
+                    'index' => $index,
+                    'data'  => $entry // ✅ save the synced copy
+                ];
+            }
 
-                    $entry = $entryData['data'];
-                    $index = $entryData['index'];
-
-                    // Resolve Course ID
-                    $courseName = preg_replace('/\s+/', ' ', trim($entry['course'] ?? ''));
-                    $courseId = Course::whereRaw('LOWER(TRIM(course_name)) = ?', [
-                        strtolower($courseName)
-                    ])->value('course_id');
-
-                    // Resolve Location
-                    $barangay    = $entry['barangay'] ?? null;
-                    $locationId  = $barangay ? Location::where('barangay', $barangay)->value('location_id') : null;
-                    $location    = $locationId ? Location::find($locationId) : null;
-
-                    // Profile picture: convert + download at SAVE time
-                    $driveUrl   = $entry['profile_picture'] ?? null;
-                    $converted  = $this->convertDriveLinkToDownloadUrl($driveUrl);
-                    $localPath  = $this->downloadDriveImage($converted);
-
-                    $volunteer = VolunteerProfile::create([
-                        'import_id'      => $previewId,
-                        'full_name'      => $entry['full_name'],
-                        'id_number'      => $entry['id_number'] ?? "TEMP-" . uniqid(),
-                        'course_id'      => $courseId,
-                        'year_level'     => $entry['year_level'],
-                        'batch_year'     => !empty($entry['batch_year']) ? (int)$entry['batch_year'] : null,
-                        'contact_number' => $entry['contact_number'],
-                        'emergency_contact' => $entry['emergency_contact'],
-                        'email'          => $entry['email'],
-                        'fb_messenger'   => $entry['fb_messenger'],
-                        'location_id'    => $locationId,
-                        'barangay'       => $location->barangay ?? null,
-                        'district'       => $location->district_id ?? null,
-                        'class_schedule' => $entry['class_schedule'],
-                        'profile_picture_url'  => $driveUrl ?: null,
-                        'profile_picture_path' => $localPath ?: 'defaults/default_user.png',
-                        'status' => 'active',
+            if (empty($entriesToSave)) {
+                return back()
+                    ->with('error_modal', "❌ No valid entries found to save.")
+                    ->with('error_modal_entries', [
+                        [
+                            'row'    => '-',
+                            'name'   => 'No Valid Entries',
+                            'status' => 'invalid',
+                            'issues' => ['No valid entries were collected for saving.'],
+                        ]
                     ]);
+            }
 
+            /* ============================================================
+            ✅ NEW: Detect per-entry duplicates BEFORE saving
+            - This enables your modal to show:
+                "M. Ramirez - Volunteer Already Exist"
+                "Jacob G Wally - Invalid Character"
+            ============================================================ */
 
-                    $this->logFact(
-                        'Import Verified',
-                        $adminId,
-                        'VolunteerProfile',
-                        $volunteer->volunteer_id,
-                        'Imported',
-                        "Imported Volunteer Entry #" . ($index + 1) . " – {$entry['full_name']}"
-                    );
+            $statusList   = [];
+            $hasBlocking  = false;
+
+            foreach ($entriesToSave as $pack) {
+
+                $entry = $pack['data'];
+                $row   = $entry['row_number'] ?? ($pack['index'] + 1);
+                $name  = $entry['full_name'] ?? 'Unknown';
+
+                $email = trim((string)($entry['email'] ?? ''));
+                $idnum = trim((string)($entry['id_number'] ?? ''));
+
+                $emailExists = $email !== '' ? VolunteerProfile::where('email', $email)->exists() : false;
+                $idExists    = $idnum !== '' ? VolunteerProfile::where('id_number', $idnum)->exists() : false;
+
+                if ($emailExists || $idExists) {
+                    $hasBlocking = true;
+
+                    $issues = [];
+                    // Keep your preferred human phrasing
+                    $issues[] = "Volunteer Already Exist";
+
+                    // Optional extra clarity (comment out if you want only the short one)
+                    if ($emailExists) $issues[] = "Email already exists: {$email}";
+                    if ($idExists)    $issues[] = "School ID already exists: {$idnum}";
+
+                    $statusList[] = [
+                        'row'    => $row,
+                        'name'   => $name,
+                        'status' => 'duplicate',
+                        'issues' => $issues,
+                    ];
+                } else {
+                    $statusList[] = [
+                        'row'    => $row,
+                        'name'   => $name,
+                        'status' => 'good',
+                        'issues' => [],
+                    ];
                 }
-            });
+            }
 
-            // Clear session after success
-            session()->forget([
+            if ($hasBlocking) {
+                return back()
+                    ->with('error_modal', "❌ Upload blocked. Some selected entries already exist in the database.")
+                    ->with('error_modal_entries', $statusList);
+            }
+
+            // ✅ Only save the "good" ones (all should be good here, but keep safe)
+            $entriesToActuallySave = array_values(array_filter($entriesToSave, function($pack) use ($statusList){
+                $row = $pack['data']['row_number'] ?? ($pack['index'] + 1);
+                foreach ($statusList as $s) {
+                    if ((string)$s['row'] === (string)$row && ($s['status'] ?? '') !== 'good') {
+                        return false;
+                    }
+                }
+                return true;
+            }));
+
+            try {
+
+                DB::transaction(function () use ($entriesToActuallySave, $adminId, $adminName, $fileName) {
+
+                    $previewId  = session('import_log_id');
+                    $previewLog = ImportLog::find($previewId);
+
+                    $timestamp = now()->format('M d, Y h:i A');
+
+                    if ($previewLog) {
+                        $previewLog->update([
+                            'status'          => 'Completed',
+                            'total_records'   => count($entriesToActuallySave),
+                            'valid_count'     => count($entriesToActuallySave),
+                            'invalid_count'   => 0,
+                            'duplicate_count' => 0,
+                            'remarks'         =>
+                                "Imported " . count($entriesToActuallySave) . " row(s) on {$timestamp} by {$adminName}.<br>" .
+                                "File: {$fileName}"
+                        ]);
+                    }
+
+                    foreach ($entriesToActuallySave as $entryData) {
+
+                        $entry = $entryData['data'];
+                        $index = $entryData['index'];
+
+                        $courseName = preg_replace('/\s+/', ' ', trim($entry['course'] ?? ''));
+                        $courseId = Course::whereRaw('LOWER(TRIM(course_name)) = ?', [
+                            strtolower($courseName)
+                        ])->value('course_id');
+
+                        $barangay    = $entry['barangay'] ?? null;
+                        $locationId  = $barangay ? Location::where('barangay', $barangay)->value('location_id') : null;
+                        $location    = $locationId ? Location::find($locationId) : null;
+
+                        $driveUrl   = $entry['profile_picture'] ?? null;
+                        $converted  = $this->convertDriveLinkToDownloadUrl($driveUrl);
+                        $localPath  = $this->downloadDriveImage($converted);
+
+                        $volunteer = VolunteerProfile::create([
+                            'import_id'      => $previewId,
+                            'full_name'      => $entry['full_name'],
+                            'id_number'      => $entry['id_number'] ?? "TEMP-" . uniqid(),
+                            'course_id'      => $courseId,
+                            'year_level'     => $entry['year_level'],
+                            'batch_year'     => !empty($entry['batch_year']) ? (int)$entry['batch_year'] : null,
+                            'contact_number' => $entry['contact_number'],
+                            'emergency_contact' => $entry['emergency_contact'],
+                            'email'          => $entry['email'],
+                            'fb_messenger'   => $entry['fb_messenger'],
+                            'location_id'    => $locationId,
+                            'barangay'       => $location->barangay ?? null,
+                            'district'       => $location->district_id ?? null,
+                            'class_schedule' => $entry['class_schedule'],
+                            'profile_picture_url'  => $driveUrl ?: null,
+                            'profile_picture_path' => $localPath ?: 'defaults/default_user.png',
+                            'status' => 'active',
+                        ]);
+
+                        $this->logFact(
+                            'Import Verified',
+                            $adminId,
+                            'VolunteerProfile',
+                            $volunteer->volunteer_id,
+                            'Imported',
+                            "Imported Volunteer Entry #" . ($index + 1) . " – {$entry['full_name']}"
+                        );
+                    }
+                });
+
+                session()->forget([
                 'validEntries',
                 'invalidEntries',
+                'duplicateEntries',
                 'uploaded_file_name',
                 'uploaded_file_path',
                 'csv_imported',
                 'import_log_id'
             ]);
 
-            $count     = count($entriesToSave);
+            $count     = count($entriesToActuallySave);
             $timestamp = now()->format('M d, Y h:i A');
 
             $message = "
@@ -1992,57 +2035,24 @@ class VolunteerImportController extends Controller
                 'trace'   => $e->getTraceAsString()
             ]);
 
-            $msgLower = strtolower($e->getMessage());
-
-            // 1) Friendly message for the main modal
-            $friendlyMessage = "❌ Import failed unexpectedly.";
-            $friendlyEntry   = "System Error";
-
-            // 2) Friendly, NON-SQL detail text for the entry card
-            $entryDetails = "A system error occurred while saving the entries. No entries were saved.";
-
-            if (str_contains($msgLower, 'duplicate') || str_contains($msgLower, '1062')) {
-                $friendlyMessage = "
-                    <strong style='color:#B2000C;'>⚠️ Duplicate entries detected.</strong><br>
-                    One or more School IDs or Emails already exist in the database.
-                ";
-                $friendlyEntry  = "Duplicate Entry";
-                $entryDetails   = "One or more entries conflict with existing School ID or Email records.";
-            } elseif (str_contains($msgLower, 'foreign key')) {
-                $friendlyMessage = "
-                    <strong style='color:#B2000C;'>⚠️ Invalid linked data.</strong><br>
-                    One entry references a course or location that does not exist.
-                ";
-                $friendlyEntry  = "Invalid Reference";
-                $entryDetails   = "An entry referenced a non-existent course or location in the database.";
-            } elseif (str_contains($msgLower, 'sqlstate')) {
-                $friendlyMessage = "
-                    <strong style='color:#B2000C;'>⚠️ Database Error</strong><br>
-                    A database issue occurred while saving the entries.
-                ";
-                $friendlyEntry  = "Database Error";
-                $entryDetails   = "A database error occurred during import. Please try again or contact the administrator.";
-            }
-
-            // 3) Technical (SQL + stacktrace) ONLY for the Technical Details box
             $technical = $e->getMessage() . "\n\n" . $e->getTraceAsString();
 
+            // Keep a simple friendly message, since duplicates are handled earlier now
             return back()
-                ->with('error_modal', $friendlyMessage)                 // human readable
-                ->with('error_modal_technical', $technical)             // raw SQL + trace
-                ->with('error_modal_entries', [                         // NON-SQL card
+                ->with('error_modal', "<strong style='color:#B2000C;'>⚠️ Import failed.</strong><br>A database/system error occurred while saving.")
+                ->with('error_modal_technical', $technical)
+                ->with('error_modal_entries', [
                     [
-                        'row'     => '-',
-                        'name'    => $friendlyEntry,
-                        'details' => $entryDetails
+                        'row'    => '-',
+                        'name'   => 'System Error',
+                        'status' => 'invalid',
+                        'issues' => ['A system/database error occurred. Check Technical Details if needed.'],
                     ]
                 ]);
         }
     }
 
-    /**
-     * Reset Preview
-     */
+
     public function resetImports(Request $request)
     {
         $validCount     = session()->has('validEntries') ? count(session('validEntries')) : 0;
@@ -2059,7 +2069,7 @@ class VolunteerImportController extends Controller
         $adminName      = $admin->name ?? $admin->username ?? "Unknown Admin";
         $formattedTime  = now()->format('M d, Y h:i A');
 
-        // Cancel parent import
+        // Cancel the original pending log (if any)
         if ($originalImportId) {
             $originalLog = ImportLog::find($originalImportId);
 
@@ -2078,7 +2088,7 @@ class VolunteerImportController extends Controller
             }
         }
 
-        // Create reset log
+        // Create reset log (keep your behavior)
         $resetLog = ImportLog::create([
             'file_name'       => $fileName,
             'admin_id'        => $currentAdminId,
@@ -2090,7 +2100,7 @@ class VolunteerImportController extends Controller
             'remarks'         => "Reset cleared {$totalCleared} row(s) on {$formattedTime} by {$adminName}.",
         ]);
 
-        // Clear preview data
+        // Clear preview session
         session()->forget([
             'validEntries',
             'invalidEntries',
@@ -2104,52 +2114,72 @@ class VolunteerImportController extends Controller
 
         session()->flash('clearLastUsedTable', true);
 
-        /** -----------------------------
-         * FORMATTED MODAL CONTENT
-         * ----------------------------- */
+        // ✅ Universal modal HTML (safe/simple)
         $modal = "
-            <div>
-                <strong style='font-size:1.25rem; color:#28a745;'>Reset Completed</strong><br><br>
+            <div style='font-size:1.02rem; line-height:1.65; color:#333;'>
+                <div style='font-size:1.35rem; font-weight:800; color:#28a745; margin-bottom:8px;'>
+                    ✅ Reset Completed
+                </div>
+                <div style='border-bottom:1px solid #e6e6e6; margin:10px 0 14px;'></div>
 
-                <strong>Performed by:</strong> {$adminName}<br>
-                <strong>Time:</strong> {$formattedTime}<br><br>
+                <div style='margin-bottom:10px;'>
+                    <strong>Performed by:</strong> <span style='color:#007bff; font-weight:700;'>{$adminName}</span><br>
+                    <strong>Time:</strong> {$formattedTime}
+                </div>
 
-                <strong>Total rows cleared:</strong> 
-                <span style='color:#B2000C;'>{$totalCleared}</span><br><br>
+                <div style='margin:12px 0; padding:12px 14px; border-radius:12px;
+                            background:rgba(178,0,12,.06); border:1px solid rgba(178,0,12,.18);'>
+                    <div style='display:flex; justify-content:space-between; gap:10px; margin-bottom:8px;'>
+                        <span style='font-weight:800;'>Total rows cleared</span>
+                        <span style='font-weight:900; color:#B2000C;'>{$totalCleared}</span>
+                    </div>
 
-                <strong>Breakdown:</strong><br>
-                <span style='color:#28a745; margin-left:15px;'>Valid: {$validCount}</span><br>
-                <span style='color:#B2000C; margin-left:15px;'>Invalid: {$invalidCount}</span><br>
-                <span style='color:#d38b00; margin-left:15px;'>Duplicates: {$duplicateCount}</span><br><br>
+                    <div style='display:flex; flex-wrap:wrap; gap:8px;'>
+                        <span style='display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px;
+                                     font-size:.86rem; font-weight:800; color:#1f7a39;
+                                     border:1px solid rgba(40,167,69,.25); background:rgba(40,167,69,.08);'>
+                            ✅ Valid: {$validCount}
+                        </span>
 
-                <strong>Reset Log ID:</strong>
-                <span style='color:#B2000C;'>{$resetLog->import_id}</span>
+                        <span style='display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px;
+                                     font-size:.86rem; font-weight:800; color:#B2000C;
+                                     border:1px solid rgba(178,0,12,.25); background:rgba(178,0,12,.08);'>
+                            ❌ Invalid: {$invalidCount}
+                        </span>
+
+                        <span style='display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px;
+                                     font-size:.86rem; font-weight:800; color:#a56b00;
+                                     border:1px solid rgba(211,139,0,.25); background:rgba(211,139,0,.10);'>
+                            ⚠️ Duplicates: {$duplicateCount}
+                        </span>
+                    </div>
+                </div>
+
+                <div style='margin-top:10px;'>
+                    <strong>Reset Log ID:</strong>
+                    <span style='color:#B2000C; font-weight:800;'>{$resetLog->import_id}</span>
+                </div>
             </div>
         ";
 
         $encoded = base64_encode($modal);
 
-        /** FLASH BAR */
+        // ✅ Flash bar (keep your existing behavior)
         $flash = "
             <div style='display:flex; align-items:center; flex-wrap:wrap; gap:12px;
                         font-size:1.05rem; font-weight:600;'>
-
                 <span style='color:#28a745;'>♻️ Reset successful</span>
-
                 <span style='color:#999;'>|</span>
 
                 <a href='#'
-                class='reset-details-link'
-                data-details=\"{$encoded}\"
-                style='color:#007bff; text-decoration:none; font-size:0.95rem;'>
-                Show Details
+                   class='reset-details-link'
+                   data-details=\"{$encoded}\"
+                   style='color:#007bff; text-decoration:none; font-size:0.95rem;'>
+                    Show Details
                 </a>
             </div>
         ";
 
-        /* -----------------------------------------------------------
-        FACT LOG — Reset Import Preview (formatted summary)
-        ----------------------------------------------------------- */
         $formattedSummary = "Reset Import Preview: {$validCount} valid, {$invalidCount} invalid, {$duplicateCount} duplicates (Total: {$totalCleared}).";
 
         $this->logFact(
@@ -2161,15 +2191,17 @@ class VolunteerImportController extends Controller
             $formattedSummary
         );
 
+        // ✅ CRITICAL: trigger universal modal automatically on redirect
         return redirect()
             ->route('volunteer.import.index')
             ->with('success', $flash)
-            ->with('resetSuccess', $modal)
-            ->with('resetDetails', $encoded);
+            ->with('resetDetails', $encoded)
+            ->with('show_success_modal', true)
+            ->with('success_modal_title', 'Reset Completed')
+            ->with('success_modal_subtitle', 'Import preview cleared successfully.')
+            ->with('success_modal_message', $modal);
     }
-    /**
-     * Check if Entries Already Exist in Database (table:volunteer_profile)
-     */
+
     public function checkDuplicates(Request $request)
     {
         $ids = $request->input('ids', []);
@@ -2200,9 +2232,65 @@ class VolunteerImportController extends Controller
         ]);
     }
 
+    private function scheduleStringToDayArrays(string $schedule): array
+    {
+        $days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+        $out = [];
+        foreach ($days as $day) $out[strtolower($day)] = [];
+
+        foreach ($days as $day) {
+            if (preg_match("/{$day}:\s*(.*?)(?=(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|$))/is", $schedule, $m)) {
+                $raw = trim($m[1]);
+                $raw = str_ireplace('No Class', '', $raw);
+                $raw = preg_replace('/\s+/', ' ', $raw);
+                $out[strtolower($day)] = $raw ? array_values(array_filter(explode(' ', $raw))) : [];
+            }
+        }
+        return $out;
+    }
+
     /**
-     * Update Class Schedule
+     * Build schedule-only validation errors from a schedule string.
+     * Returns an array keyed by day (monday..saturday) compatible with entry['errors'].
      */
+    private function scheduleErrorsFromString(string $schedule): array
+    {
+        $schedule = trim(preg_replace('/\s+/', ' ', (string) $schedule));
+        if ($schedule === '') return [];
+
+        $parts = $this->scheduleStringToDayArrays($schedule);
+
+        $errors = [];
+        foreach (['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as $day) {
+            $slots = $parts[$day] ?? [];
+            if (!is_array($slots)) {
+                $slots = trim((string) $slots) !== '' ? [trim((string) $slots)] : [];
+            }
+
+            $parsed = [];
+            foreach ($slots as $slot) {
+                $slot = trim((string) $slot);
+                if ($slot === '') continue;
+
+                $range = $this->parseTimeRange($slot);
+                if (!$range) {
+                    $errors[$day][] = "Invalid time format '{$slot}'";
+                    continue;
+                }
+
+                foreach ($parsed as $p) {
+                    if ($this->rangesOverlap($range, $p['range'])) {
+                        $errors[$day][] = "Conflict: '{$slot}' overlaps '{$p['raw']}'";
+                    }
+                }
+
+                $parsed[] = ['raw' => $slot, 'range' => $range];
+            }
+        }
+
+        return $errors;
+    }
+
     public function updateSchedule(Request $request, $id)
     {
         try {
@@ -2224,9 +2312,6 @@ class VolunteerImportController extends Controller
 
             $days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
-            /* -------------------------
-            NORMALIZE
-            --------------------------*/
             $normalize = function($schedule) use ($days) {
                 $result = [];
                 foreach ($days as $day) {
@@ -2250,9 +2335,6 @@ class VolunteerImportController extends Controller
 
             $clean = fn($arr) => array_values(array_filter($arr, fn($v) => trim($v) !== ""));
 
-            /* -------------------------
-            TRACK CHANGES
-            --------------------------*/
             $newParts = [];
             $reformattedCells = [];
 
@@ -2261,7 +2343,6 @@ class VolunteerImportController extends Controller
 
                 foreach ($newPartsRaw[$day] as $idx => $val) {
 
-                    // auto-format x-x → x:00-x:00
                     $parts = explode('-', $val);
                     if (count($parts) === 2) {
                         $parts = array_map(fn($p) =>
@@ -2282,9 +2363,6 @@ class VolunteerImportController extends Controller
                 }
             }
 
-            /* -------------------------
-            ADDED / REMOVED
-            --------------------------*/
             $changesMade = false;
             $dayChanges = [];
 
@@ -2305,41 +2383,44 @@ class VolunteerImportController extends Controller
                 }
             }
 
-            /* -------------------------
-            SAVE
-            --------------------------*/
-            // Update display string
             $entries[$id]['class_schedule'] = trim($scheduleString);
 
-            // 🔹 NEW: update underlying per-day arrays used by validateRow()
+            // ✅ CRITICAL FIX: sync day arrays so validateRow() uses updated schedule
+            $this->syncDayArraysFromClassSchedule($entries[$id]);
+
+            // ✅ Recompute schedule overlap errors instead of blindly clearing them
+            $existingErrors = (isset($entries[$id]['errors']) && is_array($entries[$id]['errors']))
+                ? $entries[$id]['errors']
+                : [];
+
+            // Remove any old day errors first
             foreach ($days as $day) {
-                $key = strtolower($day); // "Monday" → "monday"
-                $entries[$id][$key] = $clean($newParts[$day]);
+                $k = strtolower($day);
+                if (isset($existingErrors[$k])) {
+                    unset($existingErrors[$k]);
+                }
             }
 
-            // 🔹 Optional: clear schedule-related errors for those days (if any)
-            if (isset($entries[$id]['errors']) && is_array($entries[$id]['errors'])) {
-                foreach ($days as $day) {
-                    $k = strtolower($day);
-                    if (isset($entries[$id]['errors'][$k])) {
-                        unset($entries[$id]['errors'][$k]);
-                    }
+            // Add fresh schedule errors (if any)
+            $freshScheduleErrors = $this->scheduleErrorsFromString((string) $entries[$id]['class_schedule']);
+            foreach ($freshScheduleErrors as $k => $msgs) {
+                if (!empty($msgs)) {
+                    $existingErrors[$k] = $msgs;
                 }
+            }
+
+            if (empty($existingErrors)) {
+                unset($entries[$id]['errors']);
+            } else {
+                $entries[$id]['errors'] = $existingErrors;
             }
 
             session([$type . 'Entries' => $entries]);
 
-            /* -------------------------
-            ROW #
-            --------------------------*/
-            $visibleRowIndex = array_search($id, array_keys($entries));
-            $rowNumber = $visibleRowIndex !== false ? $visibleRowIndex + 1 : ($id + 1);
+            $rowNumber = $id + 1; // stable for your tables
+            $resolved = $this->resolveEntryData($entries[$id], $rowNumber); // ✅ use updated entry
+            $name = $resolved['name'];
 
-            $name = $entry['full_name'] ?? "Volunteer";
-
-            /* -------------------------
-            TIME FORMATTER
-            --------------------------*/
             $formatTime = function($range) {
                 if (!str_contains($range, '-')) return $range;
 
@@ -2357,24 +2438,11 @@ class VolunteerImportController extends Controller
                 return $toLabel($s) . "–" . $toLabel($e);
             };
 
-            /* -------------------------
-            BUILD FULL MODAL MESSAGE
-            --------------------------*/
-
-            // Build clean entry name using resolver
-            $resolved = $this->resolveEntryData($entry, $rowNumber);
-            $name = $resolved['name'];
-
-            // FLASH BAR
             $flashMessage = "
                 Update Class Schedule Entry #{$rowNumber} — {$name}
                 | <span class='show-modal-details' 
                     style='color:#007bff; cursor:pointer;'>Show More</span>
-                ";
-
-            /* -------------------------
-            MODAL BODY
-            --------------------------*/
+            ";
 
             $fullMessage = "
                 <strong>Entry #{$rowNumber} for {$name}:</strong><br><br>
@@ -2386,30 +2454,29 @@ class VolunteerImportController extends Controller
                 $removed     = $dayChanges[$day]['removed'];
                 $reformatted = $reformattedCells[$day] ?? [];
 
-                // Day label
                 $fullMessage .= "<strong>{$day}:</strong><br>";
 
                 if (!$added && !$removed && empty($reformatted)) {
-                    $fullMessage .= "ℹ️ No changes made<br>";
+                    $fullMessage .= "&#8505;&#65039; No changes made<br>";
                 }
 
                 if ($added) {
                     $fullMessage .=
-                        "✅ <span style='color:#007bff;'>Added: "
+                        "&#10004; <span style='color:#007bff;'>Added: "
                         . implode(', ', array_map($formatTime, $added))
                         . "</span><br>";
                 }
 
                 if ($removed) {
                     $fullMessage .=
-                        "⚠️ <span style='color:red;'>Removed: "
+                        "&#9888; <span style='color:red;'>Removed: "
                         . implode(', ', array_map($formatTime, $removed))
                         . "</span><br>";
                 }
 
                 if ($reformatted) {
                     $fullMessage .=
-                        "ℹ️ <span style='color:orange;'>Reformatted: "
+                        "&#8505;&#65039; <span style='color:orange;'>Reformatted: "
                         . implode(', ', array_map(
                             fn($c) => $formatTime($c['from']) . " → " . $formatTime($c['to']),
                             $reformatted
@@ -2417,13 +2484,8 @@ class VolunteerImportController extends Controller
                         . "</span><br>";
                 }
 
-                // Separator under each day
                 $fullMessage .= "<hr style='margin: 8px 0; border-top: 1px solid #ccc;'>";
             }
-
-            /* -------------------------
-            LOG FACT
-            --------------------------*/
 
             $adminId = auth()->guard('admin')->id() ?? null;
 
@@ -2436,12 +2498,9 @@ class VolunteerImportController extends Controller
                 strip_tags($flashMessage)
             );
 
-            /* -------------------------
-            RETURN TO VIEW
-            --------------------------*/
             return redirect()->back()
                 ->with('success', $flashMessage)
-                ->with('success_schedule', $fullMessage)  // <-- HTML preserved
+                ->with('success_schedule', $fullMessage)
                 ->with('last_updated_table', $type)
                 ->with('last_updated_index', $id);
 
@@ -2450,9 +2509,6 @@ class VolunteerImportController extends Controller
         }
     }
 
-    /**
-     * UNIVERSAL entry resolver — handles any CSV header
-     */
     private function resolveEntryData(array $entry, int $fallbackRowNum): array
     {
         $normalized = [];
@@ -2462,7 +2518,6 @@ class VolunteerImportController extends Controller
             $normalized[$nk] = $value;
         }
 
-        // Possible name fields
         $nameFields = [
             'full name', 'fullname', 'full',
             'name',
@@ -2478,7 +2533,6 @@ class VolunteerImportController extends Controller
             }
         }
 
-        // fallback: combine first/last if available
         if (!$name) {
             $fn = $normalized['first'] ?? $normalized['first name'] ?? '';
             $ln = $normalized['last']  ?? $normalized['last name']  ?? '';
@@ -2487,7 +2541,6 @@ class VolunteerImportController extends Controller
 
         if (!$name) $name = "Unknown (Row {$fallbackRowNum})";
 
-        // volunteer id
         $volunteerId = null;
         foreach (['volunteer_id','id','volunteer id'] as $key) {
             if (isset($normalized[$key]) && is_numeric($normalized[$key])) {
@@ -2496,7 +2549,6 @@ class VolunteerImportController extends Controller
             }
         }
 
-        // images
         $pictureLocal = $normalized['profile picture local']
             ?? $normalized['picture local']
             ?? $normalized['local picture']
@@ -2523,9 +2575,6 @@ class VolunteerImportController extends Controller
         ];
     }
 
-    /**
-     * Update / Replace Profile Picture (manual upload in UI)
-     */
     public function updatePicture(Request $request)
     {
         $request->validate([
@@ -2545,21 +2594,15 @@ class VolunteerImportController extends Controller
             return back()->with('error', 'Entry not found.');
         }
 
-        // ⭐ SAFE ENTRY RESOLUTION
-        $resolve = $this->resolveEntryData($entries[$index], $index);
+        $resolve = $this->resolveEntryData($entries[$index], $index + 1);
         $name        = $resolve['name'];
         $volunteerId = $resolve['volunteer_id'];
         $oldPath     = $resolve['local'];
 
         $defaultPath = "defaults/default_user.png";
 
-        // Compute visible row #
-        $visibleRowIndex = array_search($index, array_keys($entries));
-        $rowNum = $visibleRowIndex !== false ? $visibleRowIndex + 1 : ($index + 1);
+        $rowNum = $index + 1;
 
-        /* ===========================================================
-        CASE 1 — RESET TO DEFAULT
-        ============================================================ */
         if ($request->boolean('set_default')) {
 
             if ($oldPath === $defaultPath) {
@@ -2607,9 +2650,6 @@ class VolunteerImportController extends Controller
                 ->with('last_updated_index', $index);
         }
 
-        /* ===========================================================
-        CASE 2 — UPDATE WITH NEW IMAGE
-        ============================================================ */
         if (!$request->hasFile('file')) {
 
             return back()
@@ -2661,9 +2701,6 @@ class VolunteerImportController extends Controller
             ->with('last_updated_index', $index);
     }
 
-    /**
-     * Set Default Profile Picture
-     */
     public function setDefaultPicture(Request $request)
     {
         $request->validate([
@@ -2681,15 +2718,13 @@ class VolunteerImportController extends Controller
             return back()->with('error', 'Entry not found.');
         }
 
-        $resolve = $this->resolveEntryData($entries[$index], $index);
+        $resolve = $this->resolveEntryData($entries[$index], $index + 1);
         $name        = $resolve['name'];
         $volunteerId = $resolve['volunteer_id'];
         $current     = $resolve['local'];
 
         $default = "defaults/default_user.png";
-
-        $visibleRowIndex = array_search($index, array_keys($entries));
-        $rowNum = $visibleRowIndex !== false ? $visibleRowIndex + 1 : ($index + 1);
+        $rowNum = $index + 1;
 
         if ($current === $default) {
 
@@ -2739,9 +2774,8 @@ class VolunteerImportController extends Controller
 
     /**
      * Centralized FactLog helper using existing fact_logs schema.
-     * Stores a structured JSON payload in `details`.
      */
-        private function logFact(
+    private function logFact(
         string $factType,
         $adminId = null,
         $entity = null,
@@ -2749,7 +2783,6 @@ class VolunteerImportController extends Controller
         ?string $action = null,
         $details = null
     ): FactLog {
-        // Resolve admin
         $admin = Auth::guard('admin')->user();
 
         $resolvedAdminId = is_numeric($adminId)
@@ -2762,7 +2795,6 @@ class VolunteerImportController extends Controller
             'username' => $admin->username ?? null,
         ];
 
-        // Resolve entity type + id
         if (is_object($entity)) {
             $entityType = class_basename($entity);
             $modelKey   = method_exists($entity, 'getKey') ? $entity->getKey() : null;
@@ -2775,7 +2807,6 @@ class VolunteerImportController extends Controller
             $entityType = 'Unknown';
         }
 
-        // Try to infer import_id (for JSON context only)
         $importId = null;
         if ($entity instanceof ImportLog) {
             $importId = $entityId ?? $entity->import_id ?? null;
@@ -2788,7 +2819,6 @@ class VolunteerImportController extends Controller
 
         $timestamp = now();
 
-        // Interpret $details: string → summary, array/object → data
         if (is_array($details) || is_object($details)) {
             $summary = is_array($details) && isset($details['summary'])
                 ? (string)$details['summary']
@@ -2824,8 +2854,6 @@ class VolunteerImportController extends Controller
             'action'      => $action,
             'details'     => json_encode($payload, JSON_UNESCAPED_UNICODE),
             'timestamp'   => $timestamp,
-            // ❌ removed 'import_id' here because DB column doesn't exist
         ]);
     }
-
 }

@@ -551,27 +551,8 @@ input.invalid:-webkit-autofill:active {
   overflow:hidden;
 }
 
-/* scroll only the long details area */
-#updateSuccessMessage {
-  max-height:60vh;
-  overflow-y:auto;
-  padding-right:6px;
-}
-
-/* optional: slim scroll just for the message area */
-#updateSuccessMessage::-webkit-scrollbar {
-  width: 6px;
-}
-#updateSuccessMessage::-webkit-scrollbar-track {
   background: #f3f3f3;
-}
-#updateSuccessMessage::-webkit-scrollbar-thumb {
-  background: #c4c4c4;
-  border-radius: 999px;
-}
-
-
-/* small pill for college grouping in course dropdown */
+}/* small pill for college grouping in course dropdown */
 .select-search-option .badge-pill {
   margin-left:auto;
   font-size:0.7rem;
@@ -865,29 +846,7 @@ input.invalid:-webkit-autofill:active {
 
 <!-- ===========================================================
      UPDATE SUCCESS MODAL
-=========================================================== -->
-<div id="updateSuccessModal" class="edit-success-modal">
-    <div id="updateSuccessOverlay" class="edit-success-overlay">
-        <div class="edit-success-content">
-
-            <div class="edit-success-header">
-                <i class="fa-solid fa-circle-check edit-success-icon"></i>
-                <h2 class="edit-success-title">Changes Saved</h2>
-            </div>
-
-            <hr class="edit-success-separator">
-
-            <div id="updateSuccessMessage" class="edit-success-text"></div>
-
-            <div class="edit-success-footer">
-                <button id="updateSuccessOkBtn" class="edit-success-btn">
-                    <i class="fa-solid fa-check"></i> OK
-                </button>
-            </div>
-
-        </div>
-    </div>
-</div>
+=========================================================== --></div>
 
 @if(session('updateDetails'))
 <script>
@@ -900,17 +859,11 @@ input.invalid:-webkit-autofill:active {
    SUCCESS MODAL JS
 =========================================================== */
 document.addEventListener("DOMContentLoaded", () => {
-    const updateModal   = document.getElementById("updateSuccessModal");
-    const updateOverlay = document.getElementById("updateSuccessOverlay");
-    const updateMsg     = document.getElementById("updateSuccessMessage");
-    const updateOkBtn   = document.getElementById("updateSuccessOkBtn");
 
     function openUpdateModal(html) {
         updateMsg.innerHTML = html;
-        updateModal.classList.add("active");
     }
     function closeUpdateModal() {
-        updateModal.classList.remove("active");
     }
 
     updateOkBtn?.addEventListener("click", closeUpdateModal);
@@ -1392,3 +1345,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
 })();
 </script>
+@if(session('updateDetails'))
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var b64 = @json(session('updateDetails'));
+    if (!b64) return;
+    var html = '';
+    try { html = decodeURIComponent(escape(atob(b64))); } catch (e) { try { html = atob(b64); } catch (e2) { html = ''; } }
+    if (window.FeedbackModal && typeof window.FeedbackModal.show === 'function') {
+        window.FeedbackModal.show({ variant:'success', title:'Changes saved', subtitle:'Entry updated successfully.', html: html });
+    }
+});
+</script>
+@endif

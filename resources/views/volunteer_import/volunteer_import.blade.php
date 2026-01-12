@@ -2,87 +2,53 @@
 @php
     $pageTitle = 'Volunteer Imports';
 
-    /**
-     * ============================================================
-     * QUICK NOTES (for future me)
-     * - invalidEntries / validEntries are coming from session()
-     * - A row is considered "Ready" if:
-     *      - no validation errors
-     *      - no missing required fields
-     *      - schedule is NOT empty
-     *      - schedule has NO overlaps
-     *      - has a real profile picture (not default)
-     * ============================================================
-     */
-
     // ===== helpers for counts (Invalid table pills) =====
     $invalidEntries = $invalidEntries ?? session('invalidEntries', []);
     $validEntries   = $validEntries ?? session('validEntries', []);
 
     // ----------------------------
-    // PHOTO helpers
+    // Accurate detection helpers
     // ----------------------------
-
-    // checks if local profile picture is using the system default placeholder
     $isDefaultPhoto = function($entry) {
         $local = trim((string)($entry['profile_picture_local'] ?? ''));
+        // your controller uses this as fallback
         return $local === 'defaults/default_user.png';
     };
 
-    // photo is "real" if either:
-    //  - local path exists and isn't the default placeholder
-    //  - or a direct url exists
     $hasRealPhoto = function($entry) use ($isDefaultPhoto) {
         $local = trim((string)($entry['profile_picture_local'] ?? ''));
         $url   = trim((string)($entry['profile_picture'] ?? ''));
-
+        // consider default as missing; either local non-default or a url counts as photo
         if ($local && !$isDefaultPhoto($entry)) return true;
         if ($url) return true;
-
         return false;
     };
 
-    // ----------------------------
-    // SCHEDULE helpers
-    // ----------------------------
-
-    /**
-     * Schedule is "empty" if:
-     * - blank string
-     * - "No class schedule"
-     * - or all days are "No Class"
-     * - OR schedule text has no digits at all
-     */
     $scheduleLooksEmpty = function($entry) {
         $s = preg_replace('/\s+/', ' ', trim((string)($entry['class_schedule'] ?? '')));
         if ($s === '' || strcasecmp($s, 'No class schedule') === 0) return true;
 
+        // your normalizeRow builds: "Monday: No Class Tuesday: No Class ..."
+        // treat as empty if ALL days are "No Class"
         $days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-
-        // assume empty until proven not empty
         $allNoClass = true;
-
         foreach ($days as $d) {
-            if (stripos($s, $d . ':') === false) {
+            if (stripos($s, $d . ':') === false) { $allNoClass = false; break; }
+            if (preg_match('/' . preg_quote($d, '/') . ':\s*[^N].*/i', $s) && preg_match('/\d/', $s)) {
                 $allNoClass = false;
                 break;
             }
         }
 
-        // simplest reliable check: if schedule contains ANY digit, there is probably a time slot
+        // simplest + reliable: if schedule contains ANY digit, assume has a slot
         if (preg_match('/\d/', $s)) return false;
 
         return $allNoClass;
     };
 
     // -------------------------------------------------
-    // Overlap checking (per day)
+    // NEW: detect overlapping schedule times (per day)
     // -------------------------------------------------
-
-    /**
-     * This map is the "allowed slots" we recognize.
-     * Values are minutes from midnight, so we can compare overlaps.
-     */
     $timeMap = [
         // Morning
         '7:30-8:20'   => ['start' => 450,  'end' => 500],
@@ -105,75 +71,55 @@
         '7:30-8:50'   => ['start' => 1170, 'end' => 1250],
     ];
 
-    /**
-     * normalizeRange:
-     * - removes commas/semicolons
-     * - converts en dash (–) to normal dash (-)
-     * - removes AM/PM words if present (so "7:30-8:20 AM" still works)
-     * - returns a key that exists in $timeMap
-     */
+    // normalize "8:30-950" / "8:30 - 9:50" → a known key like "8:30-9:50"
     $normalizeRange = function (string $str) use ($timeMap): string {
-        $str = trim($str);
+        $str = preg_replace('/[,;]+/', ' ', trim($str));
         if ($str === '') return '';
 
-        // normalize some weird characters / spacing
-        $str = str_replace('–', '-', $str); // en dash -> dash
-        $str = preg_replace('/[,;]+/', ' ', $str);
-        $str = preg_replace('/\b(AM|PM)\b/i', '', $str); // drop AM/PM tokens
-        $str = preg_replace('/\s+/', ' ', trim($str));
-
-        // allow "8:30 - 9:50"
         $parts = array_map('trim', explode('-', $str));
         if (count($parts) !== 2) return '';
 
-        // If user somehow saved "8-9:20", force "8:00-9:20"
         $fix = function ($t) {
             return preg_match('/^\d{1,2}$/', $t) ? ($t . ':00') : $t;
         };
 
         $key = $fix($parts[0]) . '-' . $fix($parts[1]);
-
         return isset($timeMap[$key]) ? $key : '';
     };
 
-    // returns the start/end array from timeMap or null if not recognized
     $parseRange = function (string $str) use ($timeMap, $normalizeRange): ?array {
         $key = $normalizeRange($str);
-        if ($key === '' || !isset($timeMap[$key])) return null;
+        if ($key === '' || !isset($timeMap[$key])) {
+            return null;
+        }
         return $timeMap[$key];
     };
 
-    /**
-     * hasScheduleConflicts:
-     * - reads one entry's class_schedule string
-     * - per day: collects recognized time ranges
-     * - sorts them by start time
-     * - checks if any start overlaps previous end
-     */
-    $hasScheduleConflicts = function ($entry) use ($parseRange): bool {
+    // main helper: TRUE if ANY day has overlapping times
+    $hasScheduleConflicts = function ($entry) use ($normalizeRange, $parseRange): bool {
         $schedule = (string)($entry['class_schedule'] ?? '');
-        $schedule = str_replace('–', '-', $schedule);
         $schedule = trim(preg_replace('/\s+/', ' ', $schedule));
         if ($schedule === '') return false;
 
         $days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
         foreach ($days as $day) {
-            // grab that day's substring safely
+            // grab that day's piece: "Monday: 8:00-9:20 9:30-10:50"
             $pattern = '/' . preg_quote($day, '/') . ':(.*?)(?=Monday:|Tuesday:|Wednesday:|Thursday:|Friday:|Saturday:|$)/i';
 
-            if (!preg_match($pattern, $schedule, $m)) continue;
+            if (!preg_match($pattern, $schedule, $m)) {
+                continue;
+            }
 
             $raw = trim($m[1]);
-            if ($raw === '' || stripos($raw, 'No Class') !== false) continue;
+            if ($raw === '' || stripos($raw, 'No Class') !== false) {
+                continue;
+            }
 
-            // remove AM/PM tokens if they exist (prevents token split issues)
-            $raw = preg_replace('/\b(AM|PM)\b/i', '', $raw);
-            $raw = str_replace('–', '-', $raw);
-            $raw = trim(preg_replace('/\s+/', ' ', $raw));
+            $raw = preg_replace('/[,;]+/', ' ', $raw);        // remove commas/semicolons
+            $raw = preg_replace('/\s+/', ' ', trim($raw));    // normalize spaces
+            $slots = preg_split('/\s+/', $raw);
 
-            // split by spaces (expected like: "8:00-9:20 9:30-10:50")
-            $slots  = preg_split('/\s+/', $raw);
             $ranges = [];
 
             foreach ($slots as $slot) {
@@ -181,15 +127,20 @@
                 if ($r) $ranges[] = $r;
             }
 
-            if (count($ranges) < 2) continue;
+            if (count($ranges) < 2) {
+                continue;
+            }
 
+            // sort by start time
             usort($ranges, fn($a, $b) => $a['start'] <=> $b['start']);
 
+            // check for overlap in this day
             $prev = $ranges[0];
             for ($i = 1; $i < count($ranges); $i++) {
                 $cur = $ranges[$i];
                 if ($cur['start'] < $prev['end']) {
-                    return true; // overlap found
+                    // overlap!
+                    return true;
                 }
                 $prev = $cur;
             }
@@ -198,35 +149,33 @@
         return false;
     };
 
-    // -------------------------------------------------
-    // Count pills: Ready / Needs Edit (Invalid table)
-    // -------------------------------------------------
     $invalidReadyCount = 0;
     $invalidNeedsCount = 0;
 
-    foreach ($invalidEntries as $entry) {
-        $hasErrors = !empty($entry['errors']) && count($entry['errors']) > 0;
+    foreach ($invalidEntries as $e) {
+        $hasErrors = !empty($e['errors']) && is_array($e['errors']) && count($e['errors']) > 0;
 
         $missingFields = [];
         foreach ([
-            'full_name'      => 'Name',
-            'id_number'      => 'School ID',
-            'course'         => 'Course',
-            'year_level'     => 'Year',
-            'batch_year'     => 'Batch Year',
-            'contact_number' => 'Contact #',
-            'email'          => 'Email',
-            'barangay'       => 'Barangay',
-            'district'       => 'District',
+            'full_name'       => 'Name',
+            'id_number'       => 'School ID',
+            'course'          => 'Course',
+            'year_level'      => 'Year',
+            'batch_year'      => 'Batch Year',
+            'contact_number'  => 'Contact #',
+            'email'           => 'Email',
+            'fb_messenger'   => 'FB/Messenger',
+            'barangay'        => 'Barangay',
+            'district'        => 'District',
         ] as $k => $label) {
             if (empty(trim($e[$k] ?? ''))) $missingFields[] = $label;
         }
 
-        $scheduleIsEmpty     = $scheduleLooksEmpty($entry);
-        $scheduleHasConflict = $hasScheduleConflicts($entry);
+        $scheduleIsEmpty     = $scheduleLooksEmpty($e);
+        $scheduleHasConflict = $hasScheduleConflicts($e);
         $scheduleOk          = !$scheduleIsEmpty && !$scheduleHasConflict;
 
-        $hasPic = $hasRealPhoto($entry);
+        $hasPic = $hasRealPhoto($e);
 
         $isReady = !$hasErrors
             && empty($missingFields)
@@ -267,28 +216,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Database Management - Import CSV, Invalid Entries & Import Logs</title>
 
-    {{-- Main CSS for this page --}}
     <link rel="stylesheet" href="{{ asset('assets/volunteer_import/css/volunteer_import.css') }}">
-
-    {{-- Bootstrap / Icons --}}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="{{ asset('assets/layouts/modals/universal_feedback_modal.css') }}">
 
-    {{-- CSRF + session helper meta --}}
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta id="scrollToInvalid" content="{{ session('scrollToInvalid') ? '1' : '0' }}">
     <meta id="lastUpdatedTable" content="{{ session('last_updated_table') ?? '' }}">
     <meta id="lastUpdatedIndices" content='@json(session("last_updated_indices") ?? [])'>
 
     <style>
-      /* Small header inside the Actions dropdown */
+      /* tiny header inside dropdown */
       .entry-actions-header{
         display:flex; align-items:center; justify-content:space-between;
         padding:.35rem .5rem; gap:.5rem;
       }
       .entry-actions-header .title{ font-size:.82rem; font-weight:700; color:#6c757d; letter-spacing:.02em; }
-      .entry-actions-header .btn{ padding:.15rem .4rem; line-height:1; border-radius:.5rem; }
+      .entry-actions-header .btn{
+        padding:.15rem .4rem; line-height:1; border-radius:.5rem;
+      }
     </style>
 </head>
 
@@ -301,18 +248,13 @@
 
     
     <div class="scroll-container">
-
-        {{-- =========================================================
-            1) IMPORT & VALIDATION SECTION
-            - Upload CSV
-            - Show invalid preview table
-            ========================================================= --}}
+        {{-- 1. IMPORT & VALIDATION --}}
         <section id="import-Section-invalid">
             <div class="database-container">
                 <main class="database-main">
                     <div class="import-section">
 
-                        {{-- Page Header --}}
+                        {{-- Header --}}
                         <div class="import-controls">
                             <h2 class="section-title"><i class="fas fa-tasks"></i> Import & Validation</h2>
                             <div class="action-buttons">
@@ -327,8 +269,7 @@
                             <form action="{{ route('volunteer.import.preview') }}" method="POST" enctype="multipart/form-data">
                                 @csrf
                                 <div class="import-controls">
-
-                                    {{-- Choose File button (input is hidden, button triggers it via JS elsewhere) --}}
+                                    {{-- Choose File Button + File Path Span --}}
                                     <div class="file-upload">
                                         <div class="input-group">
                                             <input type="file" name="csv_file" class="form-control d-none" id="file-upload" accept=".csv" required>
@@ -353,7 +294,7 @@
                                 </div>
                             </form>
 
-                            {{-- Reset Button (clears preview tables from session) --}}
+                            {{-- Reset Button --}}
                             @if(session()->exists('validEntries') || session()->exists('invalidEntries'))
                                 <button type="button"
                                         class="btn btn-outline-warning import-btn"
@@ -367,19 +308,17 @@
                         <hr class="red-hr">
 
                         <div class="data-table-container">
-
-                            {{-- Success message (if any) --}}
+                            {{-- Action Message --}}
                             <div class="action-message {{ session('success') ? 'text-success' : 'd-none' }}">
                                 <span class="message-text">{!! session('success') !!}</span>
                                 <button type="button" class="close-message-btn">&times;</button>
                             </div>
 
-                            {{-- Table Controls / Pills --}}
+                            {{-- Table Controls --}}
                             <div class="table-controls mb-0">
                                 <div class="table-actions d-flex align-items-center justify-content-center gap-2">
                                     <h3>Invalid Entries</h3>
 
-                                    {{-- Ready / Needs Edit summary pills --}}
                                     <span class="mini-badge ready"
                                           data-bs-toggle="tooltip"
                                           data-bs-title="Entries that are complete and can be validated">
@@ -413,7 +352,6 @@
                                     </div>
                                 </div>
 
-                                {{-- search bar include --}}
                                 @include('layouts.search_bar.universal_search_bar', [
                                     'tableId'   => 'invalid-entries-table',
                                     'type'      => 'invalid',
@@ -433,7 +371,7 @@
                                             <th>School ID</th>
                                             <th>Course</th>
                                             <th>Year</th>
-                                            <th>Batch</th>
+                                            <th>Batch</th> 
                                             <th>Contact #</th>
                                             <th>Email</th>
                                             <th>Emergency #</th>
@@ -448,9 +386,29 @@
                                         @if(!empty($invalidEntries) && count($invalidEntries) > 0)
                                             @foreach ($invalidEntries as $index => $entry)
                                                 @php
-                                                    // Per-row status logic (same rules as the pill counts above)
                                                     $name = trim($entry['full_name'] ?? '') ?: 'Unknown';
-                                                    $hasErrors = !empty($entry['errors']) && count($entry['errors']) > 0;
+
+                                                    /**
+                                                     * IMPORTANT UI FIX:
+                                                     * We separate schedule errors (monday..saturday) from non-schedule errors.
+                                                     * Otherwise, an entry with ONLY schedule overlap/conflict gets a red
+                                                     * "Edit Volunteer" pill even if all normal fields are valid.
+                                                     */
+                                                    $scheduleKeys = ['monday','tuesday','wednesday','thursday','friday','saturday'];
+                                                    $errorBag = (isset($entry['errors']) && is_array($entry['errors'])) ? $entry['errors'] : [];
+
+                                                    $hasScheduleErrors = false;
+                                                    $hasNonScheduleErrors = false;
+                                                    foreach ($errorBag as $k => $v) {
+                                                        if (in_array($k, $scheduleKeys, true)) {
+                                                            $hasScheduleErrors = true;
+                                                        } else {
+                                                            $hasNonScheduleErrors = true;
+                                                        }
+                                                    }
+
+                                                    // keep a combined flag for "overall validity" checks
+                                                    $hasErrors = $hasScheduleErrors || $hasNonScheduleErrors;
 
                                                     $missingFields = [];
                                                     foreach ([
@@ -461,32 +419,48 @@
                                                         'batch_year'     => 'Batch Year',
                                                         'contact_number' => 'Contact #',
                                                         'email'          => 'Email',
+                                                        'fb_messenger'   => 'FB/Messenger',
                                                         'barangay'       => 'Barangay',
                                                         'district'       => 'District',
                                                     ] as $k => $label) {
                                                         if (empty(trim($entry[$k] ?? ''))) $missingFields[] = $label;
                                                     }
 
-                                                    $scheduleIsEmpty     = $scheduleLooksEmpty($entry);
-                                                    $scheduleHasConflict = $hasScheduleConflicts($entry);
-                                                    $scheduleOk          = !$scheduleIsEmpty && !$scheduleHasConflict;
+                                                    // "Edit Volunteer" should only go red for non-schedule field issues.
+                                                    $fieldsOk = !$hasNonScheduleErrors && empty($missingFields);
+
+                                                    // ✅ Schedule status should follow the same source of truth as the UI/modals:
+                                                    // - If validateRow() flagged any schedule day (monday..saturday), treat schedule as NOT OK.
+                                                    // - Still keep string-based overlap detection as a fallback.
+                                                    $scheduleIsEmpty      = $scheduleLooksEmpty($entry);
+                                                    $scheduleHasConflict  = $hasScheduleConflicts($entry) || $hasScheduleErrors;
+                                                    $scheduleOk           = !$scheduleIsEmpty && !$scheduleHasConflict;
 
                                                     $hasPic = $hasRealPhoto($entry);
 
-                                                    $isReady = !$hasErrors
-                                                        && empty($missingFields)
-                                                        && $scheduleOk
-                                                        && $hasPic;
+                                                    $isReady = !$hasErrors && empty($missingFields) && $scheduleOk && $hasPic;
 
                                                     $rowAccentClass = $isReady ? 'row-ok' : 'row-warn';
 
-                                                    // Build tooltip reason list (shows why it’s not ready)
                                                     $reasons = [];
-                                                    if (!empty($missingFields)) $reasons[] = "Missing: " . implode(', ', $missingFields);
-                                                    if ($scheduleIsEmpty) $reasons[] = "Empty Schedule (Pending)";
-                                                    elseif ($scheduleHasConflict) $reasons[] = "Overlapping schedule(s)";
-                                                    if (!$hasPic) $reasons[] = "No Photo (Pending)";
-                                                    if ($hasErrors) $reasons[] = "Has validation errors";
+                                                    if (!empty($missingFields)) {
+                                                        $reasons[] = "Missing: " . implode(', ', $missingFields);
+                                                    }
+                                                    if ($scheduleIsEmpty) {
+                                                        $reasons[] = "Empty Schedule (Pending)";
+                                                    } elseif ($scheduleHasConflict) {
+                                                        $reasons[] = "Overlapping schedule(s)";
+                                                    }
+                                                    if (!$hasPic) {
+                                                        $reasons[] = "No Photo (Pending)";
+                                                    }
+                                                    if ($hasNonScheduleErrors) {
+                                                        $reasons[] = "Has field validation errors";
+                                                    }
+                                                    // Schedule errors that aren't caught by the overlap helper (e.g. invalid time format)
+                                                    if ($hasScheduleErrors && !$scheduleHasConflict) {
+                                                        $reasons[] = "Schedule has invalid time(s)";
+                                                    }
 
                                                     $statusTooltip = $isReady
                                                         ? "Ready — no missing fields, schedule and photo are present."
@@ -497,24 +471,24 @@
                                                         : ($entry['profile_picture'] ?? null);
 
                                                     $columns = [
-                                                        'full_name'        => 'Name',
-                                                        'id_number'        => 'School ID',
-                                                        'course'           => 'Course',
-                                                        'year_level'       => 'Year',
-                                                        'batch_year'       => 'Batch',
-                                                        'contact_number'   => 'Contact #',
-                                                        'email'            => 'Email',
-                                                        'emergency_contact'=> 'Emergency #',
-                                                        'fb_messenger'     => 'FB/Messenger',
-                                                        'barangay'         => 'Barangay',
-                                                        'district'         => 'District',
+                                                        'full_name'         => 'Name',
+                                                        'id_number'         => 'School ID',
+                                                        'course'            => 'Course',
+                                                        'year_level'        => 'Year',
+                                                        'batch_year'        => 'Batch',
+                                                        'contact_number'    => 'Contact #',
+                                                        'email'             => 'Email',
+                                                        'emergency_contact' => 'Emergency #',
+                                                        'fb_messenger'      => 'FB/Messenger',
+                                                        'barangay'          => 'Barangay',
+                                                        'district'          => 'District',
                                                     ];
 
                                                     $truncatedFields = ['full_name','course','email','fb_messenger','barangay','district'];
 
-                                                    // Indicator flags used for little icons on Actions button
+                                                    // indicators (now safe)
                                                     $missingSchedule  = $scheduleIsEmpty;
-                                                    $conflictSchedule = !$scheduleIsEmpty && $scheduleHasConflict;
+                                                    $conflictSchedule = $scheduleHasConflict;
                                                     $missingPhoto     = !$hasPic;
                                                 @endphp
 
@@ -537,13 +511,15 @@
                                                         @php
                                                             $value = trim($entry[$key] ?? '');
                                                             $isTruncated = in_array($key, $truncatedFields);
-                                                            $displayVal = (strlen($value) > 20 && $isTruncated) ? (substr($value, 0, 20).'...') : $value;
+                                                            $displayVal = strlen($value) > 20 && $isTruncated ? substr($value, 0, 20).'...' : $value;
 
                                                             $errs = $entry['errors'][$key] ?? [];
                                                             $errs = is_array($errs) ? $errs : [$errs];
 
                                                             $tooltip = '';
-                                                            if (!empty($errs)) $tooltip = implode('<br>', array_map(fn($e)=>e($e), $errs));
+                                                            if (!empty($errs)) {
+                                                                $tooltip = implode('<br>', array_map(fn($e)=>e($e), $errs));
+                                                            }
                                                             if (empty($value)) {
                                                                 $base = "No $label";
                                                                 $tooltip = $tooltip ? ($base . "<br>" . $tooltip) : $base;
@@ -576,7 +552,7 @@
                                                         @endif
                                                     @endforeach
 
-                                                    {{-- ACTIONS dropdown --}}
+                                                    {{-- ✅ ACTIONS dropdown --}}
                                                     <td class="actions-cell">
                                                         <div class="dropdown entry-actions">
                                                             <button
@@ -588,35 +564,47 @@
                                                                 aria-expanded="false">
                                                                 <i class="fa-solid fa-ellipsis-vertical me-1"></i> Actions
 
-                                                                {{-- Indicator pills (small icons) --}}
-                                                                {{-- Schedule pill: warns if empty OR overlapping --}}
+                                                                {{-- 🟢 NEW: Fields indicator --}}
+                                                                <span class="ind-pill {{ $fieldsOk ? 'ok' : 'warn' }}"
+                                                                    data-bs-toggle="tooltip"
+                                                                    data-bs-title="{{ $fieldsOk ? 'All required fields OK' : 'Missing / invalid fields' }}"
+                                                                    data-action="open-edit"
+                                                                    data-entry-type="invalid"
+                                                                    data-entry-index="{{ $index }}">
+                                                                    <i class="fa-solid fa-user-pen"></i>
+                                                                </span>
+
+                                                                {{-- ✅ NOTE: entry-type MUST be invalid here --}}
                                                                 <span class="ind-pill {{ ($missingSchedule || $conflictSchedule) ? 'warn' : 'ok' }}"
-                                                                      data-bs-toggle="tooltip"
-                                                                      data-bs-title="{{ $missingSchedule
+                                                                    data-bs-toggle="tooltip"
+                                                                    data-bs-title="
+                                                                        {{ $missingSchedule
                                                                             ? 'Empty Schedule'
-                                                                            : ($conflictSchedule ? 'Schedule has overlaps' : 'Schedule OK') }}"
-                                                                      data-action="open-schedule"
-                                                                      data-entry-type="invalid"
-                                                                      data-entry-index="{{ $index }}"
-                                                                      data-schedule-html="{!! e(nl2br(e($entry['class_schedule'] ?? ''))) !!}">
+                                                                            : ($conflictSchedule ? 'Schedule has overlaps' : 'Schedule OK') }}
+                                                                    "
+                                                                    data-action="open-schedule"
+                                                                    data-entry-type="invalid"
+                                                                    data-entry-index="{{ $index }}"
+                                                                    data-schedule-html="{!! e(nl2br(e($entry['class_schedule'] ?? ''))) !!}">
                                                                     <i class="fa-solid fa-calendar-days"></i>
                                                                 </span>
 
-                                                                {{-- Photo pill --}}
+
                                                                 <span class="ind-pill {{ $missingPhoto ? 'warn' : 'ok' }}"
-                                                                      data-bs-toggle="tooltip"
-                                                                      data-bs-title="{{ $missingPhoto ? 'No Photo / Default Photo' : 'Photo OK' }}"
-                                                                      data-action="open-photo"
-                                                                      data-entry-type="invalid"
-                                                                      data-entry-index="{{ $index }}"
-                                                                      data-vol-name="{{ addslashes($name) }}"
-                                                                      data-picture-src="{{ $picSrc ? addslashes($picSrc) : '' }}">
+                                                                    data-bs-toggle="tooltip"
+                                                                    data-bs-title="{{ $missingPhoto ? 'No Photo / Default Photo' : 'Photo OK' }}"
+                                                                    data-action="open-photo"
+                                                                    data-entry-type="invalid"
+                                                                    data-entry-index="{{ $index }}"
+                                                                    data-vol-name="{{ addslashes($name) }}"
+                                                                    data-picture-src="{{ $picSrc ? addslashes($picSrc) : '' }}">
                                                                     <i class="fa-solid fa-image"></i>
                                                                 </span>
+
                                                             </button>
 
                                                             <div class="dropdown-menu entry-actions-menu dropdown-menu-end" role="menu">
-                                                                {{-- Close dropdown --}}
+                                                                {{-- ✅ CLOSE BUTTON (only closes THIS dropdown) --}}
                                                                 <div class="entry-actions-header">
                                                                     <span class="title">ACTIONS</span>
                                                                     <button type="button"
@@ -628,26 +616,21 @@
                                                                 </div>
                                                                 <div class="dropdown-divider my-1"></div>
 
-                                                                {{-- Edit (fixed: only ONE onclick) --}}
                                                                 <button type="button" class="dropdown-item action-edit"
-                                                                        onclick="setLastUsedTable('invalid','{{ $index }}'); openEditVolunteerModal('invalid','{{ $index }}', this)">
+                                                                    onclick="setLastUsedTable('invalid','{{ $index }}'); openEditVolunteerModal('invalid','{{ $index }}', this)">
                                                                     <i class="fa-solid fa-user-pen"></i>
                                                                     <span>Edit</span>
                                                                 </button>
 
-                                                                {{-- View Schedule --}}
                                                                 <button type="button" class="dropdown-item action-schedule"
                                                                         onclick="openScheduleModal(`{!! nl2br(e($entry['class_schedule'] ?? '')) !!}`, 'invalid', '{{ $index }}')">
                                                                     <i class="fa-solid fa-calendar-days"></i>
                                                                     <span>Schedule</span>
                                                                     @if($missingSchedule)
                                                                         <span class="ms-auto tag-warn">Empty</span>
-                                                                    @elseif($conflictSchedule)
-                                                                        <span class="ms-auto tag-warn">Overlap</span>
                                                                     @endif
                                                                 </button>
 
-                                                                {{-- View Photo --}}
                                                                 <button type="button" class="dropdown-item action-photo"
                                                                         data-entry-index="{{ $index }}"
                                                                         data-entry-type="invalid"
@@ -663,7 +646,7 @@
 
                                                                 <div class="dropdown-divider my-1"></div>
 
-                                                                {{-- Transfer invalid -> valid --}}
+                                                                {{-- ✅ transfer: invalid -> valid (single) --}}
                                                                 @if($isReady)
                                                                     <button type="button"
                                                                             class="dropdown-item action-transfer pill-transfer"
@@ -673,6 +656,7 @@
                                                                         <span>Transfer to Verified</span>
                                                                     </button>
                                                                 @else
+                                                                    {{-- IMPORTANT: use a BUTTON so it doesn't overlay / steal clicks weirdly --}}
                                                                     <button type="button"
                                                                             class="dropdown-item action-transfer disabled"
                                                                             tabindex="-1"
@@ -699,7 +683,7 @@
                                 </table>
                             </div>
 
-                            {{-- Bulk move button --}}
+                            {{-- Move Selected to Verified --}}
                             <div class="submit-section">
                                 <button type="button"
                                         class="btn btn-danger submit-database"
@@ -715,10 +699,7 @@
             </div>
         </section>
 
-        {{-- =========================================================
-            2) VERIFIED ENTRIES SECTION
-            - entries ready to be submitted to DB
-            ========================================================= --}}
+        {{-- 2. VERIFIED ENTRIES --}}
         <section id="import-Section-valid">
             <div class="database-container">
                 <main class="database-main">
@@ -805,56 +786,68 @@
                                             @if(!empty($validEntries) && count($validEntries) > 0)
                                                 @foreach ($validEntries as $index => $entry)
                                                     @php
-                                                        // Even if it's in "Valid", we still compute flags so UI indicators are consistent
-                                                        $name = trim($entry['full_name'] ?? '') ?: 'Unknown';
-
-                                                        $missingFields = [];
-                                                        foreach ([
-                                                            'full_name'      => 'Name',
-                                                            'id_number'      => 'School ID',
-                                                            'course'         => 'Course',
-                                                            'year_level'     => 'Year',
-                                                            'batch_year'     => 'Batch Year',
-                                                            'contact_number' => 'Contact #',
-                                                            'email'          => 'Email',
-                                                            'barangay'       => 'Barangay',
-                                                            'district'       => 'District',
-                                                        ] as $k => $label) {
-                                                            if (empty(trim($entry[$k] ?? ''))) $missingFields[] = $label;
-                                                        }
-
-                                                        $fieldsOk = empty($missingFields);
-
-                                                        $scheduleIsEmpty     = $scheduleLooksEmpty($entry);
-                                                        $scheduleHasConflict = $hasScheduleConflicts($entry);
-                                                        $scheduleOk          = !$scheduleIsEmpty && !$scheduleHasConflict;
-
-                                                        $hasPic = $hasRealPhoto($entry);
+                                                    $name = trim($entry['full_name'] ?? '') ?: 'Unknown';
 
                                                     // ✅ PATCH ONLY: define image source in VALID loop too
                                                     $picSrc = !empty($entry['profile_picture_local'])
                                                         ? asset('storage/' . $entry['profile_picture_local'])
                                                         : ($entry['profile_picture'] ?? null);
 
-                                                        $columns = [
-                                                            'full_name'        => 'Name',
-                                                            'id_number'        => 'School ID',
-                                                            'course'           => 'Course',
-                                                            'year_level'       => 'Year',
-                                                            'batch_year'       => 'Batch',
-                                                            'contact_number'   => 'Contact #',
-                                                            'email'            => 'Email',
-                                                            'emergency_contact'=> 'Emergency #',
-                                                            'fb_messenger'     => 'FB/Messenger',
-                                                            'barangay'         => 'Barangay',
-                                                            'district'         => 'District',
-                                                        ];
+                                                    // Even in valid section, still compute field completeness
+                                                    $missingFields = [];
+                                                    foreach ([
+                                                        'full_name'      => 'Name',
+                                                        'id_number'      => 'School ID',
+                                                        'course'         => 'Course',
+                                                        'year_level'     => 'Year',
+                                                        'batch_year'     => 'Batch Year',
+                                                        'contact_number' => 'Contact #',
+                                                        'email'          => 'Email',
+                                                        'barangay'       => 'Barangay',
+                                                        'fb_messenger'   => 'FB/Messenger',
+                                                        'district'       => 'District',
 
-                                                        $truncatedFields = ['full_name','course','email','fb_messenger','barangay','district'];
+                                                        // ✅ ADD YOUR "facebook link" field here if it's required:
+                                                        'fb_messenger'   => 'FB/Messenger',
+                                                    ] as $k => $label) {
+                                                        if (empty(trim($entry[$k] ?? ''))) $missingFields[] = $label;
+                                                    }
 
-                                                        $missingSchedule  = $scheduleIsEmpty;
-                                                        $conflictSchedule = !$scheduleIsEmpty && $scheduleHasConflict;
-                                                        $missingPhoto     = !$hasPic;
+                                                    // Split schedule vs non-schedule errors so "Edit Volunteer" pill doesn't
+                                                    // turn red just because the schedule has conflicts.
+                                                    $scheduleErrorKeys = ['monday','tuesday','wednesday','thursday','friday','saturday'];
+                                                    $errorBag = (isset($entry['errors']) && is_array($entry['errors'])) ? $entry['errors'] : [];
+                                                    $hasScheduleErrors = false;
+                                                    $hasNonScheduleErrors = false;
+                                                    foreach (array_keys($errorBag) as $ek) {
+                                                        if (in_array(strtolower((string)$ek), $scheduleErrorKeys, true)) {
+                                                            $hasScheduleErrors = true;
+                                                        } else {
+                                                            $hasNonScheduleErrors = true;
+                                                        }
+                                                    }
+                                                    $hasErrors = $hasScheduleErrors || $hasNonScheduleErrors;
+
+                                                    // "Edit Volunteer" should only go red for non-schedule field issues.
+                                                    $fieldsOk = !$hasNonScheduleErrors && empty($missingFields);
+
+                                                    // schedule flags
+                                                    // Use BOTH:
+                                                    // - string-based detector (quick scan of the schedule string)
+                                                    // - server-side validator errors (source of truth for overlaps/format issues)
+                                                    $scheduleIsEmpty     = $scheduleLooksEmpty($entry);
+                                                    $scheduleHasConflict = $hasScheduleConflicts($entry) || $hasScheduleErrors;
+                                                    $scheduleOk          = !$scheduleIsEmpty && !$scheduleHasConflict;
+
+                                                    $hasPic = $hasRealPhoto($entry);
+
+                                                    // indicators for pills
+                                                    $missingSchedule  = $scheduleIsEmpty;
+                                                    $conflictSchedule = $scheduleHasConflict;
+                                                    $missingPhoto     = !$hasPic;
+
+                                                    // optional: if a "valid" row isn't actually valid, you can visually mark it
+                                                    $rowAccentClass = ($fieldsOk && $scheduleOk && $hasPic) ? 'row-ok' : 'row-warn';
                                                     @endphp
 
 
@@ -879,7 +872,7 @@
                                                             @php
                                                                 $value = trim($entry[$key] ?? '');
                                                                 $isTruncated = in_array($key, $truncatedFields);
-                                                                $displayVal = (strlen($value) > 20 && $isTruncated) ? (substr($value, 0, 20).'...') : $value;
+                                                                $displayVal = strlen($value) > 20 && $isTruncated ? substr($value, 0, 20).'...' : $value;
                                                             @endphp
 
                                                             @if($key === 'district')
@@ -900,7 +893,7 @@
                                                             @endif
                                                         @endforeach
 
-                                                        {{-- ACTIONS dropdown --}}
+                                                        {{-- ✅ ACTIONS dropdown --}}
                                                         <td class="actions-cell">
                                                             <div class="dropdown entry-actions">
                                                                 <button
@@ -912,12 +905,18 @@
                                                                     aria-expanded="false">
                                                                     <i class="fa-solid fa-ellipsis-vertical me-1"></i> Actions
 
-                                                                    {{-- schedule indicator (fixed: ONLY ONE schedule pill) --}}
-                                                                    <span class="ind-pill {{ ($missingSchedule || $conflictSchedule) ? 'warn' : 'ok' }}"
+                                                                    <span class="ind-pill pill-action {{ $fieldsOk ? 'ok' : 'warn' }}"
                                                                         data-bs-toggle="tooltip"
-                                                                        data-bs-title="{{ $missingSchedule
-                                                                                            ? 'Empty Schedule'
-                                                                                            : ($conflictSchedule ? 'Schedule has overlaps' : 'Schedule OK') }}"
+                                                                        data-bs-title="{{ $fieldsOk ? 'All required fields OK' : 'Missing fields' }}"
+                                                                        data-action="open-edit"
+                                                                        data-entry-type="valid"
+                                                                        data-entry-index="{{ $index }}">
+                                                                        <i class="fa-solid fa-user-pen"></i>
+                                                                    </span>
+
+                                                                    <span class="ind-pill pill-action {{ ($missingSchedule || $conflictSchedule) ? 'warn' : 'ok' }}"
+                                                                        data-bs-toggle="tooltip"
+                                                                        data-bs-title="{{ $missingSchedule ? 'Empty Schedule' : ($conflictSchedule ? 'Schedule has overlaps' : 'Schedule OK') }}"
                                                                         data-action="open-schedule"
                                                                         data-entry-type="valid"
                                                                         data-entry-index="{{ $index }}"
@@ -925,8 +924,7 @@
                                                                         <i class="fa-solid fa-calendar-days"></i>
                                                                     </span>
 
-                                                                    {{-- photo indicator --}}
-                                                                    <span class="ind-pill {{ $missingPhoto ? 'warn' : 'ok' }}"
+                                                                    <span class="ind-pill pill-action {{ $missingPhoto ? 'warn' : 'ok' }}"
                                                                         data-bs-toggle="tooltip"
                                                                         data-bs-title="{{ $missingPhoto ? 'No Photo / Default Photo' : 'Photo OK' }}"
                                                                         data-action="open-photo"
@@ -939,6 +937,7 @@
                                                                 </button>
 
                                                                 <div class="dropdown-menu entry-actions-menu dropdown-menu-end" role="menu">
+                                                                    {{-- ✅ CLOSE BUTTON (only closes THIS dropdown) --}}
                                                                     <div class="entry-actions-header">
                                                                         <span class="title">ACTIONS</span>
                                                                         <button type="button"
@@ -950,7 +949,6 @@
                                                                     </div>
                                                                     <div class="dropdown-divider my-1"></div>
 
-                                                                    {{-- Edit: IMPORTANT: valid entry should call valid --}}
                                                                     <button type="button" class="dropdown-item action-edit"
                                                                         onclick="setLastUsedTable('valid','{{ $index }}'); openEditVolunteerModal('valid','{{ $index }}', this)">
                                                                         <i class="fa-solid fa-user-pen"></i>
@@ -963,8 +961,6 @@
                                                                         <span>Schedule</span>
                                                                         @if($missingSchedule)
                                                                             <span class="ms-auto tag-warn">Empty</span>
-                                                                        @elseif($conflictSchedule)
-                                                                            <span class="ms-auto tag-warn">Overlap</span>
                                                                         @endif
                                                                     </button>
 
@@ -983,7 +979,7 @@
 
                                                                     <div class="dropdown-divider my-1"></div>
 
-                                                                    {{-- move valid -> invalid (single) --}}
+                                                                    {{-- ✅ move valid -> invalid (single) --}}
                                                                     <button type="button" class="dropdown-item action-transfer"
                                                                             data-bs-toggle="tooltip" data-bs-title="Transfer back to Invalid"
                                                                             onclick="moveValidToInvalid('{{ $index }}')">
@@ -1024,10 +1020,7 @@
             </div>
         </section>
 
-        {{-- =========================================================
-            3) IMPORT LOGS SECTION
-            - shows history of uploaded files + counts
-            ========================================================= --}}
+        {{-- 3. IMPORT LOGS --}}
         <section id="importlog-Section">
             <div class="database-container">
                 <main class="database-main">
@@ -1199,13 +1192,7 @@
     
 <script src="{{ asset('assets/layouts/modals/universal_feedback_modal.js') }}"></script>
 
-    {{-- =========================================================
-        Dropdown pop-out + tooltips (fixed positioning)
-        - This moves the dropdown menu to <body> so it won't be clipped by table overflow.
-        - Also re-inits tooltips for dynamic content.
-       ========================================================= --}}
-<script>
-  // Rebuild tooltips so they don’t glitch inside table/portal
+   <script>
   function initBootstrapTooltips(root = document) {
     const els = [].slice.call(root.querySelectorAll('[data-bs-toggle="tooltip"]'));
     els.forEach(el => {
@@ -1220,14 +1207,12 @@
     });
   }
 
-  // Used only for positioning / reopen behavior (not global state)
   let lastDropdownToggle = null;
   let lastDropdownMenu = null;
   let reopenAfterModal = false;
 
   function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
 
-  // Move dropdown menu to body (prevents clipping in responsive table)
   function portalMenuToBody(toggleBtn){
     const wrap = toggleBtn?.closest?.('.entry-actions');
     const menu = wrap?.querySelector?.('.entry-actions-menu');
@@ -1248,13 +1233,11 @@
     return menu;
   }
 
-  // Put menu back where it came from when dropdown closes
   function restoreMenuFromBody(toggleBtn){
-      const wrap = toggleBtn?.closest?.('.entry-actions');
-      if (!wrap) return;
-
-      const pid = toggleBtn?.dataset?.placeholderId;
-      if (!pid) return;
+    const wrap = toggleBtn?.closest?.('.entry-actions');
+    if (!wrap) return;
+    const pid = toggleBtn?.dataset?.placeholderId;
+    if (!pid) return;
 
     const menu =
       document.querySelector(`.entry-actions-menu[data-portaled="1"][data-placeholder-id="${pid}"]`)
@@ -1272,7 +1255,6 @@
     ph.remove();
   }
 
-  // Position dropdown menu so it stays inside viewport
   function positionMenuFixedOnce(toggleBtn) {
     const pid = toggleBtn?.dataset?.placeholderId;
     const menu = pid
@@ -1308,7 +1290,6 @@
     lastDropdownMenu = m;
   }
 
-  // Close only the dropdown of this button
   function closeOneEntryDropdown(toggleBtn){
     if (!toggleBtn) return;
     const inst = bootstrap.Dropdown.getInstance(toggleBtn)
@@ -1317,7 +1298,6 @@
   }
   window.closeOneEntryDropdown = closeOneEntryDropdown;
 
-  // Close all dropdowns (useful on scroll / outside click / modal open)
   function closeAllEntryDropdowns() {
     document.querySelectorAll('.entry-actions .entry-actions-btn[aria-expanded="true"]').forEach(btn => {
       const inst = bootstrap.Dropdown.getInstance(btn);
@@ -1367,10 +1347,11 @@
       initBootstrapTooltips();
     });
 
-      // When dropdown opens: portal it + position it
-      document.addEventListener('shown.bs.dropdown', function (e) {
-          const toggleBtn = e.relatedTarget || e.target?.querySelector?.('.entry-actions-btn');
-          if (!toggleBtn) return;
+    document.addEventListener('hidden.bs.dropdown', function (e) {
+      const toggleBtn = e.relatedTarget || e.target?.querySelector?.('.entry-actions-btn');
+      if (!toggleBtn) return;
+      restoreMenuFromBody(toggleBtn);
+    });
 
     window.addEventListener('resize', () => {
       if (lastDropdownToggle && lastDropdownMenu?.classList.contains('show')) {
@@ -1407,69 +1388,31 @@
         closeAllEntryDropdowns();
       });
 
-      // When dropdown closes: restore it back
-      document.addEventListener('hidden.bs.dropdown', function (e) {
-          const toggleBtn = e.relatedTarget || e.target?.querySelector?.('.entry-actions-btn');
-          if (!toggleBtn) return;
-          restoreMenuFromBody(toggleBtn);
-      });
-
-      // Reposition if viewport changes
-      window.addEventListener('resize', () => {
-          if (lastDropdownToggle && lastDropdownMenu?.classList.contains('show')) {
-              positionMenuFixedOnce(lastDropdownToggle);
-          }
-      });
-
-      // Close all Actions dropdowns whenever page scrolls
-      window.addEventListener('scroll', () => {
-          closeAllEntryDropdowns();
-      }, { passive: true });
-
-      // Close dropdown when clicking outside
-      document.addEventListener('click', (e) => {
-          const insideMenu    = e.target.closest('.entry-actions-menu');
-          const insideTrigger = e.target.closest('.entry-actions-btn');
-          const insideWrap    = e.target.closest('.entry-actions');
-          if (!insideMenu && !insideTrigger && !insideWrap) {
-              closeAllEntryDropdowns();
-          }
-      });
-
-      // If a modal opens, close dropdowns so they don't float above modal
-      document.querySelectorAll('.modal').forEach(modalEl => {
-          modalEl.addEventListener('show.bs.modal', () => {
-              reopenAfterModal = !!(lastDropdownMenu && lastDropdownMenu.classList.contains('show'));
-              closeAllEntryDropdowns();
-          });
-
-          modalEl.addEventListener('hidden.bs.modal', () => {
-              if (reopenAfterModal && lastDropdownToggle) {
-                  const inst = bootstrap.Dropdown.getOrCreateInstance(lastDropdownToggle, { autoClose: 'outside' });
-                  inst.show();
-              }
-              reopenAfterModal = false;
-          });
+      modalEl.addEventListener('hidden.bs.modal', () => {
+        if (reopenAfterModal && lastDropdownToggle) {
+          const inst = bootstrap.Dropdown.getOrCreateInstance(lastDropdownToggle, { autoClose: 'outside' });
+          inst.show();
+        }
+        reopenAfterModal = false;
       });
     });
   });
 
-  // Close button inside dropdown (X)
+  // close button inside dropdown
   document.addEventListener('click', function (e) {
-      const btn = e.target.closest('[data-action="close-dropdown"]');
-      if (!btn) return;
+    const btn = e.target.closest('[data-action="close-dropdown"]');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
 
-      e.preventDefault();
-      e.stopPropagation();
+    const menu = btn.closest('.entry-actions-menu');
+    const toggle = document.querySelector(`.entry-actions-btn[data-placeholder-id="${menu?.dataset?.placeholderId || ''}"]`)
+      || btn.closest('.entry-actions')?.querySelector('.entry-actions-btn');
 
-      const menu = btn.closest('.entry-actions-menu');
-      const toggle = document.querySelector(`.entry-actions-btn[data-placeholder-id="${menu?.dataset?.placeholderId || ''}"]`)
-                || btn.closest('.entry-actions')?.querySelector('.entry-actions-btn');
-
-      if (toggle) closeOneEntryDropdown(toggle);
+    if (toggle) closeOneEntryDropdown(toggle);
   }, true);
 
-  // Mini icon click => opens schedule/photo modals without fighting the dropdown portal
+  // pills open modals without fighting portal
   document.addEventListener('click', function (e) {
     const pill = e.target.closest('.ind-pill[data-action]');
     if (!pill) return;
@@ -1483,14 +1426,21 @@
 
       const action = pill.dataset.action;
 
-        if (action === 'open-schedule') {
-          const html = pill.dataset.scheduleHtml || '';
-          const type = pill.dataset.entryType || '';
-          const idx  = pill.dataset.entryIndex || '';
-          if (typeof window.openScheduleModal === 'function') {
-              window.openScheduleModal(html, type, idx);
-          }
-          return;
+      if (action === 'open-edit') {
+        const type = pill.dataset.entryType || '';
+        const idx  = pill.dataset.entryIndex || '';
+        if (typeof window.openEditVolunteerModal === 'function') {
+          window.openEditVolunteerModal(type, idx, toggle);
+        }
+        return;
+      }
+
+      if (action === 'open-schedule') {
+        const html = pill.dataset.scheduleHtml || '';
+        const type = pill.dataset.entryType || '';
+        const idx  = pill.dataset.entryIndex || '';
+        if (typeof window.openScheduleModal === 'function') {
+          window.openScheduleModal(html, type, idx);
         }
         return;
       }

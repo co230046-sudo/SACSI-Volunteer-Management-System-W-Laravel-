@@ -78,7 +78,6 @@
 
   // ============================================================
   // Soft confirm modal (YES/NO)
-  // Requires softConfirmModal markup in Blade.
   // ============================================================
   let confirmResolver = null;
 
@@ -90,7 +89,6 @@
     const cancelBtn = el("softConfirmCancel");
 
     if (!titleEl || !bodyEl || !headerEl || !okBtn || !cancelBtn) {
-      // fallback if you didn't add the modal markup
       return Promise.resolve(window.confirm(message));
     }
 
@@ -400,6 +398,16 @@
     }
   }
 
+  // ✅ NEW: update + auto-select event type after creation
+  function setEventTypeSelection(typeId, label) {
+    const hidden = el("event_type_id_hidden");
+    const sel = document.querySelector("#event-type-select");
+    const left = sel?.querySelector(".custom-select-trigger .cs-left");
+
+    if (hidden) hidden.value = String(typeId || "");
+    if (left) left.textContent = label || "Select Event Type";
+  }
+
   // ============================================================
   // Manage Organizers modal (Directory search + assign + edit/delete)
   // ============================================================
@@ -629,29 +637,17 @@
         try {
           const updated = await updateDirectoryOrganizer(id, { name: nextName, email: nextEmail, contact: nextContact });
 
-          // update in-place UI + local variables
           org.name = updated.name ?? nextName;
           org.email = updated.email ?? nextEmail ?? "";
           org.contact = updated.contact ?? nextContact ?? "";
 
-          // simplest: re-render list in parent caller (we don't have that here)
-          // so: update visible text now
           item.querySelector(".db-org-name").textContent = org.name;
           item.querySelector(".db-org-meta").textContent = [org.email, org.contact].filter(Boolean).join(" • ") || "No email/contact";
 
-          // keep assign payload correct
-          // eslint-disable-next-line no-unused-vars
-          // (we just overwrite the closure vars by re-reading org)
-          // but closures keep old values; easiest: set from org when assigning:
-          // We’ll patch by reading current fields from DOM on assign
           pill.onclick = () => {
             const row = getSlotRow(activeAssignSlot);
             if (!row) return;
-            const ok = writeRowFromDb(row, {
-              name: org.name,
-              email: org.email || "",
-              contact: org.contact || ""
-            });
+            const ok = writeRowFromDb(row, { name: org.name, email: org.email || "", contact: org.contact || "" });
             if (!ok) return;
             showModalAfterHiding("manageOrganizersModal", "organizerSavedModal");
           };
@@ -725,7 +721,14 @@
   // ============================================================
   function initFormModals() {
     const form = el("create-event-form");
-    el("open-create-modal-btn")?.addEventListener("click", () => bsShow("confirmModal"));
+
+    // ✅ Only show confirm modal if valid; otherwise show native validation bubbles
+    el("open-create-modal-btn")?.addEventListener("click", () => {
+      if (!form) return bsShow("confirmModal");
+      if (form.checkValidity()) return bsShow("confirmModal");
+      form.reportValidity();
+    });
+
     el("confirm-create-btn")?.addEventListener("click", () => form?.submit());
 
     el("dup-confirm-btn")?.addEventListener("click", () => {
@@ -753,7 +756,7 @@
   }
 
   // ============================================================
-  // EVENT TYPE MANAGER (unchanged from your version)
+  // EVENT TYPE MANAGER
   // ============================================================
   async function fetchEventTypes(search) {
     const base = window.EVENT_TYPES_API_URL;
@@ -980,6 +983,12 @@
 
   function initEventTypeManager() {
     const search = el("eventTypeManageSearch");
+    const modalEl = el("eventTypeModal");
+
+    // ✅ Add New modal
+    const addBtn = el("eventTypeAddNewBtn");
+    const addInput = el("eventTypeAddLabel");
+    const addSaveBtn = el("eventTypeAddSaveBtn");
 
     if (search) {
       let t = null;
@@ -989,7 +998,6 @@
       });
     }
 
-    const modalEl = el("eventTypeModal");
     if (modalEl) {
       modalEl.addEventListener("shown.bs.modal", () => {
         if (search) search.value = "";
@@ -998,7 +1006,70 @@
       });
     }
 
-    // NOTE: if you use eventTypeAddModal in JS, make sure you actually have the HTML for it in Blade.
+    // open add modal
+    addBtn?.addEventListener("click", () => {
+      bsShow("eventTypeAddModal");
+      setTimeout(() => {
+        if (addInput) {
+          addInput.value = "";
+          addInput.focus();
+        }
+      }, 50);
+    });
+
+    // save new type
+    const doSave = async () => {
+      const label = (addInput?.value || "").trim();
+      if (!label) {
+        showActionModal({ title: "Missing label", message: "Please enter an event type label.", tone: "warning" });
+        addInput?.focus();
+        return;
+      }
+
+      if (!window.EVENT_TYPE_STORE_URL || !window.CSRF_TOKEN) {
+        showActionModal({ title: "Config missing", message: "EVENT_TYPE_STORE_URL / CSRF_TOKEN not set.", tone: "danger" });
+        return;
+      }
+
+      if (addSaveBtn) addSaveBtn.disabled = true;
+
+      try {
+        const created = await createEventType(label);
+
+        const createdId =
+          created?.event_type_id ??
+          created?.id ??
+          created?.data?.event_type_id ??
+          created?.data?.id ??
+          null;
+
+        const createdLabel =
+          created?.label ??
+          created?.data?.label ??
+          label;
+
+        bsHide("eventTypeAddModal");
+
+        await refreshEventTypesList(search?.value?.trim() || "");
+        await refreshEventTypeDropdownOptions();
+
+        if (createdId) setEventTypeSelection(createdId, createdLabel);
+
+        showActionModal({ title: "Saved", message: "Event type added successfully.", tone: "info" });
+      } catch (err) {
+        showActionModal({ title: "Add failed", message: err.message || "Failed to add event type.", tone: "danger" });
+      } finally {
+        if (addSaveBtn) addSaveBtn.disabled = false;
+      }
+    };
+
+    addSaveBtn?.addEventListener("click", doSave);
+    addInput?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        doSave();
+      }
+    });
   }
 
   // ============================================================

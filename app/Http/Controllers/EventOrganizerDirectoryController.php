@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\EventOrganizer;
 use App\Models\EventLog;
-use App\Models\FactLog;
+use App\Services\FactLogger;
 
 class EventOrganizerDirectoryController extends Controller
 {
@@ -34,14 +34,14 @@ class EventOrganizerDirectoryController extends Controller
         return response()->json($rows);
     }
 
-    public function update(Request $request, EventOrganizer $organizer)
+    public function update(Request $request, EventOrganizer $organizer, FactLogger $factLogger)
     {
         $admin = Auth::guard('admin')->user();
         if (!$admin) return response()->json(['message' => 'Unauthorized.'], 401);
 
         $data = $request->validate([
-            'name' => ['required','string','max:255'],
-            'email' => ['nullable','email','max:255'],
+            'name'    => ['required','string','max:255'],
+            'email'   => ['nullable','email','max:255'],
             'contact' => ['nullable','string','max:50'],
         ]);
 
@@ -59,30 +59,34 @@ class EventOrganizerDirectoryController extends Controller
             'details'  => "Updated organizer #{$organizer->organizer_id}: {$before['name']} → {$after['name']}",
         ]);
 
-        // ✅ FactLog
-        FactLog::create([
-            'admin_id'    => $admin->admin_id,
-            'entity_type' => 'EventOrganizer',
-            'entity_id'   => $organizer->organizer_id,
-            'action'      => 'Update',
-            'details'     => json_encode([
-                'before' => $before,
-                'after'  => $after,
-            ], JSON_UNESCAPED_UNICODE),
-            'timestamp'   => now(),
-        ]);
+        // ✅ FactLog via canonical FactLogger
+        // Use summary the UI can display: "Edited Event Type - "Blood Donation""
+        $factLogger->log(
+            type: 'event_organizer.updated',
+            action: 'Edit',
+            entity: $organizer,
+            entityId: $organizer->organizer_id,
+            details: [
+                'summary' => 'Edited Event Type - "' . ($after['name'] ?? 'Unknown') . '"',
+                'data' => [
+                    'before' => $before,
+                    'after'  => $after,
+                ],
+            ],
+            adminId: $admin->admin_id
+        );
 
         return response()->json($organizer);
     }
 
-    public function destroy(EventOrganizer $organizer)
+    public function destroy(EventOrganizer $organizer, FactLogger $factLogger)
     {
         $admin = Auth::guard('admin')->user();
         if (!$admin) return response()->json(['message' => 'Unauthorized.'], 401);
 
         $before = $organizer->only(['organizer_id','name','email','contact']);
 
-        $organizerId = $organizer->organizer_id;
+        $organizerId   = $organizer->organizer_id;
         $organizerName = $organizer->name;
 
         $organizer->delete();
@@ -95,17 +99,20 @@ class EventOrganizerDirectoryController extends Controller
             'details'  => "Deleted organizer #{$organizerId}: {$organizerName}",
         ]);
 
-        // ✅ FactLog
-        FactLog::create([
-            'admin_id'    => $admin->admin_id,
-            'entity_type' => 'EventOrganizer',
-            'entity_id'   => $organizerId,
-            'action'      => 'Delete',
-            'details'     => json_encode([
-                'deleted' => $before,
-            ], JSON_UNESCAPED_UNICODE),
-            'timestamp'   => now(),
-        ]);
+        // ✅ FactLog via canonical FactLogger
+        $factLogger->log(
+            type: 'event_organizer.deleted',
+            action: 'Delete',
+            entity: 'EventOrganizer',
+            entityId: $organizerId,
+            details: [
+                'summary' => 'Deleted Event Type - "' . ($organizerName ?? 'Unknown') . '"',
+                'data' => [
+                    'deleted' => $before,
+                ],
+            ],
+            adminId: $admin->admin_id
+        );
 
         return response()->json(['ok' => true]);
     }

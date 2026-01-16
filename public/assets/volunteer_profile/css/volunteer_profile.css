@@ -563,3 +563,87 @@ section {
   text-align: right;
   white-space: nowrap;
 }
+
+/* ===========================
+   EVENT HISTORY FIX (APPEND)
+   =========================== */
+
+/* Make Event History behave like a real table row again */
+.event-table {
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+  table-layout: fixed;
+  width: 100% !important;
+}
+
+/* Clean row + consistent borders */
+.event-item td {
+  border: 1px solid #dee2e6 !important;
+  background: #fff !important;
+  padding: 12px 14px !important;
+  vertical-align: middle !important;
+}
+
+/* Remove the "floating card" look caused by border-spacing */
+.event-item td:first-child { border-top-left-radius: 10px; border-bottom-left-radius: 10px; }
+.event-item td:last-child  { border-top-right-radius: 10px; border-bottom-right-radius: 10px; }
+
+/* Column sizing so the right side doesn't stretch weird */
+.event-status,
+.event-action {
+  width: 120px;
+  text-align: center !important;
+  white-space: nowrap;
+}
+
+/* Title + code/date formatting */
+.event-name a {
+  display: inline-block !important;
+  font-weight: 700;
+}
+
+.event-meta {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Badge sizing so PRESENT / IMPORT doesn't look like giant buttons */
+.event-meta .badge,
+.event-status .badge,
+.event-action .badge {
+  font-size: 0.8rem !important;
+  padding: 6px 10px !important;
+  border-radius: 999px !important;
+  line-height: 1 !important;
+}
+
+/* Hover should still work but not destroy alignment */
+.event-item:hover td {
+  background: #f8cbcb !important;
+  border-color: #d42727 !important;
+}
+
+/* Mobile: stack the status/import under title nicely */
+@media (max-width: 576px) {
+  .event-table,
+  .event-table tbody,
+  .event-table tr,
+  .event-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .event-item td {
+    border-radius: 10px !important;
+    margin-bottom: 10px;
+  }
+
+  .event-status,
+  .event-action {
+    width: 100% !important;
+    text-align: left !important;
+  }
+}

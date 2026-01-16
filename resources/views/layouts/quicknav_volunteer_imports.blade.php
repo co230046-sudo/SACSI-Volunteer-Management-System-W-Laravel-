@@ -14,7 +14,7 @@
   top: 50%;
   left: 0;
   transform: translateY(-50%);
-  z-index: 9000;
+  z-index: 10;
 
   width: 260px;
   border-radius: 0 16px 16px 0;

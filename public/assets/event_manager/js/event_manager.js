@@ -86,7 +86,6 @@
   const barangaySelectedText = document.getElementById("emBarangaySelectedText");
 
   const copyBtn = document.getElementById("emCopyBtn");
-  const printBtn = document.getElementById("emPrintBtn");
 
   const bulkBtn         = document.getElementById("emBulkDeleteBtn");
   const selectedCountEl = document.getElementById("emSelectedCount");
@@ -102,19 +101,23 @@
   // Activity Log button
   const logBtn = document.getElementById("emLogBtn");
 
+  /* ============================================================
+     Bootstrap helpers
+     - Safe guard: if Bootstrap fails to load, don’t hard crash
+     ============================================================ */
+  const hasBootstrap = () => typeof window.bootstrap !== "undefined";
+
   /* ===== Modals ===== */
   const bsModal = (id) => {
+    if (!hasBootstrap()) return null;
     const el = document.getElementById(id);
-    return el ? new bootstrap.Modal(el) : null;
+    return el ? bootstrap.Modal.getOrCreateInstance(el) : null;
   };
 
   const mConfirm  = bsModal("emModalConfirm");
-  const mSuccess  = bsModal("emModalSuccess");
   const mNotice   = bsModal("emModalNotice");
   const mNoCopy   = bsModal("emModalNoCopy");
-  const mNoPrint  = bsModal("emModalNoPrint");
   const mNoDelete = bsModal("emModalNoDelete");
-  const mLogs     = bsModal("emActivityModal");
 
   const noticeTitle = document.getElementById("emNoticeTitle");
   const noticeBody  = document.getElementById("emNoticeBody");
@@ -555,7 +558,7 @@
   }
 
   /* ============================================================
-     FILTERING + SORTING + PAGINATION
+     FILTERING + SORTING + PAGINATION (EVENT CARDS)
      ============================================================ */
   function cardMatchesTimeSlot(card, slotKey) {
     if (!slotKey) return true;
@@ -581,6 +584,7 @@
     const q = (state.q || "").trim().toLowerCase();
     const cards = cardsInActive();
 
+    // 1) filter visibility
     for (const c of cards) {
       const hay        = (c.getAttribute("data-search") || "").toLowerCase();
       const cDist      = (c.getAttribute("data-district") || "").trim();
@@ -599,10 +603,11 @@
 
       c.style.display =
         (okSearch && okDist && okBarangay && okMonth && okDay && okTimeGroup && okTimeSlot)
-        ? ""
-        : "none";
+          ? ""
+          : "none";
     }
 
+    // 2) sort visible
     const visible = cards.filter(c => c.style.display !== "none");
     visible.sort((a, b) => {
       const ta = (a.getAttribute("data-title") || "").toLowerCase();
@@ -619,6 +624,7 @@
       }
     });
 
+    // 3) page slice
     const page       = state.pageByTab[state.tab] || 1;
     const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
     const safePage   = Math.min(totalPages, Math.max(1, page));
@@ -631,9 +637,14 @@
       c.style.display = (i >= start && i < end) ? "" : "none";
     });
 
+    // 4) ensure DOM order matches sorting (append in sorted order)
     const grid = activeGrid();
-    if (grid) visible.forEach(c => grid.appendChild(c));
+    if (grid) {
+      visible.forEach(c => grid.appendChild(c));
+      cards.filter(c => !visible.includes(c)).forEach(c => grid.appendChild(c));
+    }
 
+    // 5) empty + pager UI
     const empty = activeEmpty();
     if (empty) empty.hidden = visible.length !== 0;
 
@@ -646,7 +657,8 @@
       if (info) info.textContent = `${safePage} / ${totalPages}`;
       if (prevBtn) prevBtn.closest(".page-item")?.classList.toggle("disabled", safePage <= 1);
       if (nextBtn) nextBtn.closest(".page-item")?.classList.toggle("disabled", safePage >= totalPages);
-      pager.hidden = visible.length === 0;
+
+      pager.hidden = visible.length === 0 || totalPages <= 1;
     }
 
     syncCount();
@@ -751,21 +763,25 @@
   });
 
   /* ============================================================
-     PAGINATION BUTTONS
+     PAGINATION BUTTONS (EVENT CARDS)
      ============================================================ */
   root.addEventListener("click", (e) => {
     const prev = e.target.closest("[data-page-prev]");
     const next = e.target.closest("[data-page-next]");
     if (!prev && !next) return;
 
+    const pane = activePane();
+    if (!pane) return;
+
+    const q = (state.q || "").trim().toLowerCase();
     const cards = cardsInActive();
-    const visibleAll = cards.filter(c => {
-      const q         = (state.q || "").trim().toLowerCase();
-      const hay       = (c.getAttribute("data-search") || "").toLowerCase();
-      const cDist     = (c.getAttribute("data-district") || "").trim();
-      const cBarangay = (c.getAttribute("data-barangay") || "").trim();
-      const cMonth    = (c.getAttribute("data-month") || "").trim();
-      const cDay      = (c.getAttribute("data-day") || "").trim();
+
+    const matches = cards.filter(c => {
+      const hay        = (c.getAttribute("data-search") || "").toLowerCase();
+      const cDist      = (c.getAttribute("data-district") || "").trim();
+      const cBarangay  = (c.getAttribute("data-barangay") || "").trim();
+      const cMonth     = (c.getAttribute("data-month") || "").trim();
+      const cDay       = (c.getAttribute("data-day") || "").trim();
 
       const okSearch   = !q || hay.includes(q);
       const okDist     = !state.district || cDist === state.district;
@@ -778,7 +794,7 @@
       return okSearch && okDist && okBarangay && okMonth && okDay && okTimeGroup && okTimeSlot;
     });
 
-    const totalPages = Math.max(1, Math.ceil(visibleAll.length / PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(matches.length / PAGE_SIZE));
     const current    = state.pageByTab[state.tab] || 1;
 
     if (prev) state.pageByTab[state.tab] = Math.max(1, current - 1);
@@ -797,9 +813,7 @@
   function syncCount() {
     const n = selectedChecksAllPanes().length;
     if (selectedCountEl) selectedCountEl.textContent = String(n);
-    if (bulkBtn) {
-      bulkBtn.classList.toggle("em-bulk-empty", n === 0);
-    }
+    if (bulkBtn) bulkBtn.classList.toggle("em-bulk-empty", n === 0);
   }
 
   document.addEventListener("change", (e) => {
@@ -826,7 +840,7 @@
   });
 
   /* ============================================================
-     COPY + PRINT EXPORT
+     COPY EXPORT
      ============================================================ */
   function activeVisibleCards() {
     const pane = activePane();
@@ -887,82 +901,6 @@
     }
   });
 
-  printBtn?.addEventListener("click", () => {
-    const selected = selectedCardsInActiveTab();
-    const cards    = selected.length ? selected : activeVisibleCards();
-
-    if (!cards.length) {
-      mNoPrint?.show();
-      return;
-    }
-
-    const rows = exportCards(cards);
-    const tabName =
-      tabs.find(t => t.classList.contains("is-active"))?.textContent?.trim() ||
-      "Events";
-
-    const tableRows = rows.map(r => `
-      <tr>
-        <td>${r.n}</td>
-        <td><strong>${escapeHtml(r.title)}</strong></td>
-        <td>${escapeHtml(r.date)}${r.day ? ` <span style="color:#6b7280;font-weight:700;">(${escapeHtml(r.day)})</span>` : ""}</td>
-        <td>${escapeHtml(r.time)}</td>
-        <td>${escapeHtml(r.venue)}</td>
-        <td>${escapeHtml(r.code)}</td>
-        <td>${escapeHtml(r.status)}</td>
-      </tr>
-    `).join("");
-
-    const html = `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <title>${escapeHtml(tabName)}</title>
-  <style>
-    body{ font-family: Arial, sans-serif; margin:24px; color:#111827; }
-    h1{ margin:0 0 6px; color:#7a232b; font-size:22px; }
-    .sub{ color:#6b7280; font-weight:700; margin-bottom:14px; }
-    table{ width:100%; border-collapse:collapse; font-size:14px; }
-    th,td{ border:1px solid rgba(17,24,39,.14); padding:10px; text-align:left; vertical-align:top; }
-    th{ background: rgba(17,24,39,.04); }
-    @media print {
-      tr { page-break-inside: avoid; }
-      tr + tr { page-break-before: always; }
-    }
-  </style>
-</head>
-<body>
-  <h1>${escapeHtml(tabName)} ${selected.length ? "(Selected)" : ""}</h1>
-  <div class="sub">Generated: ${escapeHtml(new Date().toLocaleString())}</div>
-  <table>
-    <thead>
-      <tr>
-        <th>#</th><th>Event</th><th>Date</th><th>Time</th><th>Venue</th><th>Code</th><th>Status</th>
-      </tr>
-    </thead>
-    <tbody>${tableRows}</tbody>
-  </table>
-  <script>
-    window.onload = function(){
-      window.focus();
-      window.print();
-      window.onafterprint = function(){ window.close(); };
-    };
-  <\/script>
-</body>
-</html>`;
-
-    const w = window.open("", "_blank", "noopener,noreferrer,width=1100,height=720");
-    if (!w) {
-      showNotice("Popup blocked", "Allow popups in your browser to print this list.");
-      return;
-    }
-
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-  });
-
   /* ============================================================
      BULK DELETE MODAL
      ============================================================ */
@@ -978,19 +916,16 @@
       (ch) => ch.getAttribute("data-title") || "Untitled Event"
     );
 
-    if (confirmCountEl) {
-      confirmCountEl.textContent = String(selected.length);
-    }
+    if (confirmCountEl) confirmCountEl.textContent = String(selected.length);
 
     if (confirmListEl) {
       confirmListEl.innerHTML = titles
         .slice(0, 60)
-        .map(
-          (t) =>
-            `<div class="em-confirm-item">
-               <i class="fa-regular fa-trash-can"></i>
-               <div>${escapeHtml(t)}</div>
-             </div>`
+        .map((t) =>
+          `<div class="em-confirm-item">
+             <i class="fa-regular fa-trash-can"></i>
+             <div>${escapeHtml(t)}</div>
+           </div>`
         )
         .join("");
       if (titles.length > 60) {
@@ -1003,12 +938,7 @@
 
     if (hiddenInputsWrap) {
       hiddenInputsWrap.innerHTML = selected
-        .map(
-          (ch) =>
-            `<input type="hidden" name="event_ids[]" value="${escapeHtml(
-              ch.value
-            )}">`
-        )
+        .map((ch) => `<input type="hidden" name="event_ids[]" value="${escapeHtml(ch.value)}">`)
         .join("");
     }
 
@@ -1016,59 +946,197 @@
   });
 
   /* ============================================================
-     EVENT ACTIVITY LOG (modal) – JS filters (Apply-only)
+     ✅ SAFETY IMPROVEMENT (NO BEHAVIOR CHANGE)
+     Clear stale bulk-delete modal content after close
      ============================================================ */
-  const logFilterForm   = document.getElementById("emLogFilterForm");
-  const logStartInput   = logFilterForm?.querySelector('input[name="log_start"]');
-  const logEndInput     = logFilterForm?.querySelector('input[name="log_end"]');
-  const logSearchInput  = logFilterForm?.querySelector('input[name="log_search"]');
-  const logActionSelect = logFilterForm?.querySelector('select[name="log_action"]');
-  const logResetBtn     = document.getElementById("emLogResetBtn");
-  const logTable        = document.querySelector("#emActivityModal .em-log-table");
-  const logRows         = logTable ? [...logTable.querySelectorAll("tbody tr.em-log-row")] : [];
+  const confirmModalEl = document.getElementById("emModalConfirm");
+  confirmModalEl?.addEventListener("hidden.bs.modal", () => {
+    if (hiddenInputsWrap) hiddenInputsWrap.innerHTML = "";
+    if (confirmListEl) confirmListEl.innerHTML = "";
+    if (confirmCountEl) confirmCountEl.textContent = "0";
+  });
 
-  function applyLogFilters() {
-    if (!logTable || !logRows.length) return;
+  /* ============================================================
+     EVENT ACTIVITY LOG (modal) – Filters + Pagination
+     ============================================================ */
+  const logFilterForm  = document.getElementById("emLogFilterForm");
+  const logStartInput  = logFilterForm?.querySelector('input[name="log_start"]');
+  const logEndInput    = logFilterForm?.querySelector('input[name="log_end"]');
+  const logSearchInput = logFilterForm?.querySelector('input[name="log_search"]');
+  const logResetBtn    = document.getElementById("emLogResetBtn");
 
-    const start  = (logStartInput?.value || "").trim();        // yyyy-mm-dd
-    const end    = (logEndInput?.value || "").trim();          // yyyy-mm-dd
+  const logTable = document.querySelector("#emActivityModal .em-log-table");
+  const logBody  = logTable?.querySelector("tbody");
+  const logRowsAll = logTable ? [...logTable.querySelectorAll("tbody tr.em-log-row")] : [];
+
+  const ddLogAction = document.querySelector('#emActivityModal .em-dd[data-dd="log_action"]');
+  const logActionHidden = document.getElementById("emLogActionValue");
+
+  const logSearchClearBtn = document.getElementById("emLogSearchClear");
+
+  const logPagerWrap = document.getElementById("emLogPager");
+  const logPrevBtn   = document.getElementById("emLogPrev");
+  const logNextBtn   = document.getElementById("emLogNext");
+  const logPageInfo  = document.getElementById("emLogPageInfo");
+
+  const ddLogRows    = document.querySelector('#emActivityModal .em-dd[data-dd="log_rows"]');
+  const logRowsValue = document.getElementById("emLogRowsValue");
+
+  const logState = {
+    page: 1,
+    rowsPerPage: 10
+  };
+
+  const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
+  function getLogRowsPerPage() {
+    const v = Number((logRowsValue?.value || "").trim() || logState.rowsPerPage);
+    return clamp(v, 5, 10);
+  }
+
+  function getLogActiveAction() {
+    return (logActionHidden?.value || "").trim();
+  }
+
+  function setLogActiveAction(value, label) {
+    if (logActionHidden) logActionHidden.value = value || "";
+    if (ddLogAction) {
+      const text = ddLogAction.querySelector("[data-dd-text]");
+      if (text) text.textContent = label || "All actions";
+      ddLogAction.dataset.value = value || "";
+    }
+  }
+
+  function setLogRowsPerPage(n) {
+    const v = clamp(Number(n || 10), 5, 10);
+    logState.rowsPerPage = v;
+    if (logRowsValue) logRowsValue.value = String(v);
+
+    if (ddLogRows) {
+      const text = ddLogRows.querySelector("[data-dd-text]");
+      if (text) text.textContent = String(v);
+      ddLogRows.dataset.value = String(v);
+    }
+  }
+
+  function logRowMatchesFilters(row) {
+    const start  = (logStartInput?.value || "").trim();
+    const end    = (logEndInput?.value || "").trim();
     const search = (logSearchInput?.value || "").trim().toLowerCase();
-    const action = (logActionSelect?.value || "").trim();
+    const action = getLogActiveAction();
 
-    logRows.forEach(row => {
-      const rowAction = (row.dataset.action || "").trim();
-      const rowDate   = (row.dataset.date || "").trim();       // yyyy-mm-dd
-      const hay       = (row.dataset.search || "").toLowerCase();
+    const rowAction = (row.dataset.action || "").trim();
+    const rowDate   = (row.dataset.date || "").trim();
+    const hay       = (row.dataset.search || "").toLowerCase();
 
-      const okAction = !action || rowAction === action;
-      const okSearch = !search || hay.includes(search);
+    const okAction = !action || rowAction === action;
+    const okSearch = !search || hay.includes(search);
 
-      let okDate = true;
-      if (start && rowDate) okDate = okDate && (rowDate >= start);
-      if (end && rowDate)   okDate = okDate && (rowDate <= end);
+    let okDate = true;
+    if (start && rowDate) okDate = okDate && (rowDate >= start);
+    if (end && rowDate)   okDate = okDate && (rowDate <= end);
 
-      const show = okAction && okSearch && okDate;
-      row.style.display = show ? "" : "none";
+    return okAction && okSearch && okDate;
+  }
+
+  function applyLogRender() {
+    if (!logTable || !logBody) return;
+
+    const filtered = logRowsAll.filter(logRowMatchesFilters);
+
+    const rpp = getLogRowsPerPage();
+    logState.rowsPerPage = rpp;
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / rpp));
+    logState.page = clamp(logState.page, 1, totalPages);
+
+    const startIdx = (logState.page - 1) * rpp;
+    const endIdx   = startIdx + rpp;
+
+    logRowsAll.forEach(r => (r.style.display = "none"));
+    filtered.slice(startIdx, endIdx).forEach(r => (r.style.display = ""));
+
+    if (logPageInfo) logPageInfo.textContent = `${logState.page} / ${totalPages}`;
+    if (logPrevBtn)  logPrevBtn.disabled = logState.page <= 1;
+    if (logNextBtn)  logNextBtn.disabled = logState.page >= totalPages;
+
+    if (logPagerWrap) {
+      logPagerWrap.hidden = filtered.length === 0 || totalPages <= 1;
+    }
+  }
+
+  if (ddLogAction) {
+    wireDropdown(ddLogAction, (value, label) => {
+      setLogActiveAction(value, label);
+      logState.page = 1;
+      applyLogRender();
     });
+
+    const initial = getLogActiveAction();
+    if (initial) {
+      const item = ddLogAction.querySelector(`.em-ddItem[data-value="${CSS.escape(initial)}"]`);
+      setLogActiveAction(initial, item ? item.textContent.trim() : initial);
+    } else {
+      setLogActiveAction("", "All actions");
+    }
+  }
+
+  if (ddLogRows) {
+    const menu = ddLogRows.querySelector("[data-dd-menu]");
+    if (menu) {
+      menu.innerHTML = `
+        <button class="em-ddItem" type="button" data-value="5">5</button>
+        <button class="em-ddItem" type="button" data-value="10">10</button>
+      `;
+    }
+
+    wireDropdown(ddLogRows, (value, label) => {
+      setLogRowsPerPage(value || 10);
+      logState.page = 1;
+      applyLogRender();
+    });
+
+    setLogRowsPerPage(Number(logRowsValue?.value || 10));
   }
 
   if (logFilterForm) {
     logFilterForm.addEventListener("submit", (e) => {
       e.preventDefault();
-      applyLogFilters();
+      logState.page = 1;
+      applyLogRender();
     });
-
-    logResetBtn?.addEventListener("click", () => {
-      if (logStartInput)   logStartInput.value   = "";
-      if (logEndInput)     logEndInput.value     = "";
-      if (logSearchInput)  logSearchInput.value  = "";
-      if (logActionSelect) logActionSelect.value = "";
-      applyLogFilters();
-    });
-
-    // Respect any default values from backend on first open
-    applyLogFilters();
   }
+
+  logResetBtn?.addEventListener("click", () => {
+    if (logStartInput)  logStartInput.value = "";
+    if (logEndInput)    logEndInput.value = "";
+    if (logSearchInput) logSearchInput.value = "";
+
+    setLogActiveAction("", "All actions");
+    setLogRowsPerPage(10);
+    logState.page = 1;
+    applyLogRender();
+  });
+
+  logSearchClearBtn?.addEventListener("click", () => {
+    if (logSearchInput) logSearchInput.value = "";
+    logState.page = 1;
+    applyLogRender();
+  });
+
+  logPrevBtn?.addEventListener("click", () => {
+    logState.page = Math.max(1, logState.page - 1);
+    applyLogRender();
+  });
+  logNextBtn?.addEventListener("click", () => {
+    logState.page = logState.page + 1;
+    applyLogRender();
+  });
+
+  logBtn?.addEventListener("click", () => {
+    logState.page = 1;
+    applyLogRender();
+  });
 
   /* ============================================================
      INIT
@@ -1086,26 +1154,22 @@
   const urlTab = new URL(window.location.href).searchParams.get("tab");
   setTab((urlTab || state.tab).trim());
 
-    if (flags) {
+  // ✅ Success modal trigger (supports success OR submit_success via blade flag)
+  if (flags) {
     const hasSuccess = flags.getAttribute("data-has-success") === "1";
     const hasError   = flags.getAttribute("data-has-error") === "1";
     const errorMsg   = flags.getAttribute("data-error-msg") || "";
 
     if (hasSuccess) {
-      // ensure modal isn't double-instantiated
       const el = document.getElementById("emModalSuccess");
-      if (el && window.bootstrap) bootstrap.Modal.getOrCreateInstance(el).show();
+      if (el && hasBootstrap()) bootstrap.Modal.getOrCreateInstance(el).show();
     } else if (hasError) {
       showNotice("Error", errorMsg || "Something went wrong.");
     }
   }
 
+  applyLogRender();
 
   syncCount();
   applyNow();
-
-  // When clicking "Activity Log", re-apply filters (Bootstrap data attributes handle opening)
-  logBtn?.addEventListener("click", () => {
-    applyLogFilters();
-  });
 })();

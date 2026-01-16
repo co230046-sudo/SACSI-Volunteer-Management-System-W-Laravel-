@@ -139,7 +139,7 @@ class CreateEventController extends Controller
             }
 
             // -------------------- NORMALIZED LOGGING (CREATE) --------------------
-            $summary = "Admin {$admin->username} created event “{$event->title}” (Code: {$event->event_code}).";
+            $summary = 'Created Event - "' . $event->title . '" (Code: ' . $event->event_code . ')';
 
             $eventLogPayload = $this->eventPayload(
                 type: 'event.created',
@@ -311,7 +311,7 @@ class CreateEventController extends Controller
             }
 
             // -------------------- NORMALIZED LOGGING (UPDATE) --------------------
-            $summary = "Admin {$admin->username} updated event “{$event->title}” (Code: {$event->event_code}).";
+            $summary = 'Updated Event - "' . $event->title . '" (Code: ' . $event->event_code . ')';
 
             $eventLogPayload = $this->eventPayload(
                 type: 'event.updated',

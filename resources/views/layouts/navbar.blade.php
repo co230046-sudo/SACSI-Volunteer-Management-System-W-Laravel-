@@ -85,6 +85,12 @@
     box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
   }
 
+  .account-box a.account-btn,
+  .account-box a.account-btn:hover,
+  .account-box a.account-btn:focus,
+  .account-box a.account-btn:visited{
+    text-decoration: none !important;
+  }
 
     /* Account dropdown with smooth animation */
   .account-box {
@@ -679,12 +685,6 @@ document.addEventListener("DOMContentLoaded", () => {
           <span class="account-btn-text">Edit Profile</span>
       </a>
 
-
-
-          <button class="account-btn">
-            <i class="fa-solid fa-circle-question icon"></i>
-            <span class="account-btn-text">User Guide</span>
-          </button>
           <form action="{{ route('logout') }}" method="POST" onsubmit="return confirm('Are you sure you want to log out?')" style="display:inline;">
             @csrf
             <!-- Logout Button -->
@@ -809,38 +809,9 @@ document.addEventListener("DOMContentLoaded", () => {
       @endif
 
         <a href="{{ route('system.logs.index') }}" class="nav-link system-log-link">
-  <i class="fas fa-clipboard-list me-2"></i><span class="link-text">System Logs</span>
-</a>
+          <i class="fas fa-clipboard-list me-2"></i><span class="link-text">System Logs</span>
+        </a>
 
-
-        @if(!empty($pageTitle) && $pageTitle !== "SACSI Volunteer Management")
-            <div class="sidebar-divider"></div>
-
-            <div class="upcoming-events">
-                <h5>Upcoming Events</h5>
-                <table class="events-table">
-                    <tbody>
-                        @foreach($upcomingEvents ?? [] as $event)
-                            <tr>
-                                <td>
-                                    <div class="event-info">
-                                        <span class="event-title">{{ $event['title'] }}</span>
-                                        <hr>
-                                        <div class="event-meta">
-                                            <span class="event-date">{{ $event['date'] }}</span>
-                                            <span class="event-date">{{ $event['time'] }}</span>
-                                            <button class="detail-btn" onclick="alert('{{ $event['details'] }}')">
-                                                Details
-                                            </button>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        @endif
     </div>
   </div>
 

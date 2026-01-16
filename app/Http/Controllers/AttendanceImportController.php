@@ -7,7 +7,6 @@ use App\Models\Event;
 use App\Models\EventAttendance;
 use App\Models\EventFeedback;
 use App\Models\VolunteerProfile;
-use App\Models\FactLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -15,12 +14,19 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
+// ✅ Centralized fact logger
+use App\Services\FactLogger;
+
 class AttendanceImportController extends Controller
 {
     private const STATUS_PLANNED   = 'planned';
     private const STATUS_ONGOING   = 'ongoing';
     private const STATUS_COMPLETED = 'completed';
     private const STATUS_CANCELLED = 'cancelled';
+
+    public function __construct(private FactLogger $factLogger)
+    {
+    }
 
     /** Make preview session exclusive per event */
     private function previewSessionKey(Event $event): string
@@ -41,8 +47,45 @@ class AttendanceImportController extends Controller
         return asset('storage/defaults/default_user.png');
     }
 
+    /** Summary format: "<Action> Attendance - “<Title>” (Code: <CODE>)" */
+    private function attendanceSummary(string $action, Event $event): string
+    {
+        $title = trim((string)($event->title ?? ''));
+        $code  = trim((string)($event->event_code ?? '—'));
+
+        $safeTitle = $title !== '' ? $title : 'Untitled Event';
+        return sprintf('%s Attendance - “%s” (Code: %s)', $action, $safeTitle, ($code !== '' ? $code : '—'));
+    }
+
+    /** Thin wrapper for centralized FactLogger (no IP in details, per your rule) */
+    private function logAttendanceFact(string $type, string $action, Event $event, array $data = []): void
+    {
+        $admin = Auth::guard('admin')->user();
+        $adminId = $admin?->admin_id;
+
+        $this->factLogger->log(
+            type: $type,
+            action: $action,
+            entity: $event,
+            entityId: $event->event_id,
+            details: [
+                'summary' => $this->attendanceSummary($action, $event),
+                'data' => array_merge([
+                    'event' => [
+                        'id' => $event->event_id,
+                        'code' => $event->event_code,
+                        'title' => $event->title,
+                    ],
+                ], $data),
+            ],
+            adminId: $adminId
+        );
+    }
+
     public function index(Event $event)
     {
+        // ❌ As requested: DO NOT log index()
+
         $derivedStatus = $this->deriveStatus(
             $event->status,
             $event->start_datetime ? Carbon::parse($event->start_datetime) : null,
@@ -67,9 +110,14 @@ class AttendanceImportController extends Controller
     {
         session()->forget($this->previewSessionKey($event));
 
-        $this->logFact(Auth::guard('admin')->id(), $event, 'Attendance Import Reset', [
-            'event_id' => $event->event_id,
-        ]);
+        $this->logAttendanceFact(
+            type: 'attendance.reset',
+            action: 'Cleared',
+            event: $event,
+            data: [
+                'preview_session_cleared' => true,
+            ]
+        );
 
         return redirect()->route('attendance.import.index', $event->event_id)
             ->with('success', 'Import preview cleared.');
@@ -85,10 +133,14 @@ class AttendanceImportController extends Controller
         );
 
         if ($derivedStatus !== self::STATUS_COMPLETED) {
-            $this->logFact(Auth::guard('admin')->id(), $event, 'Attendance Import Preview Blocked', [
-                'event_id' => $event->event_id,
-                'status'   => $derivedStatus,
-            ]);
+            $this->logAttendanceFact(
+                type: 'attendance.preview.blocked',
+                action: 'Blocked Attendance Preview',
+                event: $event,
+                data: [
+                    'derived_status' => $derivedStatus,
+                ]
+            );
 
             return redirect()->route('attendance.import.index', $event->event_id)
                 ->with('error', "Attendance import is only allowed when event status is COMPLETED. Current status: " . strtoupper($derivedStatus));
@@ -100,9 +152,14 @@ class AttendanceImportController extends Controller
 
         $file = $request->file('csv_file');
         if (!$file || !$file->isValid()) {
-            $this->logFact(Auth::guard('admin')->id(), $event, 'Attendance Import Preview Failed', [
-                'reason' => 'Invalid upload or file missing',
-            ]);
+            $this->logAttendanceFact(
+                type: 'attendance.preview.failed',
+                action: 'Failed Attendance Preview',
+                event: $event,
+                data: [
+                    'reason' => 'invalid_upload_or_missing',
+                ]
+            );
 
             return redirect()->route('attendance.import.index', $event->event_id)
                 ->with('error', 'Invalid file upload. Please try again.');
@@ -114,21 +171,31 @@ class AttendanceImportController extends Controller
         try {
             [$rows, $header, $normalizedHeader] = $this->readCsv($path);
         } catch (\Throwable $e) {
-            $this->logFact(Auth::guard('admin')->id(), $event, 'Attendance Import Preview Failed', [
-                'filename' => $filename,
-                'reason'   => 'CSV read failed',
-                'error'    => $e->getMessage(),
-            ]);
+            $this->logAttendanceFact(
+                type: 'attendance.preview.failed',
+                action: 'Failed Attendance Preview',
+                event: $event,
+                data: [
+                    'filename' => $filename,
+                    'reason'   => 'csv_read_failed',
+                    'error'    => $e->getMessage(),
+                ]
+            );
 
             return redirect()->route('attendance.import.index', $event->event_id)
                 ->with('error', 'Could not read the CSV. Make sure it is a valid export from Google Forms.');
         }
 
         if (count($rows) === 0) {
-            $this->logFact(Auth::guard('admin')->id(), $event, 'Attendance Import Preview Failed', [
-                'filename' => $filename,
-                'reason'   => 'Empty CSV',
-            ]);
+            $this->logAttendanceFact(
+                type: 'attendance.preview.failed',
+                action: 'Failed Attendance Preview',
+                event: $event,
+                data: [
+                    'filename' => $filename,
+                    'reason'   => 'empty_csv',
+                ]
+            );
 
             return redirect()->route('attendance.import.index', $event->event_id)
                 ->with('error', 'The uploaded CSV has no rows.');
@@ -148,12 +215,17 @@ class AttendanceImportController extends Controller
         }
 
         if (!empty($missing)) {
-            $this->logFact(Auth::guard('admin')->id(), $event, 'Attendance Import Preview Failed', [
-                'filename' => $filename,
-                'reason'   => 'Missing headers',
-                'missing'  => $missing,
-                'header'   => $header,
-            ]);
+            $this->logAttendanceFact(
+                type: 'attendance.preview.failed',
+                action: 'Failed Attendance Preview',
+                event: $event,
+                data: [
+                    'filename' => $filename,
+                    'reason'   => 'missing_headers',
+                    'missing'  => $missing,
+                    'header'   => $header,
+                ]
+            );
 
             $nice = implode(', ', array_map(fn($m) => strtoupper(str_replace('_', ' ', $m)), $missing));
 
@@ -181,12 +253,16 @@ class AttendanceImportController extends Controller
             ],
         ]);
 
-        $this->logFact(Auth::guard('admin')->id(), $event, 'Attendance Import Preview', [
-            'event_id'  => $event->event_id,
-            'filename'  => $filename,
-            'batch'     => $batch,
-            'counts'    => $result['counts'],
-        ]);
+        $this->logAttendanceFact(
+            type: 'attendance.preview',
+            action: 'Previewed',
+            event: $event,
+            data: [
+                'filename' => $filename,
+                'batch'    => $batch,
+                'counts'   => $result['counts'],
+            ]
+        );
 
         return redirect()->route('attendance.import.index', $event->event_id)
             ->with('success', 'Preview ready. Review rows, edit/delete if needed, then Save Import.');
@@ -251,10 +327,14 @@ class AttendanceImportController extends Controller
         $preview = $this->rebucketAndRecount($preview, $event);
         session([$previewKey => $preview]);
 
-        $this->logFact(Auth::guard('admin')->id(), $event, 'Attendance Import Preview Row Updated', [
-            'event_id' => $event->event_id,
-            'row'      => $rowNumber,
-        ]);
+        $this->logAttendanceFact(
+            type: 'attendance.preview_row.updated',
+            action: 'Updated Attendance Preview',
+            event: $event,
+            data: [
+                'row' => $rowNumber,
+            ]
+        );
 
         return response()->json(['ok' => true, 'preview' => $preview]);
     }
@@ -310,10 +390,15 @@ class AttendanceImportController extends Controller
         $preview = $this->rebucketAndRecount($preview, $event);
         session([$previewKey => $preview]);
 
-        $this->logFact(Auth::guard('admin')->id(), $event, 'Attendance Import Preview Row Deleted', [
-            'event_id' => $event->event_id,
-            'row'      => $rowNumber,
-        ]);
+        $this->logAttendanceFact(
+            type: 'attendance.preview_row.deleted',
+            action: 'Deleted Attendance Preview',
+            event: $event,
+            data: [
+                'row' => $rowNumber,
+                'bucket' => $bucket,
+            ]
+        );
 
         return response()->json(['ok' => true, 'preview' => $preview]);
     }
@@ -328,10 +413,14 @@ class AttendanceImportController extends Controller
         );
 
         if ($derivedStatus !== self::STATUS_COMPLETED) {
-            $this->logFact(Auth::guard('admin')->id(), $event, 'Attendance Import Commit Blocked', [
-                'event_id' => $event->event_id,
-                'status'   => $derivedStatus,
-            ]);
+            $this->logAttendanceFact(
+                type: 'attendance.commit.blocked',
+                action: 'Blocked Attendance Save',
+                event: $event,
+                data: [
+                    'derived_status' => $derivedStatus,
+                ]
+            );
 
             return redirect()->route('attendance.import.index', $event->event_id)
                 ->with('error', "Attendance import is only allowed when event status is COMPLETED. Current status: " . strtoupper($derivedStatus));
@@ -441,23 +530,32 @@ class AttendanceImportController extends Controller
                 'remarks'         => $this->buildRemarks($preview, $skippedAlreadyImported),
             ]);
 
-            $this->logFact($adminId, $event, 'Attendance Import Commit', [
-                'event_id'                 => $event->event_id,
-                'batch'                    => $batch,
-                'counts'                   => $preview['counts'] ?? null,
-                'walk_ins'                 => $walkInCount,
-                'skipped_already_imported' => $skippedAlreadyImported,
-            ]);
+            $this->logAttendanceFact(
+                type: 'attendance.commit',
+                action: 'Saved',
+                event: $event,
+                data: [
+                    'batch'                    => $batch,
+                    'counts'                   => $preview['counts'] ?? null,
+                    'walk_ins'                 => $walkInCount,
+                    'skipped_already_imported' => $skippedAlreadyImported,
+                    'filename'                 => $preview['filename'] ?? null,
+                ]
+            );
 
             DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            $this->logFact($adminId, $event, 'Attendance Import Commit Failed', [
-                'event_id' => $event->event_id,
-                'batch'    => $batch,
-                'error'    => $e->getMessage(),
-            ]);
+            $this->logAttendanceFact(
+                type: 'attendance.commit.failed',
+                action: 'Failed Attendance Save',
+                event: $event,
+                data: [
+                    'batch' => $batch,
+                    'error' => $e->getMessage(),
+                ]
+            );
 
             return redirect()->route('attendance.import.index', $event->event_id)
                 ->with('error', 'Import failed: ' . $e->getMessage());
@@ -901,101 +999,5 @@ class AttendanceImportController extends Controller
         ];
 
         return $preview;
-    }
-
-    /**
-     * Normalized FactLog writer – same idea as other controllers:
-     * - consistent JSON structure
-     * - summary text stays readable in UI
-     * - extra data still available for devs / debugging
-     */
-    private function logFact(?int $adminId, $entity, ?string $action = null, $details = null): FactLog
-    {
-        $admin = Auth::guard('admin')->user();
-        $adminId = is_numeric($adminId) ? (int) $adminId : ($admin->admin_id ?? null);
-        $adminUsername = $admin->username ?? ($admin->name ?? null);
-
-        // Figure out what we're logging against
-        $entityType = 'Unknown';
-        $entityId   = null;
-        $eventMeta  = null;
-
-        if ($entity instanceof Event) {
-            $entityType = 'Event';
-            $entityId   = $entity->event_id;
-            $eventMeta  = [
-                'id'    => $entity->event_id,
-                'code'  => $entity->event_code,
-                'title' => $entity->title,
-            ];
-        } elseif (is_object($entity)) {
-            $entityType = class_basename($entity);
-            $entityId   = method_exists($entity, 'getKey') ? $entity->getKey() : null;
-        } elseif (is_string($entity)) {
-            $entityType = $entity;
-        }
-
-        // Turn the action into a "type" string we can filter on later
-        $typeBase = 'attendance.import';
-        $actionSlug = $action ? Str::slug(strtolower($action), '_') : 'generic';
-        $type = $typeBase . '.' . $actionSlug;
-
-        // Data payload (only for arrays/objects)
-        $data = is_array($details) || is_object($details) ? (array) $details : [];
-
-        // Make a human-ish summary for the UI
-        $eventLabel = $eventMeta
-            ? ' for event “' . ($eventMeta['title'] ?? 'Unknown') . '” (Code: ' . ($eventMeta['code'] ?? '—') . ')'
-            : '';
-
-        if (is_string($details) && trim($details) !== '') {
-            // If caller passed a sentence already, just use that as summary
-            $summary = trim($details);
-        } else {
-            $what = $action ?: 'Action';
-            $summary = trim("Admin {$adminUsername} {$what}{$eventLabel}.");
-        }
-
-        // Build normalized structure
-        $payload = [
-            'version' => 1,
-            'type'    => $type,
-            'summary' => $summary,
-            'entity'  => [
-                'type' => $entityType,
-                'id'   => $entityId,
-            ],
-            'actor'   => [
-                'admin_id' => $adminId,
-                'username' => $adminUsername,
-            ],
-            'event'   => $eventMeta,
-            'data'    => $data ?: null,
-            'meta'    => [
-                'ip' => request()->ip(),
-                'ua' => substr((string) request()->userAgent(), 0, 255),
-            ],
-            'at'      => now()->toIso8601String(),
-        ];
-
-        // Drop null keys so JSON stays clean
-        $payload = array_filter(
-            $payload,
-            fn ($v) => $v !== null && $v !== []
-        );
-
-        $encodedDetails = json_encode(
-            $payload,
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-        );
-
-        return FactLog::create([
-            'admin_id'    => $adminId,
-            'entity_type' => $entityType,
-            'entity_id'   => $entityId,
-            'action'      => $action,
-            'details'     => $encodedDetails,
-            'timestamp'   => now(),
-        ]);
     }
 }

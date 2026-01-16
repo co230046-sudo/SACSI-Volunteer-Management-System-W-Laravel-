@@ -6,10 +6,24 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\FactLog;
 
+// ✅ Use FactLogger service (single source of truth for writing logs)
+use App\Services\FactLogger;
+
 class FactLogController extends Controller
 {
+    private FactLogger $factLogger;
+
+    public function __construct(FactLogger $factLogger)
+    {
+        $this->factLogger = $factLogger;
+    }
+
     /**
      * Log an action into fact_logs
+     *
+     * NOTE:
+     * - This is kept for compatibility (older code may still call it),
+     *   but it now writes via FactLogger so logging stays consistent.
      *
      * @param string $factTypeName
      * @param string|null $entityType
@@ -19,36 +33,42 @@ class FactLogController extends Controller
      * @param int|null $importId (unused but kept for compatibility)
      */
     public function logAction(
-        string $factTypeName, 
-        ?string $entityType = null, 
-        ?int $entityId = null, 
-        ?string $action = null, 
-        ?string $details = null, 
+        string $factTypeName,
+        ?string $entityType = null,
+        ?int $entityId = null,
+        ?string $action = null,
+        ?string $details = null,
         ?int $importId = null
     ): void {
-
         $admin = Auth::guard('admin')->user();
 
-        // FACT TYPE MODEL REMOVED — using entity_type + action instead
-        FactLog::create([
-            'admin_id'    => $admin?->admin_id,
-            'entity_type' => $entityType ?? $factTypeName, // fallback so nothing breaks
-            'entity_id'   => $entityId,
-            'action'      => $action ?? $factTypeName,
-            'details'     => $details,
-            'timestamp'   => now(),
-        ]);
+        $type = $factTypeName; // keep behavior
+        $act  = $action ?? $factTypeName;
+
+        // Prefer entityType, fallback to factTypeName
+        $entity = $entityType ?? $factTypeName;
+        $id     = $entityId;
+
+        // Details can be plain string or JSON string; normalize to array for FactLogger
+        $detailsArray = $this->normalizeDetailsToArray($details);
+
+        $this->factLogger->log(
+            $type,                          // type
+            $act,                           // action
+            $entity,                        // entity type
+            $id,                            // entity id
+            $detailsArray,                  // details (array)
+            $admin?->admin_id ? (int)$admin->admin_id : null
+        );
     }
 
     /**
-     * Display list of logs (updated to no longer use factType relation)
+     * Display list of logs (humanizes JSON details for UI)
      */
     public function index(Request $request)
     {
-        $query = FactLog::with(['admin']); // factType removed
+        $query = FactLog::with(['admin']);
 
-        // fact_type filter REMOVED because table no longer has fact_type_id
-        // but keep entity_type filter since it's now your category system
         if ($request->filled('fact_type')) {
             $query->where('entity_type', 'like', '%' . $request->fact_type . '%');
         }
@@ -68,6 +88,13 @@ class FactLogController extends Controller
 
         $logs = $query->orderBy('timestamp', 'desc')->paginate(20);
 
+        // ✅ Add computed display fields (so Blade can show friendly text)
+        $logs->getCollection()->transform(function ($log) {
+            $log->details_text = $this->formatDetailsForHumans($log->details, $log->entity_type, $log->action);
+            $log->action_text  = $this->formatActionForHumans($log->action);
+            return $log;
+        });
+
         return view('fact_logs.index', compact('logs'));
     }
 
@@ -85,15 +112,121 @@ class FactLogController extends Controller
 
         $log->delete();
 
-        // Still logs the deletion action with no changes needed
-        $this->logAction(
-            'Fact Log Management',
-            'fact_logs',
+        // Log the deletion action via FactLogger
+        $this->factLogger->log(
+            'Fact Log Deleted',
+            'Delete',
+            'FactLog',
             $id,
-            'delete_log',
-            "Fact log ID {$id} deleted by {$admin->username}"
+            [
+                'fact_log_id' => $id,
+                'message' => "Fact log ID {$id} deleted by {$admin->username}",
+            ],
+            (int)$admin->admin_id
         );
 
         return redirect()->back()->with('success', 'Log deleted successfully.');
+    }
+
+    // ============================================================
+    // Helpers
+    // ============================================================
+
+    /**
+     * Convert $details (string|null) into array for FactLogger.
+     * - If it's JSON, decode it.
+     * - Else wrap into { message: "..."}
+     */
+    private function normalizeDetailsToArray(?string $details): array
+    {
+        $details = is_null($details) ? '' : (string)$details;
+        $details = trim($details);
+
+        if ($details === '') return [];
+
+        // If it looks like JSON, try decoding
+        if ($this->looksLikeJson($details)) {
+            $decoded = json_decode($details, true);
+            if (is_array($decoded)) return $decoded;
+        }
+
+        return ['message' => $details];
+    }
+
+    private function looksLikeJson(string $s): bool
+    {
+        $s = trim($s);
+        return ($s !== '') && (
+            (str_starts_with($s, '{') && str_ends_with($s, '}')) ||
+            (str_starts_with($s, '[') && str_ends_with($s, ']'))
+        );
+    }
+
+    /**
+     * Turn stored details into a human-readable string for the table.
+     * This is where your "Event Type Created" becomes "Created event type: Car Wash".
+     */
+    private function formatDetailsForHumans(?string $details, ?string $entityType, ?string $action): string
+    {
+        $details = is_null($details) ? '' : (string)$details;
+        $detailsTrim = trim($details);
+
+        // If not JSON, just return as-is
+        if ($detailsTrim === '' || !$this->looksLikeJson($detailsTrim)) {
+            return $detailsTrim;
+        }
+
+        $data = json_decode($detailsTrim, true);
+        if (!is_array($data)) return $detailsTrim;
+
+        // Common fields you’re logging
+        $label    = $data['label'] ?? null;
+        $oldLabel = $data['old_label'] ?? null;
+        $newLabel = $data['new_label'] ?? null;
+
+        $entityType = (string)($entityType ?? '');
+        $action = (string)($action ?? '');
+
+        // ✅ EventType create/delete/update friendly formatting
+        if (stripos($entityType, 'eventtype') !== false || stripos($entityType, 'event_type') !== false) {
+            if ($label && (stripos($action, 'create') !== false || stripos($action, 'created') !== false)) {
+                return 'Created event type: ' . $label;
+            }
+
+            if ($label && (stripos($action, 'delete') !== false || stripos($action, 'deleted') !== false)) {
+                return 'Deleted event type: ' . $label;
+            }
+
+            if ($oldLabel || $newLabel) {
+                return 'Updated event type: ' . ($oldLabel ?? '—') . ' → ' . ($newLabel ?? '—');
+            }
+
+            // fallback if label missing
+            return $data['message'] ?? 'Event type change';
+        }
+
+        // Generic fallback: try a message field, else show compact json
+        if (isset($data['message']) && is_string($data['message'])) {
+            return $data['message'];
+        }
+
+        // Compact display for unknown payloads
+        return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    private function formatActionForHumans(?string $action): string
+    {
+        $action = (string)($action ?? '');
+        if ($action === '') return '';
+
+        // Optional: normalize casing
+        // e.g. "event_type.created" -> "Create"
+        $a = strtolower($action);
+
+        if (str_contains($a, 'create')) return 'Create';
+        if (str_contains($a, 'edit') || str_contains($a, 'update')) return 'Edit';
+        if (str_contains($a, 'delete')) return 'Delete';
+
+        return $action;
     }
 }

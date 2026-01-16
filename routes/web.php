@@ -130,6 +130,9 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::get('/volunteers_list', [VolunteerListController::class, 'index'])
         ->name('volunteers.list');
 
+    Route::post('/volunteers', [VolunteerListController::class, 'store'])
+        ->name('volunteers.store');
+
     Route::get('/volunteers/data', [VolunteerListController::class, 'data'])
         ->name('volunteers.data');
 
@@ -139,6 +142,15 @@ Route::middleware(['auth:admin'])->group(function () {
     /* ------------------ VOLUNTEER PROFILE ------------------ */
     Route::get('/volunteer-profile/{id}', [VolunteerProfileController::class, 'show'])
         ->name('volunteers.show');
+
+    Route::put('/volunteer-profile/{id}', [VolunteerProfileController::class, 'update'])
+        ->name('volunteers.update');
+
+    Route::delete('/volunteer-profile/{id}', [VolunteerProfileController::class, 'destroy'])
+        ->name('volunteers.destroy');
+
+    Route::post('/volunteer-profile/check-unique', [VolunteerProfileController::class, 'checkUnique'])
+        ->name('volunteers.checkUnique');
 
     /* ------------------ EVENT MANAGER ------------------ */
     Route::get('/events/manage', [EventManagerController::class, 'index'])
@@ -224,7 +236,8 @@ Route::middleware(['auth:admin'])->group(function () {
             ->name('events.restore');
 
         // delete (single event)
-        Route::delete('/{eventId}', [EventDetailsController::class, 'destroy'])
+        Route::delete('/{event:event_id}', [EventDetailsController::class, 'destroy'])
+            ->whereNumber('event')
             ->name('events.destroy');
 
         Route::put('/{event:event_id}/organizers', [EventDetailsController::class, 'updateOrganizer'])

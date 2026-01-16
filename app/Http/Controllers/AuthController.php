@@ -5,14 +5,56 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\AdminAccount;
 use App\Models\AdminAuthenticateLog;
-use App\Models\FactLog;
 use App\Models\ImportLog;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
+// ✅ Centralized fact logger
+use App\Services\FactLogger;
+
 class AuthController extends Controller
 {
+    public function __construct(private FactLogger $factLogger)
+    {
+    }
+
+    /* ===========================
+       HELPERS (FactLog summary format)
+       Required format:
+       - Login Successful - "David"
+       - Logout Successful - "David"
+       - Registration Successful - "David"
+       - Login Failed - "attempt"
+    ============================ */
+
+    private function quoted(?string $value, string $fallback = 'Unknown'): string
+    {
+        $v = trim((string)($value ?? ''));
+        if ($v === '') $v = $fallback;
+        return "\"{$v}\"";
+    }
+
+    private function summaryLoginSuccess(?string $username): string
+    {
+        return 'Login Successful - ' . $this->quoted($username);
+    }
+
+    private function summaryLogoutSuccess(?string $username): string
+    {
+        return 'Logout Successful - ' . $this->quoted($username);
+    }
+
+    private function summaryRegisterSuccess(?string $username): string
+    {
+        return 'Registration Successful - ' . $this->quoted($username);
+    }
+
+    private function summaryFailedLogin(?string $attemptedLoginField): string
+    {
+        return 'Login Failed - ' . $this->quoted($attemptedLoginField, '(blank)');
+    }
+
     /* ===========================
        SHOW LOGIN PAGE
     ============================ */
@@ -20,9 +62,10 @@ class AuthController extends Controller
     {
         return view('authentication.admin.login');
     }
+
     /* ===========================
-    HANDLE LOGIN
-    =========================== */
+       HANDLE LOGIN
+    ============================ */
     public function login(Request $request)
     {
         $request->validate([
@@ -34,8 +77,8 @@ class AuthController extends Controller
         ]);
 
         $loginField = $request->input('username');
-        $password = $request->input('password');
-        $ip = $request->ip();
+        $password   = $request->input('password');
+        $ip         = $request->ip();
 
         // Attempt to find admin by username, email, or full_name
         $admin = AdminAccount::where('username', $loginField)
@@ -43,48 +86,65 @@ class AuthController extends Controller
             ->orWhere('full_name', $loginField)
             ->first();
 
-        // Check password manually
-        if ($admin && \Illuminate\Support\Facades\Hash::check($password, $admin->password)) {
-            // Login the admin
+        // ✅ SUCCESS
+        if ($admin && Hash::check($password, $admin->password)) {
+
             Auth::guard('admin')->login($admin);
             $request->session()->regenerate();
 
-            // Log successful login
             AdminAuthenticateLog::create([
-                'admin_id' => $admin->admin_id,
+                'admin_id'   => $admin->admin_id,
                 'ip_address' => $ip,
-                'status' => 'success',
-                'reason' => null,
+                'status'     => 'success',
+                'reason'     => null,
                 'login_time' => now(),
             ]);
 
-            $this->logFact(
-                $admin->admin_id,
-                'admin_accounts',
-                $admin->admin_id,
-                'login',
-                'Admin logged in successfully'
+            // ✅ Centralized FactLog
+            $this->factLogger->log(
+                type: 'auth.login',
+                action: 'login',
+                entity: $admin,
+                entityId: $admin->admin_id,
+                details: [
+                    'summary' => $this->summaryLoginSuccess($admin->username),
+                    'data' => [
+                        'login_field' => $loginField,
+                        'status'      => 'success',
+                    ],
+                ],
+                adminId: $admin->admin_id
             );
 
             return redirect()->route('home')
                 ->with('success', 'Welcome back, ' . ($admin->full_name ?? 'Admin') . '!');
         }
 
-        // Log failed login (admin_id may be null if user not found)
+        // ❌ FAILED
         AdminAuthenticateLog::create([
-            'admin_id' => $admin?->admin_id,
+            'admin_id'   => $admin?->admin_id,
             'ip_address' => $ip,
-            'status' => 'failed',
-            'reason' => 'Incorrect credentials',
+            'status'     => 'failed',
+            'reason'     => 'Incorrect credentials',
             'login_time' => now(),
         ]);
 
-        $this->logFact(
-            $admin?->admin_id,
-            'admin_accounts',
-            $admin?->admin_id,
-            'failed_login',
-            'Incorrect username, email, or full name, or password'
+        // ✅ Centralized FactLog (admin may be null)
+        $this->factLogger->log(
+            type: 'auth.failed_login',
+            action: 'failed_login',
+            entity: $admin ?: 'AdminAccount',
+            entityId: $admin?->admin_id,
+            details: [
+                'summary' => $this->summaryFailedLogin($loginField),
+                'data' => [
+                    'login_field'       => $loginField,
+                    'status'            => 'failed',
+                    'reason'            => 'Incorrect credentials',
+                    'resolved_admin_id' => $admin?->admin_id,
+                ],
+            ],
+            adminId: $admin?->admin_id
         );
 
         return back()
@@ -108,73 +168,84 @@ class AuthController extends Controller
     {
         $request->validate([
             'full_name' => 'required|string|max:255',
-            'username' => 'required|string|max:100|unique:admin_accounts,username',
-            'email' => [
+            'username'  => 'required|string|max:100|unique:admin_accounts,username',
+            'email'     => [
                 'required',
                 'email',
                 'unique:admin_accounts,email',
                 'regex:/@(gmail\.com|adzu\.edu\.ph)$/i'
             ],
-            'password' => [
+            'password'  => [
                 'required',
                 'confirmed',
                 'min:8',
                 'regex:/^(?=.*[A-Z])(?=.*\d).+$/',
             ],
             'profile_picture' => 'required|image|mimes:jpg,jpeg,png|max:2048',
-            'role' => 'required|in:super_admin,admin',
+            'role'            => 'required|in:super_admin,admin',
         ], [
             'full_name.required' => 'Please enter your full name.',
-            'username.required' => 'Please enter your username.',
-            'username.unique' => 'This username is already taken.',
-            'email.required' => 'Please enter your email.',
-            'email.email' => 'Please enter a valid email address.',
-            'email.unique' => 'This email is already registered.',
-            'email.regex' => 'Only @gmail.com or @adzu.edu.ph emails are allowed.',
-            'password.required' => 'Please enter your password.',
+            'username.required'  => 'Please enter your username.',
+            'username.unique'    => 'This username is already taken.',
+            'email.required'     => 'Please enter your email.',
+            'email.email'        => 'Please enter a valid email address.',
+            'email.unique'       => 'This email is already registered.',
+            'email.regex'        => 'Only @gmail.com or @adzu.edu.ph emails are allowed.',
+            'password.required'  => 'Please enter your password.',
             'password.confirmed' => 'Passwords do not match.',
-            'password.min' => 'Password must be at least 8 characters.',
-            'password.regex' => 'Password must include at least one uppercase letter and one number.',
+            'password.min'       => 'Password must be at least 8 characters.',
+            'password.regex'     => 'Password must include at least one uppercase letter and one number.',
             'profile_picture.required' => 'Please upload a profile picture.',
-            'profile_picture.image' => 'Only JPG, JPEG, or PNG files are allowed.',
-            'role.required' => 'Please select a role.',
-            'role.in' => 'Selected role is invalid.',
+            'profile_picture.image'    => 'Only JPG, JPEG, or PNG files are allowed.',
+            'role.required'      => 'Please select a role.',
+            'role.in'            => 'Selected role is invalid.',
         ]);
 
         $profilePath = $request->file('profile_picture')->store('profile_pictures/admin', 'public');
 
         $admin = null;
+
         DB::transaction(function () use ($request, $profilePath, &$admin) {
             $admin = AdminAccount::create([
-                'full_name' => $request->full_name,
-                'username' => $request->username,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
+                'full_name'       => $request->full_name,
+                'username'        => $request->username,
+                'email'           => $request->email,
+                'password'        => Hash::make($request->password),
                 'profile_picture' => $profilePath,
-                'role' => $request->role,
-                'status' => 'active',
+                'role'            => $request->role,
+                'status'          => 'active',
             ]);
 
             Auth::guard('admin')->login($admin);
         });
 
         AdminAuthenticateLog::create([
-            'admin_id' => $admin->admin_id,
+            'admin_id'   => $admin->admin_id,
             'ip_address' => $request->ip(),
-            'status' => 'success',
-            'reason' => 'Registration and auto-login',
+            'status'     => 'success',
+            'reason'     => 'Registration and auto-login',
             'login_time' => now(),
         ]);
 
-        $this->logFact(
-            $admin->admin_id,
-            'admin_accounts',
-            $admin->admin_id,
-            'register',
-            'Admin registered and auto-logged in'
+        // ✅ Centralized FactLog
+        $this->factLogger->log(
+            type: 'auth.register',
+            action: 'register',
+            entity: $admin,
+            entityId: $admin->admin_id,
+            details: [
+                'summary' => $this->summaryRegisterSuccess($admin->username),
+                'data' => [
+                    'email'  => $admin->email,
+                    'role'   => $admin->role,
+                    'status' => 'success',
+                ],
+            ],
+            adminId: $admin->admin_id
         );
 
-        return redirect()->route('home')->with('success', 'Registration successful! Welcome, ' . $admin->full_name . '!');
+        return redirect()->route('home')
+            ->with('success', 'Registration successful! Welcome, ' . $admin->full_name . '!');
     }
 
     /* ===========================
@@ -182,11 +253,11 @@ class AuthController extends Controller
     ============================ */
     public function logout(Request $request)
     {
-        $adminId = Auth::guard('admin')->id();
-        $ip = $request->ip();
+        $admin   = Auth::guard('admin')->user();
+        $adminId = $admin?->admin_id;
+        $ip      = $request->ip();
 
         if ($adminId) {
-            // 1️⃣ Log the admin logout in AdminAuthenticateLog
             AdminAuthenticateLog::create([
                 'admin_id'   => $adminId,
                 'ip_address' => $ip,
@@ -195,33 +266,35 @@ class AuthController extends Controller
                 'login_time' => now(),
             ]);
 
-            // 2️⃣ Log fact
-            $this->logFact(
-                $adminId,
-                'admin_accounts',
-                $adminId,
-                'logout',
-                'Admin logged out successfully'
+            // ✅ Centralized FactLog
+            $this->factLogger->log(
+                type: 'auth.logout',
+                action: 'logout',
+                entity: $admin,
+                entityId: $adminId,
+                details: [
+                    'summary' => $this->summaryLogoutSuccess($admin?->username),
+                    'data' => [
+                        'status' => 'success',
+                    ],
+                ],
+                adminId: $adminId
             );
 
-            // 3️⃣ Mark any pending imports as Abandoned, preserve admin_id
-            $admin = Auth::guard('admin')->user();
-            ImportLog::where('admin_id', $admin->admin_id)
-                    ->where('status', 'Pending')
-                    ->update([
-                        'status'  => 'Abandoned',
-                        'admin_id'=> $admin->admin_id, // preserve the admin who started it
-                        'remarks' => "Admin: {$admin->username} logged out before completing import."
-                    ]);
-
+            // Keep your behavior (mark pending imports abandoned)
+            ImportLog::where('admin_id', $adminId)
+                ->where('status', 'Pending')
+                ->update([
+                    'status'   => 'Abandoned',
+                    'admin_id' => $adminId,
+                    'remarks'  => "{$admin->username} logged out before completing import."
+                ]);
         }
 
-        // 4️⃣ Logout and invalidate session
         Auth::guard('admin')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        // 5️⃣ Clear temporary import/session data
         session()->forget([
             'invalidEntries',
             'validEntries',
@@ -234,23 +307,6 @@ class AuthController extends Controller
         ]);
 
         return redirect()->route('auth.login')
-                        ->with('success', 'You have been logged out.');
-    }
-
-
-
-    /* ===========================
-       HELPER: LOG TO FACT_LOGS
-    ============================ */
-    private function logFact($adminId, $entityType, $entityId, $action, $details = null)
-    {
-        FactLog::create([
-            'admin_id' => $adminId,
-            'entity_type' => $entityType,
-            'entity_id' => $entityId,
-            'action' => $action,
-            'details' => $details,
-            'timestamp' => now(),
-        ]);
+            ->with('success', 'You have been logged out.');
     }
 }

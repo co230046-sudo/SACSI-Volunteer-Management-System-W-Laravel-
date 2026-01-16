@@ -156,6 +156,7 @@
   font-weight: 900;
 }
 .import-handling-modal .btn-ui-reset i{ color:#9a6a00; }
+
 </style>
 
 <!-- Modal 1: Import & Validation Guide (MERGED + UPGRADED) -->
@@ -212,7 +213,17 @@
                 </div>
               </details>
 
-              <div class="video-placeholder outline-cut">Video: Selecting a CSV file</div>
+              <video
+                controls
+                preload="metadata"
+                playsinline
+                style="width:100%; border-radius:12px;"
+              >
+                <source src="{{ asset('assets/volunteer_import/import_validation_guide/videos/step_1_select_csv.mp4') }}" type="video/mp4">
+                Your browser does not support the video tag.
+              </video>
+
+
             </div>
 
             <!-- STEP 2 -->
@@ -222,17 +233,19 @@
                 <span class="summary-pill">Preview</span>
               </div>
 
-              <p class="step-sub inline-paragraph">
-                Your uploader name is auto-filled (read-only) like:
-                <span class="uploader-info">
-                  <input type="text" id="uploader-name" value="Uploading as admin" readonly aria-hidden="true">
-                </span>
-                then click
-                <button class="btn btn-outline-secondary import-btn inline-btn" aria-hidden="true">
-                  <i class="fa-solid fa-upload"></i> Import
-                </button>
-                to generate the preview tables.
-              </p>
+             <p class="step-sub inline-paragraph">
+              Your uploader name is auto-filled (read-only) like:
+              <span class="uploader-info">
+                <input type="text" id="uploader-name" value="Uploading as admin" readonly aria-hidden="true">
+              </span>
+              then click
+              <button class="btn btn-danger import-btn inline-btn js-demo-importbtn" aria-hidden="true">
+
+                <i class="fa-solid fa-upload"></i> Import
+              </button>
+              to generate the preview tables.
+            </p>
+
 
               <details class="guide-details">
                 <summary>
@@ -266,7 +279,16 @@
                 </div>
               </details>
 
-              <div class="video-placeholder outline-cut">Video: Uploading the CSV file + clearing imports</div>
+              <video
+                controls
+                preload="metadata"
+                playsinline
+                style="width:100%; border-radius:12px;"
+              >
+                <source src="{{ asset('assets/volunteer_import/import_validation_guide/videos/step_2_confirm_uploader_import.mp4') }}" type="video/mp4">
+                Your browser does not support the video tag.
+              </video>
+
             </div>
 
             <!-- STEP 3 -->
@@ -346,7 +368,16 @@
                 </div>
               </details>
 
-              <div class="video-placeholder outline-cut">Video: Reviewing & correcting invalid entries</div>
+              <video
+                controls
+                preload="metadata"
+                playsinline
+                style="width:100%; border-radius:12px;"
+              >
+                <source src="{{ asset('assets/volunteer_import/import_validation_guide/videos/step_3_review_fix_invalid_entries.mp4') }}" type="video/mp4">
+                Your browser does not support the video tag.
+              </video>
+
             </div>
 
             <!-- STEP 4 -->
@@ -395,7 +426,16 @@
                 </div>
               </details>
 
-              <div class="video-placeholder outline-cut">Video: Transfer to Verified (single + bulk)</div>
+              <video
+                controls
+                preload="metadata"
+                playsinline
+                style="width:100%; border-radius:12px;"
+              >
+                <source src="{{ asset('assets/volunteer_import/import_validation_guide/videos/step_4_move_to_verified.mp4') }}" type="video/mp4">
+                Your browser does not support the video tag.
+              </video>
+
             </div>
 
             <!-- STEP 5 -->
@@ -477,11 +517,22 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // demo file picker text (guide-only)
-  const fileBtn  = modal1.querySelector(".js-demo-filebtn");
-  const filePath = modal1.querySelector(".js-demo-filepath");
-  if (fileBtn && filePath) {
-    fileBtn.addEventListener("click", () => { filePath.textContent = "example_volunteers.csv"; });
-  }
+  // demo file picker text + turn Import button red (guide-only)
+const fileBtn   = modal1.querySelector(".js-demo-filebtn");
+const filePath  = modal1.querySelector(".js-demo-filepath");
+const importBtn = modal1.querySelector(".js-demo-importbtn");
+
+if (fileBtn && filePath && importBtn) {
+  fileBtn.addEventListener("click", () => {
+    // show demo filename
+    filePath.textContent = "example_volunteers.csv";
+
+    // FORCE import button to turn red
+    importBtn.classList.remove("btn-outline-secondary");
+    importBtn.classList.add("btn-danger");
+  });
+}
+
 
   console.log("Guide 1 (Import & Validation) merged + upgraded ✅");
 });

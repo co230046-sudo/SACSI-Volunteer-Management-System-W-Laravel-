@@ -189,17 +189,29 @@
           @php
             $timestamp = $log->timestamp ? \Illuminate\Support\Carbon::parse($log->timestamp)->format('Y-m-d h:i A') : '—';
 
+            // AdminAccount: username + full_name
             $adminName =
               $log->admin->username
-                ?? $log->admin->name
+                ?? ($log->admin->full_name ?? null)
                 ?? 'Unknown';
 
             $adminUrl = $adminRoute($log);
 
             $actionLabel = (string)($log->action ?? '—');
 
-            // ✅ IMPORTANT: if controller provides details_decoded, use it.
-            $detailsRaw = (string)($log->details_decoded ?? $log->details ?? '');
+            // Display text (decoded)
+            $detailsDisplay = (string)($log->details_decoded ?? $log->details ?? '');
+            $detailsDisplay = html_entity_decode($detailsDisplay, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $detailsDisplay = trim($detailsDisplay);
+
+            // Raw DB details (for modal + JSON parsing)
+            $detailsRawDb = (string)($log->details ?? '');
+            $detailsRawDb = trim($detailsRawDb);
+
+            // If display ends with "Entry #N" (no name), show No Name
+            if ($detailsDisplay !== '' && preg_match('/Entry\s+#\d+\s*$/i', $detailsDisplay)) {
+              $detailsDisplay .= ' No Name';
+            }
 
             $catKey = $guessCategory($log);
             $catLabel = $categoryLabel($catKey);
@@ -210,7 +222,7 @@
             $rowId = 'log-' . ($log->fact_log_id ?? spl_object_id($log));
 
             $searchBlob = strtolower(
-              $adminName.' '.$actionLabel.' '.$catLabel.' '.$detailsRaw.' '.($log->entity_type ?? '').' '.($log->entity_id ?? '')
+              $adminName.' '.$actionLabel.' '.$catLabel.' '.$detailsDisplay.' '.($log->entity_type ?? '').' '.($log->entity_id ?? '')
             );
           @endphp
 
@@ -245,15 +257,16 @@
                    data-admin="{{ e($adminName) }}"
                    data-admin-url="{{ e($adminUrl ?? '') }}"
                    data-action="{{ e($actionLabel) }}"
-                   data-category="{{ e($catLabel) }}"
+                   data-category-label="{{ e($catLabel) }}"
                    data-category-key="{{ e($catKey) }}"
                    data-entity-type="{{ e($log->entity_type ?? '') }}"
                    data-entity-id="{{ e($log->entity_id ?? '') }}"
-                   data-raw="{{ e($detailsRaw) }}">
-                {{ $detailsRaw ?: '—' }}
+                   {{-- ✅ FIX: store raw JSON safely without HTML entity escaping --}}
+                   data-raw-b64="{{ base64_encode($detailsRawDb) }}">
+                {{ $detailsDisplay ?: '—' }}
               </div>
 
-              @if(!empty(trim($detailsRaw)))
+              @if(!empty(trim($detailsDisplay)))
                 <button type="button"
                         class="more-link js-open-modal"
                         data-row="{{ $rowId }}">
@@ -331,7 +344,7 @@
     </div>
   </section>
 
-  {{-- ✅ MODAL (was broken because markup was incomplete / missing backdrop/card/head/foot) --}}
+  {{-- ✅ MODAL --}}
   <div class="modal-backdrop" id="logModalBackdrop" aria-hidden="true">
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="logModalTitle">
       <div class="modal-head">
@@ -343,22 +356,19 @@
 
       <div class="modal-body">
         <div class="modal-meta" id="logModalMeta"></div>
-
-        {{-- Old vibe: chips + summary --}}
         <div class="modal-chips" id="logModalChips"></div>
         <div class="modal-summary" id="logModalSummary"></div>
 
         <div class="modal-section">
-            <button type="button" class="raw-toggle" id="logModalRawToggle" aria-expanded="false">
-                <span>Show raw details</span>
-                <i class="fa-solid fa-chevron-down"></i>
-            </button>
+          <button type="button" class="raw-toggle" id="logModalRawToggle" aria-expanded="false">
+            <span>Show raw details</span>
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
 
-            <div class="raw-panel" id="logModalRawPanel" hidden>
-                <pre class="modal-pre" id="logModalRaw"></pre>
-            </div>
+          <div class="raw-panel" id="logModalRawPanel" hidden>
+            <pre class="modal-pre" id="logModalRaw"></pre>
+          </div>
         </div>
-
       </div>
 
       <div class="modal-foot">

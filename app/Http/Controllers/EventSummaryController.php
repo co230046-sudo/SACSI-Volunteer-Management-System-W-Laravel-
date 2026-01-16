@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
 
 use App\Models\Event;
+use App\Models\EventFeedback;
 
 class EventSummaryController extends Controller
 {
@@ -16,22 +17,18 @@ class EventSummaryController extends Controller
     private const STATUS_CANCELLED = 'cancelled';
 
     /**
-     * Show Event Summary page.
-     * Route should be:
-     *   GET /events/{event:event_id}/summary  -> name: events.summary
+     * GET /events/{event:event_id}/summary  -> name: events.summary
      */
     public function show(Request $request, Event $event)
     {
-        // Load what the summary page commonly needs.
-        // (Does NOT modify your DB; read-only.)
+        // Load common relations
         $event->load([
             'location',
             'eventType',
             'organizers',
         ]);
 
-        // If attendance table/relationship exists, load it.
-        // Your EventDetailsController checks Schema::hasTable('event_attendances'), so we do same.
+        // Attendance + expected roster
         if (Schema::hasTable('event_attendances')) {
             $event->load([
                 'attendances.volunteer.course',
@@ -44,17 +41,16 @@ class EventSummaryController extends Controller
         }
 
         // ----------------------------
-        // Status derive (same idea as EventDetailsController)
+        // Status derive (read-only)
         // ----------------------------
         $now   = Carbon::now();
         $start = $event->start_datetime ? Carbon::parse($event->start_datetime) : null;
         $end   = $event->end_datetime   ? Carbon::parse($event->end_datetime)   : null;
 
-        $derivedStatus = $this->deriveStatus($event->status, $start, $end, $now);
-        $event->status = $derivedStatus;
+        $event->status = $this->deriveStatus($event->status, $start, $end, $now);
 
         // ----------------------------
-        // Expected (Roster)
+        // Expected roster
         // ----------------------------
         $expectedRows  = $event->expectedVolunteers ?? collect();
         $expectedCount = (int) $expectedRows->count();
@@ -70,29 +66,27 @@ class EventSummaryController extends Controller
         $actualCount = (int) $attendanceRows->count();
         $hasAttendanceImport = $actualCount > 0;
 
-        // Treat "present" and "late" as attended (same as you do in details)
+        // attended = present / late / blank
         $attendedRows = $attendanceRows->filter(function ($att) {
             $s = strtolower((string) ($att->status ?? ''));
             return in_array($s, ['present', 'late', ''], true);
         });
 
-        $presentCount = (int) $attendedRows->count();
+        $attendedCount = (int) $attendedRows->count();
+        $walkInCount   = (int) $attendanceRows->where('walk_in', 1)->count();
 
-        // Walk-ins (based on walk_in flag in your details controller)
-        $walkInCount = (int) $attendanceRows->where('walk_in', 1)->count();
-
-        // Absent = expected roster - those who attended (based on volunteer_id overlap)
+        // Absent = expected - attended (by volunteer_id overlap)
         $attendedVolunteerIds = $attendedRows
             ->whereNotNull('volunteer_id')
             ->pluck('volunteer_id')
-            ->map(fn($id) => (int) $id)
+            ->map(fn ($id) => (int) $id)
             ->unique()
             ->values();
 
         $expectedVolunteerIds = $expectedRows
             ->pluck('volunteer_id')
             ->filter()
-            ->map(fn($id) => (int) $id)
+            ->map(fn ($id) => (int) $id)
             ->unique()
             ->values();
 
@@ -100,34 +94,33 @@ class EventSummaryController extends Controller
             ->diff($attendedVolunteerIds)
             ->count();
 
-        // For the summary tiles you currently use:
-        $attendedCount = $presentCount; // attended = present+late merged
         $attendanceRate = $expectedCount > 0
             ? (int) round(($attendedCount / $expectedCount) * 100)
             : 0;
 
         // ----------------------------
-        // Capacity (optional; your blade currently supports it)
+        // NEW STATS: Top Year Level / Batch Year (based on attendedRows)
         // ----------------------------
-        $maxVolunteers = Schema::hasColumn('events', 'max_volunteers')
-            ? ($event->max_volunteers ?? null)
-            : null;
+        $topYearLevel = $this->topGroupStat(
+            $attendedRows,
+            fn ($att) => $att->volunteer?->year_level,
+            fn ($val) => $val ? "Year {$val}" : null,
+            true // numeric normalize
+        );
 
-        $capacityUsed = null;
-        if (!empty($maxVolunteers) && (int) $maxVolunteers > 0) {
-            $capacityUsed = (int) round(($expectedCount / (int) $maxVolunteers) * 100);
-        }
+        $topBatchYear = $this->topGroupStat(
+            $attendedRows,
+            fn ($att) => $att->volunteer?->batch_year,
+            fn ($val) => $val ? "Batch {$val}" : null,
+            true // numeric normalize
+        );
 
         // ----------------------------
-        // Chart mode + hint
+        // Chart mode
         // ----------------------------
-        $chartMode = $request->get('mode', 'actual'); // "actual" or "expected"
+        $chartMode = $request->get('mode', 'actual');
         $chartMode = in_array($chartMode, ['actual', 'expected'], true) ? $chartMode : 'actual';
 
-        // Build distribution data:
-        // - "actual" distribution: Present / Absent / Walk-in
-        // - "expected" distribution: Expected / (optional) something else
-        // NOTE: Your JS expects items with label, count, percentage, color.
         if ($chartMode === 'actual') {
             $chartHint = $hasAttendanceImport
                 ? 'Based on imported attendance (present/absent + walk-ins)'
@@ -139,9 +132,7 @@ class EventSummaryController extends Controller
                 ['label' => 'Walk-in',  'count' => $walkInCount,   'color' => '#f59e0b'],
             ]);
         } else {
-            // Placeholder batch/year concept (as you asked) — for now just a note.
-            // We keep chart meaningful without inventing data.
-            $chartHint = 'Expected roster distribution (batch/year placeholder coming soon)';
+            $chartHint = 'Expected roster distribution';
 
             $chartData = $this->buildChartFromCounts([
                 ['label' => 'Expected', 'count' => $expectedCount, 'color' => '#b23a45'],
@@ -149,24 +140,130 @@ class EventSummaryController extends Controller
             ]);
         }
 
-        // For blade meta:
-        $attendanceImportedTotal = $actualCount;
+        // ----------------------------
+        // Feedbacks for comments drawer
+        // NOTE: your DB does NOT have created_at, so do NOT reference it.
+        // ----------------------------
+        $feedbacks = collect();
+        if (Schema::hasTable('event_feedbacks')) {
+            $feedbacks = EventFeedback::query()
+                ->where('event_id', $event->event_id)
+                ->with(['volunteer']) // EventFeedback belongsTo VolunteerProfile
+                ->orderByDesc('submitted_at')  // ✅ safe
+                ->orderByDesc('feedback_id')   // ✅ stable tie-breaker
+                ->limit(60)
+                ->get()
+                ->map(function ($fb) {
+                    $vol = $fb->volunteer;
 
-        // IMPORTANT: return your summary view (update the view path if yours is different)
-        // Based on your blade, you likely have: resources/views/event_summary/event_summary.blade.php
-        return view('event_summary.event_summary', compact(
-            'event',
-            'expectedCount',
-            'attendedCount',
-            'attendanceRate',
-            'hasAttendanceImport',
-            'attendanceImportedTotal',
-            'chartMode',
-            'chartHint',
-            'chartData',
-            'maxVolunteers',
-            'capacityUsed'
-        ));
+                    $name = $fb->full_name
+                        ?? $vol?->full_name
+                        ?? 'Unknown Volunteer';
+
+                    $url = $vol ? route('volunteers.show', $vol->volunteer_id) : null;
+
+                    $avatar = $vol?->avatar_url
+                        ?? asset('storage/defaults/default_user.png');
+
+                    $qa = [];
+                    if (!is_null($fb->rating)) {
+                        $qa[] = ['q' => 'Rating', 'a' => $fb->rating . '/5'];
+                    }
+                    if (!empty($fb->improve_next_time)) {
+                        $qa[] = ['q' => 'Improve next time', 'a' => $fb->improve_next_time];
+                    }
+                    if (!empty($fb->issues_encountered)) {
+                        $qa[] = ['q' => 'Issues encountered', 'a' => $fb->issues_encountered];
+                    }
+                    if (!empty($fb->other_comments)) {
+                        $qa[] = ['q' => 'Other comments', 'a' => $fb->other_comments];
+                    }
+
+                    return (object) [
+                        'volunteer_name' => $name,
+                        'profile_url'    => $url,
+                        'avatar'         => $avatar,
+                        'qa'             => $qa,
+                        'rating'         => $fb->rating ?? null,
+                        'feedback_text'  => $fb->feedback_text ?? null,
+                        'submitted_at'   => $fb->submitted_at ?? null, // ✅ no created_at fallback
+                    ];
+                });
+        }
+
+        return view('event_summary.event_summary', [
+            'event' => $event,
+
+            'expectedCount' => $expectedCount,
+            'attendedCount' => $attendedCount,
+            'attendanceRate' => $attendanceRate,
+
+            'hasAttendanceImport' => $hasAttendanceImport,
+            'attendanceImportedTotal' => $actualCount,
+
+            'walkInCount' => $walkInCount,
+            'absentCount' => $absentCount,
+
+            'topYearLevel' => $topYearLevel,
+            'topBatchYear' => $topBatchYear,
+
+            'chartMode' => $chartMode,
+            'chartHint' => $chartHint,
+            'chartData' => $chartData,
+
+            'feedbacks' => $feedbacks,
+        ]);
+    }
+
+    /**
+     * Compute "top group" stat from attended rows.
+     * Returns: ['label' => string|null, 'count' => int, 'pct' => float]
+     */
+    private function topGroupStat($attendedRows, callable $valueFn, callable $labelFn, bool $normalizeNumeric = false): array
+    {
+        $total = (int) $attendedRows->count();
+        if ($total <= 0) {
+            return ['label' => null, 'count' => 0, 'pct' => 0.0];
+        }
+
+        $counts = [];
+        foreach ($attendedRows as $att) {
+            if (empty($att->volunteer_id)) continue;
+
+            $val = $valueFn($att);
+            if ($val === null || $val === '') continue;
+
+            if ($normalizeNumeric) {
+                $val = (int) $val;
+                if ($val <= 0) continue;
+                $k = (string) $val;
+            } else {
+                $k = (string) $val;
+                if (trim($k) === '') continue;
+            }
+
+            $counts[$k] = ($counts[$k] ?? 0) + 1;
+        }
+
+        if (empty($counts)) {
+            return ['label' => null, 'count' => 0, 'pct' => 0.0];
+        }
+
+        arsort($counts);
+        $topKey = array_key_first($counts);
+        $topCount = (int) ($counts[$topKey] ?? 0);
+
+        // If numeric normalize, pass int to labelFn for clean formatting
+        $labelVal = $normalizeNumeric ? (int) $topKey : $topKey;
+
+        $label = $labelFn($labelVal);
+        $pct = $total > 0 ? round(($topCount / $total) * 100, 1) : 0.0;
+
+        return [
+            'label' => $label ?: (string) $topKey,
+            'count' => $topCount,
+            'pct'   => $pct,
+        ];
     }
 
     /**
@@ -192,13 +289,9 @@ class EventSummaryController extends Controller
             ];
         }
 
-        // Remove zero slices so the conic-gradient doesn’t get weird
-        return array_values(array_filter($out, fn($x) => ($x['count'] ?? 0) > 0));
+        return array_values(array_filter($out, fn ($x) => ($x['count'] ?? 0) > 0));
     }
 
-    /**
-     * Same logic style as your EventDetailsController deriveStatus.
-     */
     private function deriveStatus(?string $stored, ?Carbon $start, ?Carbon $end, Carbon $now): string
     {
         $stored = strtolower((string) ($stored ?? self::STATUS_PLANNED));

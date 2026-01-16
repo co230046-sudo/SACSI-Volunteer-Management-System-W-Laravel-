@@ -25,9 +25,9 @@ class EventAttendance extends Model
     ];
 
     protected $casts = [
-        'walk_in'        => 'boolean',
-        'attendance_time'=> 'datetime',
-        'import_batch'   => 'integer',
+        'walk_in'         => 'boolean',
+        'attendance_time' => 'datetime',
+        'import_batch'    => 'string',
     ];
 
     public function event()
@@ -37,7 +37,6 @@ class EventAttendance extends Model
 
     public function volunteer()
     {
-        // assumes primary key is volunteer_id in VolunteerProfile
         return $this->belongsTo(VolunteerProfile::class, 'volunteer_id', 'volunteer_id');
     }
 }

@@ -219,7 +219,7 @@
     <link rel="stylesheet" href="{{ asset('assets/volunteer_import/css/volunteer_import.css') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="{{ asset('assets/layouts/modals/universal_feedback_modal.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/layouts/modals/universal_feedback_modal.css') }}">
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta id="scrollToInvalid" content="{{ session('scrollToInvalid') ? '1' : '0' }}">
@@ -1185,12 +1185,13 @@
     {{-- Scripts --}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
+    <script src="{{ asset('assets/layouts/modals/universal_feedback_modal.js') }}"></script>
+    
     <script src="{{ asset('assets/volunteer_import/js/scroll_to_last_table_used.js') }}"></script>
     <link rel="stylesheet" href="{{ asset('assets/modals/css/modal.css') }}">
     <script src="{{ asset('assets/modals/js/modal.js') }}"></script>
     <script src="{{ asset('assets/volunteer_import/js/table_actions.js') }}"></script>
-    
-<script src="{{ asset('assets/layouts/modals/universal_feedback_modal.js') }}"></script>
+
 
    <script>
   function initBootstrapTooltips(root = document) {

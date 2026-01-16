@@ -771,6 +771,41 @@
     </div>
   </div>
 
+  <div class="modal fade" id="eventTypeAddModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+      <div class="modal-content modal-soft">
+        <div class="modal-header modal-soft-header modal-soft-header--info">
+          <h5 class="modal-title">
+            <i class="fa-solid fa-plus"></i> Add Event Type
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="soft-sub mb-2">Enter a label for the new event type.</div>
+
+          <input type="text"
+                id="eventTypeAddLabel"
+                class="form-control"
+                placeholder="e.g., Coastal Cleanup, Seminar, Tree Planting"
+                autocomplete="off">
+
+          <div class="soft-sub mt-2" style="opacity:.8;">
+            Tip: Keep it short and consistent (Title Case).
+          </div>
+        </div>
+
+        <div class="modal-footer modal-soft-footer">
+          <button type="button" class="btn modal-soft-btn modal-soft-btn--ghost" data-bs-dismiss="modal">
+            <i class="fa-solid fa-xmark"></i> Cancel
+          </button>
+          <button type="button" class="btn modal-soft-btn modal-soft-btn--danger" id="eventTypeAddSaveBtn">
+            <i class="fa-solid fa-check"></i> Save
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
   {{--  Auto-open modals --}}
   @if ($errors->any())
   <script>

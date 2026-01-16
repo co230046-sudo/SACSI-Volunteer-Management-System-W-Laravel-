@@ -2,6 +2,9 @@
    VOLUNTEER LIST: cards, filters, search → profile behaviour
    ✅ PATCH: Batch dropdown now uses DB-provided list (data-batches)
    ✅ PATCH: Rows dropdown now uses custom portal dropdown (NO native select)
+   ✅ PATCH: Expose portal dropdown for Add Volunteer modal
+   ✅ PATCH (THIS REQUEST): Removed schedule builder from script.js
+   ✅ PATCH (THIS REQUEST): Added schedule "bridge" only (no builder)
 ========================================================= */
 (() => {
   const root = document.getElementById("vlRoot");
@@ -57,7 +60,7 @@
     return PER_PAGE_ALLOWED.includes(saved) ? saved : 6;
   })();
 
-  // URLs (so it also works if your app isn't at domain root)
+  // URLs
   const DATA_URL = (root.getAttribute("data-data-url") || "/volunteers/data").trim();
   const PROFILE_BASE = (root.getAttribute("data-profile-url-base") || "/volunteer-profile").trim();
 
@@ -105,7 +108,7 @@
     barangay: "",
     district: "",
     year_level: "",
-    batch_year: "",          // ✅ PATCH
+    batch_year: "",
     day: "",
     schedule_day: "",
     status: ""
@@ -117,8 +120,7 @@
   let lastItems   = [];
 
   /* =========================================================
-     RICH SEARCH SUGGESTIONS (✅ RESTORED)
-     - Uses /volunteers/data with small per_page and DOES NOT rerender cards
+     RICH SEARCH SUGGESTIONS
   ========================================================= */
   const SUGGEST_LIMIT = 6;
   let suggestAbort = null;
@@ -383,7 +385,7 @@
   }
 
   /* =========================================================
-     CARD RENDERING (same)
+     CARD RENDERING
   ========================================================= */
   function renderCard(v) {
     const avatar = resolveAvatar(v);
@@ -460,7 +462,7 @@
   }
 
   /* =========================================================
-     FETCH PAGE (✅ includes batch_year param + perPage variable)
+     FETCH PAGE
   ========================================================= */
   async function fetchPage(paramsOverride = {}) {
     const params = {
@@ -474,7 +476,7 @@
       barangay:     applied.barangay     ?? "",
       district:     applied.district     ?? "",
       year_level:   applied.year_level   ?? "",
-      batch_year:   applied.batch_year   ?? "", // ✅ PATCH
+      batch_year:   applied.batch_year   ?? "",
       day:          applied.day          ?? "",
       schedule_day: applied.schedule_day ?? "",
       status:       applied.status       ?? ""
@@ -532,7 +534,7 @@
   }
 
   /* =========================================================
-     PORTAL DROPDOWN (same as yours)
+     PORTAL DROPDOWN (shared)
   ========================================================= */
   let portalEl       = null;
   let portalOwner    = null;
@@ -776,7 +778,6 @@
     { value: "inactive", label: "Inactive / Alumni" }
   ];
 
-  // ✅ PATCH: Rows dropdown items (uses portal dropdown; NO native select)
   const perPageItems = [
     { value: "3", label: "3 rows" },
     { value: "6", label: "6 rows" },
@@ -828,7 +829,6 @@
     setDropdownValue(ddStatus, pending.status, label || "All Status");
   });
 
-  // ✅ PATCH: wire rows dropdown to perPage + refresh
   wireDropdown(ddPerPage, perPageItems, (value, label) => {
     const v = Number(value || "6");
     perPage = PER_PAGE_ALLOWED.includes(v) ? v : 6;
@@ -840,7 +840,7 @@
     fetchPage({ page: 1 });
   });
 
-  /* ---------------- search (✅ restored) ---------------- */
+  /* ---------------- search ---------------- */
   function setClearVisible() {
     if (!searchClear || !searchInput) return;
     const has = !!normalizeQ(searchInput.value);
@@ -962,8 +962,6 @@
     setDropdownValue(ddDay,      "",         "Any Day");
     setDropdownValue(ddBlock,    "",         "Any Time");
     setDropdownValue(ddStatus,   "",         "All Status");
-
-    // ✅ keep rows label in sync (does not reset to 6 automatically)
     setDropdownValue(ddPerPage, String(perPage), `${perPage} rows`);
 
     fetchPage({ page: 1 });
@@ -1003,62 +1001,6 @@
     resetPreview();
   });
 
-  /* ---------------- Add Volunteer: search + auto district ---------------- */
-  const addCourseSearch   = document.getElementById("vlCourseSearch");
-  const addCourseSelect   = document.getElementById("vlCourseSelect");
-  const addBarangaySearch = document.getElementById("vlBarangaySearch");
-  const addBarangaySelect = document.getElementById("vlBarangaySelect");
-  const addDistrictSelect = document.getElementById("vlDistrictSelect");
-
-  // Course local filter
-  if (addCourseSearch && addCourseSelect) {
-    const opts = Array.from(addCourseSelect.options);
-    addCourseSearch.addEventListener("input", function(){
-      const term = this.value.toLowerCase().trim();
-      opts.forEach(opt => {
-        if (!opt.value) { opt.hidden = false; return; }
-        const txt = opt.text.toLowerCase();
-        opt.hidden = term && !txt.includes(term);
-      });
-      if (addCourseSelect.selectedOptions.length &&
-          addCourseSelect.selectedOptions[0].hidden) {
-        addCourseSelect.value = "";
-      }
-    });
-  }
-
-  // Barangay local filter
-  if (addBarangaySearch && addBarangaySelect) {
-    const opts = Array.from(addBarangaySelect.options);
-    addBarangaySearch.addEventListener("input", function(){
-      const term = this.value.toLowerCase().trim();
-      opts.forEach(opt => {
-        if (!opt.value) { opt.hidden = false; return; }
-        const txt = opt.text.toLowerCase();
-        opt.hidden = term && !txt.includes(term);
-      });
-      if (addBarangaySelect.selectedOptions.length &&
-          addBarangaySelect.selectedOptions[0].hidden) {
-        addBarangaySelect.value = "";
-      }
-    });
-  }
-
-  // Auto district when barangay chosen
-  if (addBarangaySelect && addDistrictSelect) {
-    addBarangaySelect.addEventListener("change", function(){
-      const selected = this.selectedOptions[0];
-      if (!selected) return;
-      const districtId = selected.dataset.district;
-      if (!districtId) return;
-      const targetOpt = Array.from(addDistrictSelect.options)
-        .find(o => o.value === String(districtId));
-      if (targetOpt) {
-        addDistrictSelect.value = String(districtId);
-      }
-    });
-  }
-
   /* ---------------- init ---------------- */
   setDropdownValue(ddSort,     "name_asc", "Sort by Name (A–Z)");
   setDropdownValue(ddCourse,   "",         "All Courses");
@@ -1069,11 +1011,9 @@
   setDropdownValue(ddDay,      "",         "Any Day");
   setDropdownValue(ddBlock,    "",         "Any Time");
   setDropdownValue(ddStatus,   "",         "All Status");
-
-  // ✅ PATCH: init rows label from saved perPage
   setDropdownValue(ddPerPage, String(perPage), `${perPage} rows`);
 
-  // ✅ PATCH: navbar overlap safety (sets CSS var based on actual navbar height)
+  // navbar overlap safety
   (() => {
     const nav = document.querySelector('nav.navbar, .navbar, #navbar');
     const h = nav ? nav.getBoundingClientRect().height : 0;
@@ -1082,203 +1022,69 @@
     }
   })();
 
+  // ✅ PATCH: expose portal dropdown helpers globally (for Add Volunteer modal)
+  window.VLPortalDropdown = {
+    wireDropdown,
+    setDropdownValue,
+    closePortalMenu,
+  };
+
   setPanel(false);
   setClearVisible();
   fetchPage({ page: 1 });
 })();
 
 /* =========================================================
-   Add Volunteer: schedule builder (vlScheduleModal)
-   (UNCHANGED — keep your existing code)
+   Add Volunteer: schedule bridge ONLY (SAFE)
+   ✅ No recursion / no freeze
+   ✅ Works with:
+      - scheduleField.value changes
+      - scheduleField.setAttribute('value', ...)
+      - schedule modal dispatching vl:schedule-updated
 ========================================================= */
 (() => {
-  const vlScheduleField   = document.getElementById("vlScheduleField");
-  const vlScheduleSummary = document.getElementById("vlScheduleSummary");
-  const vlScheduleTrigger = document.getElementById("vlScheduleTrigger");
-  const vlScheduleModalEl = document.getElementById("vlScheduleModal");
-  const vlScheduleBody    = document.getElementById("vlScheduleBody");
-  const vlScheduleSave    = document.getElementById("vlScheduleSave");
-  const vlScheduleClear   = document.getElementById("vlScheduleClear");
+  const scheduleField = document.getElementById("vlScheduleField");
+  if (!scheduleField) return;
 
-  if (!(vlScheduleField && vlScheduleModalEl && vlScheduleBody)) return;
+  let inNotify = false;
+  let lastValue = (scheduleField.value || "").trim();
 
-  const SCH_DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-  const SCH_SLOTS = {
-    "07:30-08:20": { label:"7:30–8:20 AM",  group:"AM" },
-    "08:00-09:20": { label:"8:00–9:20 AM",  group:"AM" },
-    "08:30-09:50": { label:"8:30–9:50 AM",  group:"AM" },
-    "09:30-10:50": { label:"9:30–10:50 AM", group:"AM" },
-    "11:00-12:20": { label:"11:00–12:20 AM",group:"AM" },
-
-    "12:30-13:50": { label:"12:30–1:50 PM", group:"PM" },
-    "14:00-15:20": { label:"2:00–3:20 PM",  group:"PM" },
-    "15:30-16:50": { label:"3:30–4:50 PM",  group:"PM" },
-    "17:00-18:20": { label:"5:00–6:20 PM",  group:"PM" },
-    "18:30-20:50": { label:"6:30–8:50 PM",  group:"PM" }
-  };
-  const MAX_ROWS = 3;
-
-  const emptySchedule = () => {
-    const obj = {};
-    SCH_DAYS.forEach(d => { obj[d] = []; });
-    return obj;
-  };
-
-  function parseScheduleString(str) {
-    const data = emptySchedule();
-    if (!str) return data;
-
-    SCH_DAYS.forEach(day => {
-      const re = new RegExp(`${day}:\\s*(.*?)(?=(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|$))`,"i");
-      const m  = str.match(re);
-      if (!m) return;
-      let raw = (m[1] || "").trim();
-      if (!raw || /^no class/i.test(raw)) return;
-      const parts = raw.split(/\s+/);
-      data[day] = parts.filter(v => SCH_SLOTS[v]);
-    });
-
-    return data;
-  }
-
-  function scheduleToString(data) {
-    const parts = [];
-    SCH_DAYS.forEach(day => {
-      const blocks = (data[day] || []).filter(Boolean);
-      if (!blocks.length) parts.push(`${day}: No Class`);
-      else parts.push(`${day}: ${blocks.join(" ")}`);
-    });
-    return parts.join(" ");
-  }
-
-  function buildSummary(data) {
-    const daysWithClass = [];
-    let hasAM = false, hasPM = false;
-
-    SCH_DAYS.forEach(day => {
-      const blocks = (data[day] || []).filter(Boolean);
-      if (blocks.length) daysWithClass.push(day);
-      blocks.forEach(b => {
-        const meta = SCH_SLOTS[b];
-        if (!meta) return;
-        if (meta.group === "AM") hasAM = true;
-        if (meta.group === "PM") hasPM = true;
-      });
-    });
-
-    if (!daysWithClass.length) {
-      return 'No schedule set. Volunteers will be treated as available on any day & time.';
-    }
-
-    const dayLabel = daysWithClass.join(", ");
-    let band = "";
-    if (hasAM && hasPM)      band = " (AM & PM)";
-    else if (hasAM)          band = " (AM only)";
-    else if (hasPM)          band = " (PM only)";
-
-    return `Has classes on ${dayLabel}${band}.`;
-  }
-
-  let scheduleData = parseScheduleString(vlScheduleField.value || "");
-
-  function renderScheduleTable() {
-    vlScheduleBody.innerHTML = "";
-    for (let row = 0; row < MAX_ROWS; row++) {
-      const tr = document.createElement("tr");
-
-      const idx = document.createElement("td");
-      idx.className = "vl-schIndex";
-      idx.textContent = String(row + 1);
-      tr.appendChild(idx);
-
-      SCH_DAYS.forEach(day => {
-        const td = document.createElement("td");
-        const select = document.createElement("select");
-        select.className = "form-select form-select-sm vl-schSelect";
-        select.dataset.day = day;
-        select.dataset.row = String(row);
-
-        const optEmpty = document.createElement("option");
-        optEmpty.value = "";
-        optEmpty.textContent = "No Class";
-        select.appendChild(optEmpty);
-
-        const groups = {
-          AM: document.createElement("optgroup"),
-          PM: document.createElement("optgroup")
-        };
-        groups.AM.label = "Morning";
-        groups.PM.label = "Afternoon / Evening";
-
-        Object.entries(SCH_SLOTS).forEach(([value, meta]) => {
-          const opt = document.createElement("option");
-          opt.value = value;
-          opt.textContent = meta.label;
-          groups[meta.group].appendChild(opt);
-        });
-
-        select.appendChild(groups.AM);
-        select.appendChild(groups.PM);
-
-        const existing = scheduleData[day] || [];
-        select.value = existing[row] || "";
-
-        td.appendChild(select);
-        tr.appendChild(td);
-      });
-
-      vlScheduleBody.appendChild(tr);
+  function emit(value) {
+    // Single source of truth signal for the Add Volunteer modal
+    try {
+      window.dispatchEvent(new CustomEvent("vl:schedule-updated", {
+        detail: { value }
+      }));
+    } catch {
+      try { window.dispatchEvent(new Event("vl:schedule-updated")); } catch {}
     }
   }
 
-  let vlScheduleModal;
+  function notify(reason = "") {
+    if (inNotify) return;
+    inNotify = true;
 
-  function openScheduleModal() {
-    scheduleData = parseScheduleString(vlScheduleField.value || "");
-    renderScheduleTable();
-    if (!vlScheduleModal) {
-      vlScheduleModal = new bootstrap.Modal(vlScheduleModalEl);
-    }
-    vlScheduleModal.show();
-  }
-
-  vlScheduleTrigger?.addEventListener("click", () => {
-    openScheduleModal();
-  });
-
-  vlScheduleClear?.addEventListener("click", () => {
-    scheduleData = emptySchedule();
-    renderScheduleTable();
-  });
-
-  vlScheduleSave?.addEventListener("click", () => {
-    const data = emptySchedule();
-
-    vlScheduleBody.querySelectorAll(".vl-schSelect").forEach(sel => {
-      const day  = sel.dataset.day;
-      const row  = parseInt(sel.dataset.row || "0", 10);
-      const val  = sel.value || "";
-      if (val && SCH_SLOTS[val]) {
-        if (!data[day]) data[day] = [];
-        data[day][row] = val;
-      }
-    });
-
-    SCH_DAYS.forEach(day => {
-      data[day] = (data[day] || []).filter(Boolean);
-    });
-
-    const schedStr = scheduleToString(data);
-    vlScheduleField.value = schedStr;
-    if (vlScheduleSummary) {
-      vlScheduleSummary.textContent = buildSummary(data);
+    const value = (scheduleField.value || "").trim();
+    if (value !== lastValue) {
+      lastValue = value;
+      emit(value);
     }
 
-    scheduleData = data;
-    if (vlScheduleModal) vlScheduleModal.hide();
-  });
-
-  if (vlScheduleSummary) {
-    vlScheduleSummary.textContent = buildSummary(scheduleData);
+    inNotify = false;
   }
+
+  // 1) If schedule modal sets attribute: setAttribute('value', ...)
+  const obs = new MutationObserver(() => notify("attr"));
+  obs.observe(scheduleField, { attributes: true, attributeFilter: ["value"] });
+
+  // 2) If schedule modal sets property: scheduleField.value = "..."
+  //    we listen to input/change BUT we DO NOT re-dispatch input/change (no recursion)
+  scheduleField.addEventListener("input",  () => notify("input"));
+  scheduleField.addEventListener("change", () => notify("change"));
+
+  // 3) If schedule modal fires a global event directly
+  window.addEventListener("vl:schedule-updated", () => notify("global"));
+
+  // Initial sync once
+  notify("init");
 })();

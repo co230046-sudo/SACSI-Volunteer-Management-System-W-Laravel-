@@ -22,19 +22,39 @@
   }
 
   function titleize(s) {
-    return String(s || '').replace(/[_-]+/g, ' ').trim().replace(/\b\w/g, m => m.toUpperCase());
+    return String(s || '')
+      .replace(/[_-]+/g, ' ')
+      .trim()
+      .replace(/\b\w/g, m => m.toUpperCase());
+  }
+
+  // ✅ Base64 decode helper (safe for utf-8)
+  function decodeB64Unicode(b64) {
+    if (!b64) return '';
+    try {
+      const bin = atob(String(b64));
+      const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+      return new TextDecoder('utf-8').decode(bytes);
+    } catch {
+      try { return atob(String(b64)); } catch { return ''; }
+    }
   }
 
   // ---------- Humanize ----------
-  function summarize({ admin, action, categoryKey, raw }) {
+  function summarize({ admin, action, categoryKey, raw, fallbackText }) {
     const a = admin || 'Admin';
     const act = String(action || '').toLowerCase();
     const parsed = safeJsonParse(raw);
 
     if (!parsed) {
-      const t = (raw || '').trim();
+      const t = (fallbackText || '').trim();
       if (!t) return '—';
       return t.length > 160 ? (t.slice(0, 150) + '…') : t;
+    }
+
+    // ✅ FactLogger payload: prefer summary if present
+    if (typeof parsed === 'object' && parsed !== null && typeof parsed.summary === 'string' && parsed.summary.trim() !== '') {
+      return parsed.summary.trim();
     }
 
     if (act.includes('failed_login')) return `${a} failed to log in.`;
@@ -43,17 +63,18 @@
 
     const entryNo = parsed.entry_no ?? parsed.entry ?? parsed.row ?? parsed.index;
     const person = parsed.name ?? parsed.volunteer_name ?? parsed.full_name;
-    if (String(categoryKey).includes('volunteer') && act.includes('import') && (entryNo != null || person)) {
-      const left = entryNo != null ? `Imported Volunteer Entry #${entryNo}` : 'Imported Volunteer Entry';
-      const right = person ? ` – ${person}` : '';
-      return left + right + '.';
+
+    if (String(categoryKey).includes('volunteer_import') && (entryNo != null || person != null)) {
+      const left = entryNo != null ? `Volunteer Entry #${entryNo}` : 'Volunteer Entry';
+      const who = person ? person : 'No Name';
+      return `${a} updated ${left} — ${who}.`;
     }
 
     const title = parsed.title || parsed.event_title;
     const code  = parsed.code || parsed.event_code;
-    if (title && (String(categoryKey).includes('event'))) {
+    if (title && String(categoryKey).includes('event')) {
       const extra = code ? ` (Code: ${code}).` : '.';
-      return `${a} created event “${title}”${extra}`;
+      return `${a} updated event “${title}”${extra}`;
     }
 
     return `${a} performed “${titleize(action)}”.`;
@@ -63,10 +84,10 @@
   $$('.js-humanize').forEach(el => {
     const admin = el.getAttribute('data-admin') || 'Admin';
     const action = el.getAttribute('data-action') || '';
-    // NOTE: your blade uses data-category="{{ $catKey }}" (not data-category-key)
-    const categoryKey = el.getAttribute('data-category-key') || el.getAttribute('data-category') || '';
-    const raw = el.getAttribute('data-raw') || '';
-    el.textContent = summarize({ admin, action, categoryKey, raw });
+    const categoryKey = el.getAttribute('data-category-key') || '';
+    const raw = decodeB64Unicode(el.getAttribute('data-raw-b64') || '');
+    const fallbackText = (el.textContent || '').trim();
+    el.textContent = summarize({ admin, action, categoryKey, raw, fallbackText });
   });
 
   // ---------- Modal ----------
@@ -80,7 +101,6 @@
   const chipsEl = $('#logModalChips');
   const jumpBtn = $('#logModalJump');
 
-  // ✅ Raw details toggle (collapsed by default)
   const rawToggle = $('#logModalRawToggle');
   const rawPanel = $('#logModalRawPanel');
 
@@ -103,16 +123,15 @@
     const detailsEl = $('.log-details', row);
     if (!detailsEl) return;
 
-    // your blade doesn't set data-row-id currently; fall back to row.id
     lastRowId = detailsEl.getAttribute('data-row-id') || row.id || null;
 
     const timestamp = detailsEl.getAttribute('data-timestamp') || '';
-    const categoryLabel = detailsEl.getAttribute('data-category') || ''; // blade currently puts catKey here, not label
+    const categoryLabel = detailsEl.getAttribute('data-category-label') || '';
+    const categoryKey = detailsEl.getAttribute('data-category-key') || '';
     const action = detailsEl.getAttribute('data-action') || '';
     const admin = detailsEl.getAttribute('data-admin') || 'Admin';
     const adminUrl = detailsEl.getAttribute('data-admin-url') || '';
-    const raw = detailsEl.getAttribute('data-raw') || '';
-    const categoryKey = detailsEl.getAttribute('data-category-key') || detailsEl.getAttribute('data-category') || '';
+    const raw = decodeB64Unicode(detailsEl.getAttribute('data-raw-b64') || '');
     const entityType = detailsEl.getAttribute('data-entity-type') || '';
     const entityId = detailsEl.getAttribute('data-entity-id') || '';
 
@@ -124,9 +143,9 @@
       }
     `;
 
-    summaryEl.textContent = summarize({ admin, action, categoryKey, raw });
+    const fallbackText = (detailsEl.textContent || '').trim();
+    summaryEl.textContent = summarize({ admin, action, categoryKey, raw, fallbackText });
 
-    // Chips (old vibe: who did it + what entity)
     if (chipsEl) {
       const chips = [];
       if (entityType) chips.push({ icon: 'fa-cube', text: titleize(entityType) });
@@ -142,7 +161,6 @@
     const parsed = safeJsonParse(raw);
     rawEl.textContent = parsed ? JSON.stringify(parsed, null, 2) : (raw && raw.trim() ? raw.trim() : '—');
 
-    // ✅ start collapsed
     setRawOpen(false);
 
     backdrop?.classList.add('is-open');
@@ -161,7 +179,6 @@
     if (e.key === 'Escape' && backdrop?.classList.contains('is-open')) closeModal();
   });
 
-  // ✅ “Show & highlight row” inside modal (old behavior)
   jumpBtn?.addEventListener('click', () => {
     if (!lastRowId) return;
     const row = document.getElementById(lastRowId);
@@ -175,7 +192,6 @@
     setTimeout(() => row.classList.remove('is-hit'), 1800);
   });
 
-  // Row click opens modal (except clicking links/buttons)
   $$('.log-row').forEach(row => {
     row.addEventListener('click', (e) => {
       if (e.target.closest('a') || e.target.closest('button')) return;
@@ -183,7 +199,6 @@
     });
   });
 
-  // “More” button opens modal
   $$('.js-open-modal').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -205,7 +220,6 @@
     pop.style.top = `${top}px`;
     pop.style.left = `${left}px`;
 
-    // keep inside viewport
     const popRect = pop.getBoundingClientRect();
     const maxLeft = window.innerWidth - popRect.width - 12;
     if (left > maxLeft) pop.style.left = `${Math.max(12, maxLeft)}px`;
@@ -235,7 +249,7 @@
     if (!btn || !pop) return;
 
     document.body.appendChild(pop);
-    portalState.set(wrap, { pop, btn, hidden, valueSpan, items, searchInput });
+    portalState.set(wrap, { pop, btn, hidden, valueSpan, items, searchInput, name });
 
     function setSelected(value, label) {
       if (hidden) hidden.value = value;
@@ -243,10 +257,14 @@
       items.forEach(i => i.classList.toggle('is-selected', (i.getAttribute('data-value') ?? '') === value));
     }
 
+    // initial
     const current = (hidden?.value ?? '');
     const found = items.find(i => (i.getAttribute('data-value') ?? '') === current);
     if (found) setSelected(current, found.textContent.trim());
     else setSelected('', name === 'action' ? 'All actions' : 'All categories');
+
+    // expose reset helper
+    wrap.__setSelected = setSelected;
 
     btn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -280,8 +298,6 @@
         pop.classList.remove('is-open');
         wrap.classList.remove('is-open');
         btn.setAttribute('aria-expanded', 'false');
-
-        applyClientFilters();
       });
     });
 
@@ -304,6 +320,7 @@
       if (st?.pop.classList.contains('is-open')) positionPop(st.btn, st.pop);
     });
   });
+
   window.addEventListener('scroll', () => {
     selects.forEach(s => {
       const st = portalState.get(s);
@@ -311,173 +328,37 @@
     });
   }, { passive: true });
 
-  // ---------- Client-side filtering + autosuggest ----------
-  const rows = $$('.log-row');
-  const qInput = $('#q');
-  const dateStart = $('#date_start');
-  const dateEnd = $('#date_end');
-  const perPageSel = $('#per_page');
-
-  const sugg = document.createElement('div');
-  sugg.className = 'autosuggest';
-  sugg.style.display = 'none';
-  document.body.appendChild(sugg);
-
-  function parseRowDate(row) {
-    const details = $('.log-details', row);
-    const t = details?.getAttribute('data-timestamp') || '';
-    const datePart = t.split(' ')[0];
-    if (!datePart || datePart.length !== 10) return null;
-    return datePart;
-  }
-
-  function applyClientFilters() {
-    const q = (qInput?.value || '').trim().toLowerCase();
-    const start = (dateStart?.value || '').trim();
-    const end = (dateEnd?.value || '').trim();
-
-    const actionVal = $('#actionHidden')?.value || '';
-    const catVal = $('#categoryHidden')?.value || '';
-
-    rows.forEach(row => {
-      let ok = true;
-
-      // NOTE: your blade uses data-search-text, not data-search
-      const search = (row.getAttribute('data-search') || row.getAttribute('data-search-text') || '');
-      if (q) ok = ok && search.includes(q);
-
-      const details = $('.log-details', row);
-      const rowAction = (details?.getAttribute('data-action') || '');
-      const rowCatKey = (details?.getAttribute('data-category-key') || details?.getAttribute('data-category') || '');
-
-      if (actionVal) ok = ok && rowAction === actionVal;
-      if (catVal) ok = ok && rowCatKey === catVal;
-
-      if (start || end) {
-        const d = parseRowDate(row);
-        if (!d) ok = false;
-        if (start && d < start) ok = false;
-        if (end && d > end) ok = false;
-      }
-
-      row.style.display = ok ? '' : 'none';
-    });
-  }
-
-  qInput?.addEventListener('input', () => {
-    applyClientFilters();
-    showSuggest();
-  });
-  dateStart?.addEventListener('change', applyClientFilters);
-  dateEnd?.addEventListener('change', applyClientFilters);
-
-  // keep server pagination
-  perPageSel?.addEventListener('change', () => form?.submit());
-
-  function buildSuggestions(query) {
-    if (!query) return [];
-    const scored = [];
-
-    rows.forEach(row => {
-      if (row.style.display === 'none') return;
-      const text = (row.getAttribute('data-search') || row.getAttribute('data-search-text') || '');
-      const idx = text.indexOf(query);
-      if (idx !== -1) scored.push({ row, idx });
-    });
-
-    scored.sort((a,b) => a.idx - b.idx);
-    return scored.slice(0, 6);
-  }
-
-  function positionSuggest() {
-    if (!qInput) return;
-    const r = qInput.getBoundingClientRect();
-    sugg.style.position = 'fixed';
-    sugg.style.left = `${r.left}px`;
-    sugg.style.top = `${r.bottom + 8}px`;
-    sugg.style.width = `${r.width}px`;
-    sugg.style.zIndex = '10060';
-  }
-
-  function showSuggest() {
-    if (!qInput) return;
-    const query = qInput.value.trim().toLowerCase();
-    if (query.length < 2) { sugg.style.display = 'none'; return; }
-
-    const items = buildSuggestions(query);
-    if (!items.length) { sugg.style.display = 'none'; return; }
-
-    positionSuggest();
-    sugg.innerHTML = items.map(({ row }) => {
-      const details = $('.log-details', row);
-      const admin = details?.getAttribute('data-admin') || 'Admin';
-      const action = details?.getAttribute('data-action') || '';
-      const cat = details?.getAttribute('data-category') || '';
-      const raw = details?.getAttribute('data-raw') || '';
-      const categoryKey = details?.getAttribute('data-category-key') || details?.getAttribute('data-category') || '';
-      const sum = summarize({ admin, action, categoryKey, raw });
-
-      return `
-        <button type="button" class="as-item" data-row="${escapeHtml(row.id)}">
-          <div class="as-top">${escapeHtml(admin)} • ${escapeHtml(cat)} • ${escapeHtml(action)}</div>
-          <div class="as-sub">${escapeHtml(sum)}</div>
-        </button>
-      `;
-    }).join('');
-
-    sugg.style.display = 'block';
-  }
-
-  // click suggest -> jump + highlight
-  sugg.addEventListener('click', (e) => {
-    const btn = e.target.closest('.as-item');
-    if (!btn) return;
-    const id = btn.getAttribute('data-row');
-    const row = id ? document.getElementById(id) : null;
-    if (!row) return;
-
-    sugg.style.display = 'none';
-
-    $$('.log-row.is-hit').forEach(r => r.classList.remove('is-hit'));
-    row.classList.add('is-hit');
-    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    setTimeout(() => row.classList.remove('is-hit'), 1800);
+  // ---------- Apply + Reset ----------
+  $('.btn-apply-filters')?.addEventListener('click', () => {
+    form?.submit?.();
   });
 
-  document.addEventListener('click', (e) => {
-    if (e.target.closest('#q')) return;
-    if (e.target.closest('.autosuggest')) return;
-    sugg.style.display = 'none';
-  });
+  $('#logsResetBtn')?.addEventListener('click', (e) => {
+    e.preventDefault();
 
-  window.addEventListener('resize', () => {
-    if (sugg.style.display !== 'none') positionSuggest();
-  });
-  window.addEventListener('scroll', () => {
-    if (sugg.style.display !== 'none') positionSuggest();
-  }, { passive: true });
-
-  // Reset (client-side)
-  $('#logsResetBtn')?.addEventListener('click', () => {
+    const dateStart = $('#date_start');
+    const dateEnd = $('#date_end');
+    const q = $('#q');
     if (dateStart) dateStart.value = '';
     if (dateEnd) dateEnd.value = '';
-    if (qInput) qInput.value = '';
+    if (q) q.value = '';
 
     const actionHidden = $('#actionHidden');
     const categoryHidden = $('#categoryHidden');
     if (actionHidden) actionHidden.value = '';
     if (categoryHidden) categoryHidden.value = '';
 
-    $$('.cselect').forEach(s => {
-      const name = s.getAttribute('data-name');
-      const valueSpan = $('.cselect-value', s);
-      if (valueSpan) valueSpan.textContent = name === 'action' ? 'All actions' : 'All categories';
+    $$('.cselect').forEach(wrap => {
+      const name = wrap.getAttribute('data-name');
+      const setSelected = wrap.__setSelected;
+      if (typeof setSelected === 'function') {
+        setSelected('', name === 'action' ? 'All actions' : 'All categories');
+      } else {
+        const valueSpan = $('.cselect-value', wrap);
+        if (valueSpan) valueSpan.textContent = name === 'action' ? 'All actions' : 'All categories';
+      }
     });
 
-    applyClientFilters();
+    window.location.href = (form?.getAttribute('action') || window.location.pathname);
   });
-
-  // first run
-  applyClientFilters();
 })();
-    

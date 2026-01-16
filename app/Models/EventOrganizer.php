@@ -6,25 +6,29 @@ use Illuminate\Database\Eloquent\Model;
 
 class EventOrganizer extends Model
 {
-    // App\Models\EventOrganizer.php
     protected $table = 'event_organizers';
     protected $primaryKey = 'organizer_id';
-    public $timestamps = false; // if your table doesn't have created_at/updated_at
+    public $timestamps = true;
 
     protected $fillable = [
-        'event_id',
         'name',
         'email',
         'contact',
     ];
-    
+
     public function getRouteKeyName()
     {
         return 'organizer_id';
     }
 
-    public function event()
+    // ✅ reusable directory: many events via pivot
+    public function events()
     {
-        return $this->belongsTo(Event::class, 'event_id', 'event_id');
+        return $this->belongsToMany(
+            \App\Models\Event::class,
+            'event_event_organizer',
+            'organizer_id',
+            'event_id'
+        )->withTimestamps();
     }
 }

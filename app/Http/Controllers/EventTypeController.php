@@ -9,10 +9,19 @@ use Illuminate\Support\Str;
 
 use App\Models\EventType;
 use App\Models\EventLog;
-use App\Models\FactLog;
+
+// ✅ Use FactLogger service (do NOT use FactLog::create here)
+use App\Services\FactLogger;
 
 class EventTypeController extends Controller
 {
+    private FactLogger $factLogger;
+
+    public function __construct(FactLogger $factLogger)
+    {
+        $this->factLogger = $factLogger;
+    }
+
     public function create()
     {
         return view('event_types.create');
@@ -63,20 +72,19 @@ class EventTypeController extends Controller
                     'timestamp' => now(),
                 ]);
 
-                FactLog::create([
-                    'admin_id'    => $admin->admin_id,
-                    'entity_type' => 'EventType',
-                    'entity_id'   => $eventType->event_type_id,
-                    'action'      => 'Create',
-                    'details'     => json_encode([
-                        'event_type_id'  => $eventType->event_type_id,
-                        'type_key'       => $eventType->type_key,
-                        'label'          => $eventType->label,
-                        'admin_id'       => $admin->admin_id,
-                        'admin_username' => $admin->username ?? null,
-                    ], JSON_UNESCAPED_UNICODE),
-                    'timestamp'   => now(),
-                ]);
+                // ✅ PATCH: Put the label in the "type" because the UI table is showing that field
+                $this->factLogger->log(
+                    'Event Type Created: ' . $eventType->label, // 👈 THIS is what will show in the list
+                    'Create',
+                    'EventType',
+                    (int) $eventType->event_type_id,
+                    [
+                        'event_type_id' => (int) $eventType->event_type_id,
+                        'type_key'      => $eventType->type_key,
+                        'label'         => $eventType->label,
+                    ],
+                    (int) $admin->admin_id
+                );
 
                 return redirect()
                     ->route('events.create')
@@ -88,14 +96,14 @@ class EventTypeController extends Controller
     }
 
     // =========================
-    // NEW: JSON list for modal
+    // JSON list for modal
     // =========================
     public function indexJson(Request $request)
     {
         $admin = Auth::guard('admin')->user();
         if (!$admin) return response()->json(['message' => 'Unauthorized'], 401);
 
-        $q = trim((string)$request->get('search', ''));
+        $q = trim((string) $request->get('search', ''));
 
         $types = EventType::query()
             ->select('event_type_id', 'type_key', 'label')
@@ -111,7 +119,7 @@ class EventTypeController extends Controller
     }
 
     // =========================
-    // NEW: Update label
+    // Update label
     // =========================
     public function update(Request $request, EventType $eventType)
     {
@@ -120,7 +128,7 @@ class EventTypeController extends Controller
 
         $data = $request->validate([
             'label' => [
-                'required','string','max:100',
+                'required', 'string', 'max:100',
                 'unique:event_types,label,' . $eventType->event_type_id . ',event_type_id',
                 'regex:/^(?=.*[A-Za-z])[A-Za-z0-9][A-Za-z0-9\s\-\(\)\.&\/]{2,99}$/'
             ],
@@ -130,10 +138,10 @@ class EventTypeController extends Controller
 
         try {
             return DB::transaction(function () use ($data, $admin, $eventType) {
+
                 $oldLabel = $eventType->label;
                 $newLabel = trim($data['label']);
 
-                // Optional: keep type_key stable (recommended). If you want it to update too, tell me.
                 $eventType->label = $newLabel;
                 $eventType->save();
 
@@ -145,26 +153,26 @@ class EventTypeController extends Controller
                     'timestamp' => now(),
                 ]);
 
-                FactLog::create([
-                    'admin_id'    => $admin->admin_id,
-                    'entity_type' => 'EventType',
-                    'entity_id'   => $eventType->event_type_id,
-                    'action'      => 'Edit',
-                    'details'     => json_encode([
-                        'event_type_id' => $eventType->event_type_id,
+                // ✅ PATCH: Put labels in the "type" for the list display
+                $this->factLogger->log(
+                    'Event Type Updated: ' . $oldLabel . ' → ' . $newLabel,
+                    'Edit',
+                    'EventType',
+                    (int) $eventType->event_type_id,
+                    [
+                        'event_type_id' => (int) $eventType->event_type_id,
                         'old_label'     => $oldLabel,
                         'new_label'     => $newLabel,
-                        'admin_id'      => $admin->admin_id,
-                        'admin_username'=> $admin->username ?? null,
-                    ], JSON_UNESCAPED_UNICODE),
-                    'timestamp'   => now(),
-                ]);
+                        'type_key'      => $eventType->type_key,
+                    ],
+                    (int) $admin->admin_id
+                );
 
                 return response()->json([
-                    'success' => true,
+                    'success'       => true,
                     'event_type_id' => $eventType->event_type_id,
-                    'label' => $eventType->label,
-                    'type_key' => $eventType->type_key,
+                    'label'         => $eventType->label,
+                    'type_key'      => $eventType->type_key,
                 ]);
             });
         } catch (\Throwable $e) {
@@ -173,14 +181,13 @@ class EventTypeController extends Controller
     }
 
     // =========================
-    // NEW: Delete type
+    // Delete type
     // =========================
     public function destroy(EventType $eventType)
     {
         $admin = Auth::guard('admin')->user();
         if (!$admin) return response()->json(['message' => 'Unauthorized'], 401);
 
-        // Safety: if events reference this type, block deletion
         $inUse = \App\Models\Event::where('event_type_id', $eventType->event_type_id)->exists();
         if ($inUse) {
             return response()->json([
@@ -190,9 +197,10 @@ class EventTypeController extends Controller
 
         try {
             return DB::transaction(function () use ($admin, $eventType) {
+
                 $label = $eventType->label;
-                $id = $eventType->event_type_id;
-                $key = $eventType->type_key;
+                $id    = (int) $eventType->event_type_id;
+                $key   = $eventType->type_key;
 
                 $eventType->delete();
 
@@ -204,20 +212,19 @@ class EventTypeController extends Controller
                     'timestamp' => now(),
                 ]);
 
-                FactLog::create([
-                    'admin_id'    => $admin->admin_id,
-                    'entity_type' => 'EventType',
-                    'entity_id'   => $id,
-                    'action'      => 'Delete',
-                    'details'     => json_encode([
+                // ✅ PATCH: Put the label in the "type" because the UI list shows it
+                $this->factLogger->log(
+                    'Event Type Deleted: ' . $label, // 👈 THIS will show in the list
+                    'Delete',
+                    'EventType',
+                    $id,
+                    [
                         'event_type_id' => $id,
                         'type_key'      => $key,
                         'label'         => $label,
-                        'admin_id'      => $admin->admin_id,
-                        'admin_username'=> $admin->username ?? null,
-                    ], JSON_UNESCAPED_UNICODE),
-                    'timestamp'   => now(),
-                ]);
+                    ],
+                    (int) $admin->admin_id
+                );
 
                 return response()->json(['success' => true]);
             });

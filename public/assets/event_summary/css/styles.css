@@ -920,3 +920,16 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { width: 0; height: 0; }
   display: none !important;
 }
 
+/* Always make comments scroll when long */
+.comments-panel .comments-body{
+  max-height: calc(100vh - 140px);
+  overflow: auto;
+  padding-right: 10px;
+}
+
+/* optional: visible scrollbar (webkit) */
+.comments-panel .comments-body::-webkit-scrollbar{ width: 10px; }
+.comments-panel .comments-body::-webkit-scrollbar-thumb{
+  background: rgba(17,24,39,.18);
+  border-radius: 999px;
+}

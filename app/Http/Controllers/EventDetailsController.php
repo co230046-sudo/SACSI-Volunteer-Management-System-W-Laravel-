@@ -13,6 +13,8 @@ use App\Models\EventLog;
 use App\Models\FactLog;
 use App\Models\EventOrganizer;
 
+use App\Services\FactLogger;
+
 class EventDetailsController extends Controller
 {
     private const EVENT_DETAILS_VIEW = 'event_details.event_details';
@@ -21,6 +23,13 @@ class EventDetailsController extends Controller
     private const STATUS_ONGOING   = 'ongoing';
     private const STATUS_COMPLETED = 'completed';
     private const STATUS_CANCELLED = 'cancelled';
+
+    private FactLogger $factLogger;
+
+    public function __construct(FactLogger $factLogger)
+    {
+        $this->factLogger = $factLogger;
+    }
 
     public function show($eventId)
     {
@@ -379,8 +388,12 @@ class EventDetailsController extends Controller
         $event = Event::findOrFail($eventId);
 
         $current = strtolower((string)($event->status ?? self::STATUS_PLANNED));
-        if ($current === self::STATUS_CANCELLED) return back()->withErrors(['status' => 'This event is already cancelled.']);
-        if ($current === self::STATUS_COMPLETED) return back()->withErrors(['status' => 'Completed events cannot be cancelled.']);
+        if ($current === self::STATUS_CANCELLED) {
+            return back()->withErrors(['status' => 'This event is already cancelled.']);
+        }
+        if ($current === self::STATUS_COMPLETED) {
+            return back()->withErrors(['status' => 'Completed events cannot be cancelled.']);
+        }
 
         try {
             DB::beginTransaction();
@@ -393,6 +406,7 @@ class EventDetailsController extends Controller
 
             $event->save();
 
+            // Keep EventLog
             $this->logEvent(
                 $event->event_id,
                 $admin->admin_id,
@@ -400,19 +414,37 @@ class EventDetailsController extends Controller
                 "Cancelled event. Reason: {$reason}"
             );
 
-            $this->logFact(
-                $admin->admin_id,
-                $event,
+            // ✅ FactLogger formatted summary
+            $title = (string)($event->title ?? 'Event');
+            $code  = (string)($event->event_code ?? '—');
+
+            $this->factLogger->log(
+                'event.cancelled',
                 'Cancel',
-                'Event cancelled.'
+                $event,
+                (int)$event->event_id,
+                [
+                    'summary' => 'Cancelled Event - “' . $title . '” (Code: ' . $code . ')',
+                    'data' => [
+                        'reason' => $reason,
+                        'event' => [
+                            'id'    => (int)$event->event_id,
+                            'code'  => $code,
+                            'title' => $title,
+                            'start' => $event->start_datetime?->toIso8601String(),
+                            'end'   => $event->end_datetime?->toIso8601String(),
+                        ],
+                    ],
+                ],
+                (int)$admin->admin_id
             );
 
             DB::commit();
 
-            // ✅ FIX: your routes use events.manage, not events.index
             return redirect()
-                ->route('events.manage')
+                ->route('event.details.show', $event->event_id)
                 ->with('submit_success', 'Event cancelled successfully.');
+
         } catch (\Throwable $e) {
             DB::rollBack();
             return back()->withErrors(['server' => 'Failed to cancel event: ' . $e->getMessage()]);
@@ -449,6 +481,7 @@ class EventDetailsController extends Controller
 
             $details = $reason !== '' ? "Restored event. Reason: {$reason}" : "Restored event.";
 
+            // Keep EventLog
             $this->logEvent(
                 $event->event_id,
                 $admin->admin_id,
@@ -456,11 +489,29 @@ class EventDetailsController extends Controller
                 $details
             );
 
-            $this->logFact(
-                $admin->admin_id,
-                $event,
+            // ✅ FactLogger formatted summary
+            $title = (string)($event->title ?? 'Event');
+            $code  = (string)($event->event_code ?? '—');
+
+            $this->factLogger->log(
+                'event.restored',
                 'Restore',
-                'Event restored.'
+                $event,
+                (int)$event->event_id,
+                [
+                    'summary' => 'Restored Event - “' . $title . '” (Code: ' . $code . ')',
+                    'data' => [
+                        'reason' => $reason !== '' ? $reason : null,
+                        'event' => [
+                            'id'    => (int)$event->event_id,
+                            'code'  => $code,
+                            'title' => $title,
+                            'start' => $event->start_datetime?->toIso8601String(),
+                            'end'   => $event->end_datetime?->toIso8601String(),
+                        ],
+                    ],
+                ],
+                (int)$admin->admin_id
             );
 
             DB::commit();
@@ -468,42 +519,59 @@ class EventDetailsController extends Controller
             return redirect()
                 ->route('event.details.show', $event->event_id)
                 ->with('submit_success', 'Event restored to Planned.');
+
         } catch (\Throwable $e) {
             DB::rollBack();
             return back()->withErrors(['server' => 'Failed to restore event: ' . $e->getMessage()]);
         }
     }
 
-    public function destroy(Request $request, $eventId)
+
+    public function destroy(Request $request, Event $event)
     {
         $admin = Auth::guard('admin')->user();
         if (!$admin) {
             return back()->withErrors(['auth' => 'Authentication failed.']);
         }
 
-        $event = Event::findOrFail($eventId);
-
         try {
             DB::beginTransaction();
 
-            $title = $event->title;
+            $title = (string)($event->title ?? 'Event');
+            $code  = (string)($event->event_code ?? '—');
 
-            $details = 'Deleted event "'.$event->title.'"'
-                .' (Code: '.($event->event_code ?? '—').')'
-                .' (Date: '.optional($event->start_datetime)->format('M d, Y').').';
+            $details = 'Deleted event "' . $title . '"'
+                . ' (Code: ' . $code . ')'
+                . ' (Date: ' . optional($event->start_datetime)->format('M d, Y') . ').';
 
+            // Keep EventLog
             $this->logEvent(
-                $event->event_id,
-                $admin->admin_id,
+                (int)$event->event_id,
+                (int)$admin->admin_id,
                 'Delete',
                 $details
             );
 
-            $this->logFact(
-                $admin->admin_id ?? null,
-                $event,
+            // ✅ FactLogger formatted summary
+            $this->factLogger->log(
+                'event.deleted',
                 'Delete',
-                'Event permanently deleted.'
+                $event,
+                (int)$event->event_id,
+                [
+                    'summary' => 'Deleted Event - “' . $title . '” (Code: ' . $code . ')',
+                    'data' => [
+                        'event' => [
+                            'id'    => (int)$event->event_id,
+                            'code'  => $code,
+                            'title' => $title,
+                            'start' => $event->start_datetime?->toIso8601String(),
+                            'end'   => $event->end_datetime?->toIso8601String(),
+                        ],
+                        'method' => 'hard_delete',
+                    ],
+                ],
+                (int)$admin->admin_id
             );
 
             $event->delete();
@@ -512,13 +580,7 @@ class EventDetailsController extends Controller
 
             return redirect()
                 ->route('events.manage')
-                ->with('success', [
-                    'title' => 'Event deleted',
-                    'message' => 'Event deleted successfully.',
-                    'event_title' => $title,
-                    'event_code'  => $event->event_code,
-                    'event_date'  => optional($event->start_datetime)->format('M d, Y'),
-                ]);
+                ->with('submit_success', 'Event deleted successfully: ' . ($title ?: 'Event') . '.');
 
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -527,6 +589,7 @@ class EventDetailsController extends Controller
             ]);
         }
     }
+
 
     private function deriveStatus(?string $stored, ?Carbon $start, ?Carbon $end, Carbon $now): string
     {
@@ -551,35 +614,6 @@ class EventDetailsController extends Controller
             'admin_id' => $adminId,
             'action'   => $action,
             'details'  => $details,
-        ]);
-    }
-
-    private function logFact(?int $adminId, $entity, ?string $action = null, $details = null): FactLog
-    {
-        $admin   = Auth::guard('admin')->user();
-        $adminId = is_numeric($adminId) ? (int)$adminId : ($admin->admin_id ?? null);
-
-        $encodedDetails = is_array($details) || is_object($details)
-            ? json_encode($details, JSON_UNESCAPED_UNICODE)
-            : (string)$details;
-
-        $entityType = 'Unknown';
-        $entityId   = null;
-
-        if (is_object($entity)) {
-            $entityType = class_basename($entity);
-            $entityId   = method_exists($entity, 'getKey') ? $entity->getKey() : null;
-        } elseif (is_string($entity)) {
-            $entityType = $entity;
-        }
-
-        return FactLog::create([
-            'admin_id'    => $adminId,
-            'entity_type' => $entityType,
-            'entity_id'   => $entityId,
-            'action'      => $action,
-            'details'     => $encodedDetails,
-            'timestamp'   => now(),
         ]);
     }
 
@@ -639,18 +673,31 @@ class EventDetailsController extends Controller
 
             $after = ['name' => $org->name, 'email' => $org->email, 'contact' => $org->contact];
 
+            // Keep EventLog
             $this->logEvent(
-                $event->event_id,
-                $admin->admin_id,
+                (int)$event->event_id,
+                (int)$admin->admin_id,
                 'Update Organizer',
                 "Updated organizer #{$org->organizer_id} (" . ($before['name'] ?? '') . " → " . ($after['name'] ?? '') . ")."
             );
 
-            $this->logFact(
-                $admin->admin_id,
+            // ✅ FactLogger
+            $eventTitle = (string)($event->title ?? 'Event');
+
+            $this->factLogger->log(
+                'event.organizer_updated',
+                'Edit',
                 $event,
-                'Update Organizer',
-                ['organizer_id' => (int)$org->organizer_id, 'before' => $before, 'after' => $after]
+                (int)$event->event_id,
+                [
+                    'summary' => 'Updated Organizer (Event) - “' . $eventTitle . '” (Code: ' . ($event->event_code ?? '—') . ')',
+                    'data' => [
+                        'organizer_id' => (int)$org->organizer_id,
+                        'before' => $before,
+                        'after'  => $after,
+                    ],
+                ],
+                (int)$admin->admin_id
             );
 
             DB::commit();
@@ -681,24 +728,37 @@ class EventDetailsController extends Controller
         try {
             DB::beginTransaction();
 
-            $orgName = $org->name;
-            $orgId = $org->organizer_id;
+            $orgName = (string)$org->name;
+            $orgId = (int)$org->organizer_id;
 
             $org->delete();
 
+            // Keep EventLog
             $this->logEvent(
-                $event->event_id,
-                $admin->admin_id,
+                (int)$event->event_id,
+                (int)$admin->admin_id,
                 'Delete Organizer',
                 "Deleted organizer #{$orgId} ({$orgName})."
             );
 
-            $this->logFact(
-                $admin->admin_id,
+            // ✅ FactLogger
+            $eventTitle = (string)($event->title ?? 'Event');
+
+            $this->factLogger->log(
+                'event.organizer_deleted',
+                'Delete',
                 $event,
-                'Delete Organizer',
-                ['organizer_id' => (int)$orgId, 'name' => $orgName]
+                (int)$event->event_id,
+                [
+                    'summary' => 'Deleted Organizer (Event) - “' . $eventTitle . '” (Code: ' . ($event->event_code ?? '—') . ')',
+                    'data' => [
+                        'organizer_id' => $orgId,
+                        'name' => $orgName,
+                    ],
+                ],
+                (int)$admin->admin_id
             );
+
 
             DB::commit();
             return back()->with('organizer_deleted', 'Organizer deleted.');

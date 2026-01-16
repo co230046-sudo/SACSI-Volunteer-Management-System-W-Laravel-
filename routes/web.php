@@ -20,6 +20,7 @@ use App\Http\Controllers\SystemLogsController;
 use App\Models\ActivityLog;
 use App\Models\Admin;
 use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\ApiDashboardController;
 
 
 Route::get('/', function () {
@@ -39,40 +40,48 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::get('/home', [HomePageController::class, 'index'])->name('home');
 
     /* ------------------ ADMIN PROFILE + DASHBOARD ------------------ */
-    // Dynamic profile first (must be above /admin/profile)
-    Route::middleware(['auth:admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/registration', function () {
+            return view('admin.registration');
+            })->name('register');
+    Route::prefix('admin')->name('admin.')->group(function () {
 
-        // ✅ ADMIN PROFILE PAGE
-        Route::get('/profile', [AdminProfileController::class, 'index'])
-            ->name('profile.self');
+        // AJAX
+
+        Route::get('/registration', function () {
+                return view('admin.registration');
+            })->name('register');
+
+
+        Route::get('/profile/view/{id}', [AdminProfileController::class, 'viewProfile'])
+            ->name('profile.view');
+
+        Route::get('/profile/{id}/edit', [AdminProfileController::class, 'edit'])
+            ->name('profile.edit');
 
         Route::get('/profile/{id}', [AdminProfileController::class, 'index'])
             ->name('profile');
 
-        // ✅ UPDATE PROFILE
+        Route::get('/profile', [AdminProfileController::class, 'index'])
+            ->name('profile.self');
+
         Route::put('/profile/update', [AdminProfileController::class, 'update'])
             ->name('profile.update');
 
-        // ✅ FETCH LOGS (MODAL)
         Route::get('/profile/logs/{id}', [AdminProfileController::class, 'getLogs'])
             ->name('profile.logs');
 
-        // ✅ ✅ ✅ FETCH PROFILE FOR MODAL (THIS WAS BROKEN BEFORE)
-        Route::get('/profile/view/{id}', [AdminProfileController::class, 'viewProfile'])
-            ->name('profile.view');
+        Route::get('/list', [AdminProfileController::class, 'adminList'])
+            ->name('list');
 
-        // ✅ DASHBOARD
         Route::get('/dashboard', [DashboardController::class, 'index'])
             ->name('dashboard');
-               // ✅ REGISTER USER UNDER ADMIN
+
         Route::post('/user/store', [AdminUserController::class, 'store'])
             ->name('user.store');
-
-
-        // ❌ REMOVED: duplicate summary route was here
-        // Route::get('/events/{event}/summary', [EventSummaryController::class, 'show'])
-        //     ->name('events.summary');
+       
+        Route::get('/dashboard/data', [ApiDashboardController::class, 'fetch']);
     });
+
 
     /* ------------------ VOLUNTEER IMPORT ------------------ */
     Route::prefix('volunteer-import')->group(function () {

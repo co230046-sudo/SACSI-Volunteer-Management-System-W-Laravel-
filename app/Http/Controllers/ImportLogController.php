@@ -8,12 +8,10 @@ use App\Models\VolunteerProfile;
 use App\Models\ImportLog;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
-class ImportLogController extends Controller
 
+class ImportLogController extends Controller
 {
-    /**
-     * Display a listing of import logs
-     */
+    // Import logs page
     public function index()
     {
         // Fetch all import logs, newest first
@@ -21,7 +19,7 @@ class ImportLogController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        // Filter out logs that are cancelled or have zero total_records
+        // Hide cancelled + empty logs
         $importLogs = $importLogs->filter(function ($log) {
             return $log->status !== 'Cancelled' && $log->total_records > 0;
         });
@@ -29,57 +27,53 @@ class ImportLogController extends Controller
         return view('import_logs.index', compact('importLogs'));
     }
 
-    /**
-     * Store a new import log
-     */
+    // Create import log row
     public function store(Request $request)
     {
         $request->validate([
-            'file_name' => 'required|string|max:255',
-            'total_records' => 'required|integer|min:0',
-            'valid_count' => 'required|integer|min:0',
-            'invalid_count' => 'required|integer|min:0',
-            'duplicate_count' => 'nullable|integer|min:0',
-            'remarks' => 'nullable|string',
-            'fact_type' => 'required|in:Import,Validation,Correction',
+            'file_name'        => 'required|string|max:255',
+            'total_records'    => 'required|integer|min:0',
+            'valid_count'      => 'required|integer|min:0',
+            'invalid_count'    => 'required|integer|min:0',
+            'duplicate_count'  => 'nullable|integer|min:0',
+            'remarks'          => 'nullable|string',
+            'fact_type'        => 'required|in:Import,Validation,Correction',
         ]);
 
         $admin = Auth::guard('admin')->user();
 
         ImportLog::create([
-            'file_name' => $request->file_name,
-            'admin_id' => $admin->admin_id ?? null,
-            'fact_type' => $request->fact_type,
-            'remarks' => $request->remarks ?? null,
-            'total_records' => $request->total_records,
-            'valid_count' => $request->valid_count,
-            'invalid_count' => $request->invalid_count,
-            'duplicate_count' => $request->duplicate_count ?? 0,
-            'status' => 'Completed',
-            'completed_at' => now(),
+            'file_name'        => $request->file_name,
+            'admin_id'         => $admin->admin_id ?? null,
+            'fact_type'        => $request->fact_type,
+            'remarks'          => $request->remarks ?? null,
+            'total_records'    => $request->total_records,
+            'valid_count'      => $request->valid_count,
+            'invalid_count'    => $request->invalid_count,
+            'duplicate_count'  => $request->duplicate_count ?? 0,
+            'status'           => 'Completed',
+            'completed_at'     => now(),
         ]);
 
         return redirect()->back()->with('success', 'Import log recorded successfully!');
     }
 
+    // Delete old uploaded files not referenced by ImportLog
     private function cleanOldUploadsSafe()
     {
-        $uploadPath = 'uploads'; // relative to storage/app/public
+        $uploadPath = 'uploads';
 
         if (!Storage::disk('public')->exists($uploadPath)) return;
 
-        // Get all files in the uploads directory
         $files = Storage::disk('public')->files($uploadPath);
 
-        // Get all file names currently referenced in ImportLog
-        $activeFiles = ImportLog::pluck('file_name')->map(function($name) {
-            return $name; // adjust if you stored paths differently
+        $activeFiles = ImportLog::pluck('file_name')->map(function ($name) {
+            return $name;
         })->toArray();
 
         foreach ($files as $file) {
-            $basename = basename($file); // just the file name
+            $basename = basename($file);
 
-            // Delete only if file is NOT referenced in import logs
             if (!in_array($basename, $activeFiles)) {
                 Storage::disk('public')->delete($file);
             }

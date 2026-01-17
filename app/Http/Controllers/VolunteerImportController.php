@@ -107,7 +107,7 @@ class VolunteerImportController extends Controller
             }
 
             $context = stream_context_create([
-                "http" => ["timeout" => 8]
+                "http" => ["timeout" => 3]
             ]);
 
             $contents = @file_get_contents($url, false, $context);

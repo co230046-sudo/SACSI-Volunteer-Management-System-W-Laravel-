@@ -6,7 +6,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\FactLog;
 
-// ✅ Use FactLogger service (single source of truth for writing logs)
 use App\Services\FactLogger;
 
 class FactLogController extends Controller
@@ -18,20 +17,7 @@ class FactLogController extends Controller
         $this->factLogger = $factLogger;
     }
 
-    /**
-     * Log an action into fact_logs
-     *
-     * NOTE:
-     * - This is kept for compatibility (older code may still call it),
-     *   but it now writes via FactLogger so logging stays consistent.
-     *
-     * @param string $factTypeName
-     * @param string|null $entityType
-     * @param int|null $entityId
-     * @param string|null $action
-     * @param string|null $details
-     * @param int|null $importId (unused but kept for compatibility)
-     */
+    // Log an action into fact_logs (compat wrapper)
     public function logAction(
         string $factTypeName,
         ?string $entityType = null,
@@ -42,29 +28,25 @@ class FactLogController extends Controller
     ): void {
         $admin = Auth::guard('admin')->user();
 
-        $type = $factTypeName; // keep behavior
+        $type = $factTypeName;
         $act  = $action ?? $factTypeName;
 
-        // Prefer entityType, fallback to factTypeName
         $entity = $entityType ?? $factTypeName;
         $id     = $entityId;
 
-        // Details can be plain string or JSON string; normalize to array for FactLogger
         $detailsArray = $this->normalizeDetailsToArray($details);
 
         $this->factLogger->log(
-            $type,                          // type
-            $act,                           // action
-            $entity,                        // entity type
-            $id,                            // entity id
-            $detailsArray,                  // details (array)
-            $admin?->admin_id ? (int)$admin->admin_id : null
+            $type,
+            $act,
+            $entity,
+            $id,
+            $detailsArray,
+            $admin?->admin_id ? (int) $admin->admin_id : null
         );
     }
 
-    /**
-     * Display list of logs (humanizes JSON details for UI)
-     */
+    // Fact logs list
     public function index(Request $request)
     {
         $query = FactLog::with(['admin']);
@@ -81,14 +63,13 @@ class FactLogController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('details', 'like', "%$search%")
-                  ->orWhere('action', 'like', "%$search%")
-                  ->orWhere('entity_type', 'like', "%$search%");
+                    ->orWhere('action', 'like', "%$search%")
+                    ->orWhere('entity_type', 'like', "%$search%");
             });
         }
 
         $logs = $query->orderBy('timestamp', 'desc')->paginate(20);
 
-        // ✅ Add computed display fields (so Blade can show friendly text)
         $logs->getCollection()->transform(function ($log) {
             $log->details_text = $this->formatDetailsForHumans($log->details, $log->entity_type, $log->action);
             $log->action_text  = $this->formatActionForHumans($log->action);
@@ -98,9 +79,7 @@ class FactLogController extends Controller
         return view('fact_logs.index', compact('logs'));
     }
 
-    /**
-     * Delete a specific fact log entry
-     */
+    // Delete a fact log entry
     public function destroy(int $id)
     {
         $log = FactLog::findOrFail($id);
@@ -112,7 +91,6 @@ class FactLogController extends Controller
 
         $log->delete();
 
-        // Log the deletion action via FactLogger
         $this->factLogger->log(
             'Fact Log Deleted',
             'Delete',
@@ -120,31 +98,26 @@ class FactLogController extends Controller
             $id,
             [
                 'fact_log_id' => $id,
-                'message' => "Fact log ID {$id} deleted by {$admin->username}",
+                'message'     => "Fact log ID {$id} deleted by {$admin->username}",
             ],
-            (int)$admin->admin_id
+            (int) $admin->admin_id
         );
 
         return redirect()->back()->with('success', 'Log deleted successfully.');
     }
 
-    // ============================================================
+    // ----------------------------
     // Helpers
-    // ============================================================
+    // ----------------------------
 
-    /**
-     * Convert $details (string|null) into array for FactLogger.
-     * - If it's JSON, decode it.
-     * - Else wrap into { message: "..."}
-     */
+    // Convert details string into array for FactLogger
     private function normalizeDetailsToArray(?string $details): array
     {
-        $details = is_null($details) ? '' : (string)$details;
+        $details = is_null($details) ? '' : (string) $details;
         $details = trim($details);
 
         if ($details === '') return [];
 
-        // If it looks like JSON, try decoding
         if ($this->looksLikeJson($details)) {
             $decoded = json_decode($details, true);
             if (is_array($decoded)) return $decoded;
@@ -156,22 +129,19 @@ class FactLogController extends Controller
     private function looksLikeJson(string $s): bool
     {
         $s = trim($s);
+
         return ($s !== '') && (
             (str_starts_with($s, '{') && str_ends_with($s, '}')) ||
             (str_starts_with($s, '[') && str_ends_with($s, ']'))
         );
     }
 
-    /**
-     * Turn stored details into a human-readable string for the table.
-     * This is where your "Event Type Created" becomes "Created event type: Car Wash".
-     */
+    // Human-friendly details text for the table
     private function formatDetailsForHumans(?string $details, ?string $entityType, ?string $action): string
     {
-        $details = is_null($details) ? '' : (string)$details;
+        $details = is_null($details) ? '' : (string) $details;
         $detailsTrim = trim($details);
 
-        // If not JSON, just return as-is
         if ($detailsTrim === '' || !$this->looksLikeJson($detailsTrim)) {
             return $detailsTrim;
         }
@@ -179,15 +149,13 @@ class FactLogController extends Controller
         $data = json_decode($detailsTrim, true);
         if (!is_array($data)) return $detailsTrim;
 
-        // Common fields you’re logging
         $label    = $data['label'] ?? null;
         $oldLabel = $data['old_label'] ?? null;
         $newLabel = $data['new_label'] ?? null;
 
-        $entityType = (string)($entityType ?? '');
-        $action = (string)($action ?? '');
+        $entityType = (string) ($entityType ?? '');
+        $action = (string) ($action ?? '');
 
-        // ✅ EventType create/delete/update friendly formatting
         if (stripos($entityType, 'eventtype') !== false || stripos($entityType, 'event_type') !== false) {
             if ($label && (stripos($action, 'create') !== false || stripos($action, 'created') !== false)) {
                 return 'Created event type: ' . $label;
@@ -201,26 +169,21 @@ class FactLogController extends Controller
                 return 'Updated event type: ' . ($oldLabel ?? '—') . ' → ' . ($newLabel ?? '—');
             }
 
-            // fallback if label missing
             return $data['message'] ?? 'Event type change';
         }
 
-        // Generic fallback: try a message field, else show compact json
         if (isset($data['message']) && is_string($data['message'])) {
             return $data['message'];
         }
 
-        // Compact display for unknown payloads
         return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     private function formatActionForHumans(?string $action): string
     {
-        $action = (string)($action ?? '');
+        $action = (string) ($action ?? '');
         if ($action === '') return '';
 
-        // Optional: normalize casing
-        // e.g. "event_type.created" -> "Create"
         $a = strtolower($action);
 
         if (str_contains($a, 'create')) return 'Create';

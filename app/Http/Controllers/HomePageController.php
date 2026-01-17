@@ -8,10 +8,12 @@ use Carbon\Carbon;
 
 class HomePageController extends Controller
 {
+    // Homepage
     public function index()
     {
         $now = Carbon::now();
 
+        // Ongoing events
         $ongoingEvents = Event::query()
             ->with('location')
             ->withCount('expectedVolunteers')
@@ -19,11 +21,12 @@ class HomePageController extends Controller
             ->where('start_datetime', '<=', $now)
             ->where(function ($q) use ($now) {
                 $q->whereNull('end_datetime')
-                  ->orWhere('end_datetime', '>=', $now);
+                    ->orWhere('end_datetime', '>=', $now);
             })
             ->orderBy('start_datetime', 'asc')
             ->get();
 
+        // Upcoming events
         $upcomingEvents = Event::query()
             ->with('location')
             ->withCount('expectedVolunteers')
@@ -32,6 +35,7 @@ class HomePageController extends Controller
             ->orderBy('start_datetime', 'asc')
             ->get();
 
+        // Locations (for filters / dropdowns)
         $locations = Location::query()
             ->select('location_id', 'district_id', 'barangay')
             ->whereNotNull('barangay')
@@ -41,9 +45,9 @@ class HomePageController extends Controller
 
         $locationsForJs = $locations->map(function ($l) {
             return [
-                'id' => $l->location_id,
+                'id'          => $l->location_id,
                 'district_id' => (string) $l->district_id,
-                'barangay' => $l->barangay,
+                'barangay'    => $l->barangay,
             ];
         })->values()->all();
 

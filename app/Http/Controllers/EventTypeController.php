@@ -10,7 +10,6 @@ use Illuminate\Support\Str;
 use App\Models\EventType;
 use App\Models\EventLog;
 
-// ✅ Use FactLogger service (do NOT use FactLog::create here)
 use App\Services\FactLogger;
 
 class EventTypeController extends Controller
@@ -22,11 +21,13 @@ class EventTypeController extends Controller
         $this->factLogger = $factLogger;
     }
 
+    // Event type create page
     public function create()
     {
         return view('event_types.create');
     }
 
+    // Create event type
     public function store(Request $request)
     {
         $admin = Auth::guard('admin')->user();
@@ -36,11 +37,14 @@ class EventTypeController extends Controller
 
         $data = $request->validate([
             'label' => [
-                'required', 'string', 'max:100', 'unique:event_types,label',
-                'regex:/^(?=.*[A-Za-z])[A-Za-z0-9][A-Za-z0-9\s\-\(\)\.&\/]{2,99}$/'
+                'required',
+                'string',
+                'max:100',
+                'unique:event_types,label',
+                'regex:/^(?=.*[A-Za-z])[A-Za-z0-9][A-Za-z0-9\s\-\(\)\.&\/]{2,99}$/',
             ],
         ], [
-            'label.regex' => 'Please use a valid event type name (letters required; no random keyboard spam).'
+            'label.regex' => 'Please use a valid event type name (letters required; no random keyboard spam).',
         ]);
 
         try {
@@ -72,9 +76,8 @@ class EventTypeController extends Controller
                     'timestamp' => now(),
                 ]);
 
-                // ✅ PATCH: Put the label in the "type" because the UI table is showing that field
                 $this->factLogger->log(
-                    'Event Type Created: ' . $eventType->label, // 👈 THIS is what will show in the list
+                    'Event Type Created: ' . $eventType->label,
                     'Create',
                     'EventType',
                     (int) $eventType->event_type_id,
@@ -95,9 +98,7 @@ class EventTypeController extends Controller
         }
     }
 
-    // =========================
     // JSON list for modal
-    // =========================
     public function indexJson(Request $request)
     {
         $admin = Auth::guard('admin')->user();
@@ -109,7 +110,7 @@ class EventTypeController extends Controller
             ->select('event_type_id', 'type_key', 'label')
             ->when($q !== '', function ($qq) use ($q) {
                 $qq->where('label', 'like', "%{$q}%")
-                   ->orWhere('type_key', 'like', "%{$q}%");
+                    ->orWhere('type_key', 'like', "%{$q}%");
             })
             ->orderBy('label')
             ->limit(200)
@@ -118,9 +119,7 @@ class EventTypeController extends Controller
         return response()->json($types);
     }
 
-    // =========================
-    // Update label
-    // =========================
+    // Update event type label
     public function update(Request $request, EventType $eventType)
     {
         $admin = Auth::guard('admin')->user();
@@ -128,12 +127,14 @@ class EventTypeController extends Controller
 
         $data = $request->validate([
             'label' => [
-                'required', 'string', 'max:100',
+                'required',
+                'string',
+                'max:100',
                 'unique:event_types,label,' . $eventType->event_type_id . ',event_type_id',
-                'regex:/^(?=.*[A-Za-z])[A-Za-z0-9][A-Za-z0-9\s\-\(\)\.&\/]{2,99}$/'
+                'regex:/^(?=.*[A-Za-z])[A-Za-z0-9][A-Za-z0-9\s\-\(\)\.&\/]{2,99}$/',
             ],
         ], [
-            'label.regex' => 'Please use a valid event type name (letters required; no random keyboard spam).'
+            'label.regex' => 'Please use a valid event type name (letters required; no random keyboard spam).',
         ]);
 
         try {
@@ -153,7 +154,6 @@ class EventTypeController extends Controller
                     'timestamp' => now(),
                 ]);
 
-                // ✅ PATCH: Put labels in the "type" for the list display
                 $this->factLogger->log(
                     'Event Type Updated: ' . $oldLabel . ' → ' . $newLabel,
                     'Edit',
@@ -180,9 +180,7 @@ class EventTypeController extends Controller
         }
     }
 
-    // =========================
-    // Delete type
-    // =========================
+    // Delete event type
     public function destroy(EventType $eventType)
     {
         $admin = Auth::guard('admin')->user();
@@ -191,7 +189,7 @@ class EventTypeController extends Controller
         $inUse = \App\Models\Event::where('event_type_id', $eventType->event_type_id)->exists();
         if ($inUse) {
             return response()->json([
-                'message' => 'Cannot delete this type because it is used by existing events.'
+                'message' => 'Cannot delete this type because it is used by existing events.',
             ], 409);
         }
 
@@ -212,9 +210,8 @@ class EventTypeController extends Controller
                     'timestamp' => now(),
                 ]);
 
-                // ✅ PATCH: Put the label in the "type" because the UI list shows it
                 $this->factLogger->log(
-                    'Event Type Deleted: ' . $label, // 👈 THIS will show in the list
+                    'Event Type Deleted: ' . $label,
                     'Delete',
                     'EventType',
                     $id,

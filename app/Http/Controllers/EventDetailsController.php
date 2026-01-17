@@ -26,11 +26,13 @@ class EventDetailsController extends Controller
 
     private FactLogger $factLogger;
 
+    // Constructor
     public function __construct(FactLogger $factLogger)
     {
         $this->factLogger = $factLogger;
     }
 
+    // Event Details page (roster + attendance)
     public function show($eventId)
     {
         $event = Event::with([
@@ -44,7 +46,7 @@ class EventDetailsController extends Controller
 
         $defaultAvatar = asset('storage/defaults/default_user.png');
 
-        // ================= ROSTER (Expected Volunteers) =================
+        // Roster (Expected Volunteers)
         $expectedRows = $event->expectedVolunteers ?? collect();
 
         $attendeesExpectedJs = $expectedRows
@@ -86,7 +88,7 @@ class EventDetailsController extends Controller
 
         $expectedCount = $expectedRows->count();
 
-        // ================= Status derive =================
+        // Status derive
         $now   = Carbon::now();
         $start = $event->start_datetime ? Carbon::parse($event->start_datetime) : null;
         $end   = $event->end_datetime   ? Carbon::parse($event->end_datetime)   : null;
@@ -94,7 +96,7 @@ class EventDetailsController extends Controller
         $derivedStatus = $this->deriveStatus($event->status, $start, $end, $now);
         $event->status = $derivedStatus;
 
-        // ================= ACTUAL ATTENDANCE =================
+        // Actual attendance
         $attendanceRows = collect();
         if (Schema::hasTable('event_attendances')) {
             $attendanceRows = $event->attendances ?? collect();
@@ -102,7 +104,7 @@ class EventDetailsController extends Controller
 
         $actualCount = $attendanceRows->count();
 
-        // late is merged into present for top stats
+        // Late is merged into present for top stats
         $attendedRows = $attendanceRows->filter(function ($att) {
             $s = strtolower((string)($att->status ?? ''));
             return in_array($s, ['present', 'late', ''], true);
@@ -288,7 +290,7 @@ class EventDetailsController extends Controller
 
         $absentCount = $attendeesActualJs->where('status', 'absent')->count();
 
-        // ================= Attendance UI gating =================
+        // Attendance UI gating
         $attendanceEnabled = in_array($derivedStatus, [self::STATUS_ONGOING, self::STATUS_COMPLETED], true);
         if ($actualCount > 0) $attendanceEnabled = true;
 
@@ -336,6 +338,7 @@ class EventDetailsController extends Controller
         ));
     }
 
+    // Convert stored path into a public storage URL
     private function toPublicStorageUrl(string $path): ?string
     {
         $p = trim($path);
@@ -359,6 +362,7 @@ class EventDetailsController extends Controller
         return asset('storage/' . $p);
     }
 
+    // Label used in UI for attendance source/time
     private function formatAttendanceSource($attendance): ?string
     {
         try {
@@ -375,6 +379,7 @@ class EventDetailsController extends Controller
         return $attendance->source ?? null;
     }
 
+    // Cancel event
     public function cancel(Request $request, $eventId)
     {
         $admin = Auth::guard('admin')->user();
@@ -406,7 +411,6 @@ class EventDetailsController extends Controller
 
             $event->save();
 
-            // Keep EventLog
             $this->logEvent(
                 $event->event_id,
                 $admin->admin_id,
@@ -414,7 +418,6 @@ class EventDetailsController extends Controller
                 "Cancelled event. Reason: {$reason}"
             );
 
-            // ✅ FactLogger formatted summary
             $title = (string)($event->title ?? 'Event');
             $code  = (string)($event->event_code ?? '—');
 
@@ -451,6 +454,7 @@ class EventDetailsController extends Controller
         }
     }
 
+    // Restore cancelled event back to planned
     public function restore(Request $request, $eventId)
     {
         $admin = Auth::guard('admin')->user();
@@ -481,7 +485,6 @@ class EventDetailsController extends Controller
 
             $details = $reason !== '' ? "Restored event. Reason: {$reason}" : "Restored event.";
 
-            // Keep EventLog
             $this->logEvent(
                 $event->event_id,
                 $admin->admin_id,
@@ -489,7 +492,6 @@ class EventDetailsController extends Controller
                 $details
             );
 
-            // ✅ FactLogger formatted summary
             $title = (string)($event->title ?? 'Event');
             $code  = (string)($event->event_code ?? '—');
 
@@ -526,7 +528,7 @@ class EventDetailsController extends Controller
         }
     }
 
-
+    // Delete event (hard delete)
     public function destroy(Request $request, Event $event)
     {
         $admin = Auth::guard('admin')->user();
@@ -544,7 +546,6 @@ class EventDetailsController extends Controller
                 . ' (Code: ' . $code . ')'
                 . ' (Date: ' . optional($event->start_datetime)->format('M d, Y') . ').';
 
-            // Keep EventLog
             $this->logEvent(
                 (int)$event->event_id,
                 (int)$admin->admin_id,
@@ -552,7 +553,6 @@ class EventDetailsController extends Controller
                 $details
             );
 
-            // ✅ FactLogger formatted summary
             $this->factLogger->log(
                 'event.deleted',
                 'Delete',
@@ -590,7 +590,7 @@ class EventDetailsController extends Controller
         }
     }
 
-
+    // Status calculation based on stored status + time window
     private function deriveStatus(?string $stored, ?Carbon $start, ?Carbon $end, Carbon $now): string
     {
         $stored = strtolower((string)($stored ?? self::STATUS_PLANNED));
@@ -607,6 +607,7 @@ class EventDetailsController extends Controller
         return self::STATUS_COMPLETED;
     }
 
+    // EventLog writer
     private function logEvent(int $eventId, ?int $adminId, string $action, ?string $details = null): void
     {
         EventLog::create([
@@ -617,6 +618,7 @@ class EventDetailsController extends Controller
         ]);
     }
 
+    // Update organizer for an event
     public function updateOrganizer(Request $request, Event $event)
     {
         $admin = Auth::guard('admin')->user();
@@ -673,7 +675,6 @@ class EventDetailsController extends Controller
 
             $after = ['name' => $org->name, 'email' => $org->email, 'contact' => $org->contact];
 
-            // Keep EventLog
             $this->logEvent(
                 (int)$event->event_id,
                 (int)$admin->admin_id,
@@ -681,7 +682,6 @@ class EventDetailsController extends Controller
                 "Updated organizer #{$org->organizer_id} (" . ($before['name'] ?? '') . " → " . ($after['name'] ?? '') . ")."
             );
 
-            // ✅ FactLogger
             $eventTitle = (string)($event->title ?? 'Event');
 
             $this->factLogger->log(
@@ -708,6 +708,7 @@ class EventDetailsController extends Controller
         }
     }
 
+    // Delete organizer from an event
     public function destroyOrganizer(Request $request, Event $event)
     {
         $admin = Auth::guard('admin')->user();
@@ -733,7 +734,6 @@ class EventDetailsController extends Controller
 
             $org->delete();
 
-            // Keep EventLog
             $this->logEvent(
                 (int)$event->event_id,
                 (int)$admin->admin_id,
@@ -741,7 +741,6 @@ class EventDetailsController extends Controller
                 "Deleted organizer #{$orgId} ({$orgName})."
             );
 
-            // ✅ FactLogger
             $eventTitle = (string)($event->title ?? 'Event');
 
             $this->factLogger->log(
@@ -758,7 +757,6 @@ class EventDetailsController extends Controller
                 ],
                 (int)$admin->admin_id
             );
-
 
             DB::commit();
             return back()->with('organizer_deleted', 'Organizer deleted.');

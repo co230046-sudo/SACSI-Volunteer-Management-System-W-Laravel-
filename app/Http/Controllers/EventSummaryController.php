@@ -16,12 +16,10 @@ class EventSummaryController extends Controller
     private const STATUS_COMPLETED = 'completed';
     private const STATUS_CANCELLED = 'cancelled';
 
-    /**
-     * GET /events/{event:event_id}/summary  -> name: events.summary
-     */
+    // Event summary page
     public function show(Request $request, Event $event)
     {
-        // Load common relations
+        // Common relations
         $event->load([
             'location',
             'eventType',
@@ -40,24 +38,18 @@ class EventSummaryController extends Controller
             ]);
         }
 
-        // ----------------------------
         // Status derive (read-only)
-        // ----------------------------
         $now   = Carbon::now();
         $start = $event->start_datetime ? Carbon::parse($event->start_datetime) : null;
-        $end   = $event->end_datetime   ? Carbon::parse($event->end_datetime)   : null;
+        $end   = $event->end_datetime ? Carbon::parse($event->end_datetime) : null;
 
         $event->status = $this->deriveStatus($event->status, $start, $end, $now);
 
-        // ----------------------------
         // Expected roster
-        // ----------------------------
         $expectedRows  = $event->expectedVolunteers ?? collect();
         $expectedCount = (int) $expectedRows->count();
 
-        // ----------------------------
         // Actual attendance
-        // ----------------------------
         $attendanceRows = collect();
         if (Schema::hasTable('event_attendances')) {
             $attendanceRows = $event->attendances ?? collect();
@@ -79,14 +71,14 @@ class EventSummaryController extends Controller
         $attendedVolunteerIds = $attendedRows
             ->whereNotNull('volunteer_id')
             ->pluck('volunteer_id')
-            ->map(fn ($id) => (int) $id)
+            ->map(fn($id) => (int) $id)
             ->unique()
             ->values();
 
         $expectedVolunteerIds = $expectedRows
             ->pluck('volunteer_id')
             ->filter()
-            ->map(fn ($id) => (int) $id)
+            ->map(fn($id) => (int) $id)
             ->unique()
             ->values();
 
@@ -98,26 +90,22 @@ class EventSummaryController extends Controller
             ? (int) round(($attendedCount / $expectedCount) * 100)
             : 0;
 
-        // ----------------------------
-        // NEW STATS: Top Year Level / Batch Year (based on attendedRows)
-        // ----------------------------
+        // Top Year Level / Batch Year (based on attendedRows)
         $topYearLevel = $this->topGroupStat(
             $attendedRows,
-            fn ($att) => $att->volunteer?->year_level,
-            fn ($val) => $val ? "Year {$val}" : null,
-            true // numeric normalize
+            fn($att) => $att->volunteer?->year_level,
+            fn($val) => $val ? "Year {$val}" : null,
+            true
         );
 
         $topBatchYear = $this->topGroupStat(
             $attendedRows,
-            fn ($att) => $att->volunteer?->batch_year,
-            fn ($val) => $val ? "Batch {$val}" : null,
-            true // numeric normalize
+            fn($att) => $att->volunteer?->batch_year,
+            fn($val) => $val ? "Batch {$val}" : null,
+            true
         );
 
-        // ----------------------------
         // Chart mode
-        // ----------------------------
         $chartMode = $request->get('mode', 'actual');
         $chartMode = in_array($chartMode, ['actual', 'expected'], true) ? $chartMode : 'actual';
 
@@ -140,17 +128,14 @@ class EventSummaryController extends Controller
             ]);
         }
 
-        // ----------------------------
-        // Feedbacks for comments drawer
-        // NOTE: your DB does NOT have created_at, so do NOT reference it.
-        // ----------------------------
+        // Feedbacks for comments drawer (no created_at in table)
         $feedbacks = collect();
         if (Schema::hasTable('event_feedbacks')) {
             $feedbacks = EventFeedback::query()
                 ->where('event_id', $event->event_id)
-                ->with(['volunteer']) // EventFeedback belongsTo VolunteerProfile
-                ->orderByDesc('submitted_at')  // ✅ safe
-                ->orderByDesc('feedback_id')   // ✅ stable tie-breaker
+                ->with(['volunteer'])
+                ->orderByDesc('submitted_at')
+                ->orderByDesc('feedback_id')
                 ->limit(60)
                 ->get()
                 ->map(function ($fb) {
@@ -186,7 +171,7 @@ class EventSummaryController extends Controller
                         'qa'             => $qa,
                         'rating'         => $fb->rating ?? null,
                         'feedback_text'  => $fb->feedback_text ?? null,
-                        'submitted_at'   => $fb->submitted_at ?? null, // ✅ no created_at fallback
+                        'submitted_at'   => $fb->submitted_at ?? null,
                     ];
                 });
         }
@@ -215,10 +200,7 @@ class EventSummaryController extends Controller
         ]);
     }
 
-    /**
-     * Compute "top group" stat from attended rows.
-     * Returns: ['label' => string|null, 'count' => int, 'pct' => float]
-     */
+    // Top group stat from attended rows
     private function topGroupStat($attendedRows, callable $valueFn, callable $labelFn, bool $normalizeNumeric = false): array
     {
         $total = (int) $attendedRows->count();
@@ -253,7 +235,6 @@ class EventSummaryController extends Controller
         $topKey = array_key_first($counts);
         $topCount = (int) ($counts[$topKey] ?? 0);
 
-        // If numeric normalize, pass int to labelFn for clean formatting
         $labelVal = $normalizeNumeric ? (int) $topKey : $topKey;
 
         $label = $labelFn($labelVal);
@@ -266,9 +247,7 @@ class EventSummaryController extends Controller
         ];
     }
 
-    /**
-     * Build chart array with percentage computed from counts.
-     */
+    // Build chart data with percentages
     private function buildChartFromCounts(array $items): array
     {
         $total = 0;
@@ -289,7 +268,7 @@ class EventSummaryController extends Controller
             ];
         }
 
-        return array_values(array_filter($out, fn ($x) => ($x['count'] ?? 0) > 0));
+        return array_values(array_filter($out, fn($x) => ($x['count'] ?? 0) > 0));
     }
 
     private function deriveStatus(?string $stored, ?Carbon $start, ?Carbon $end, Carbon $now): string

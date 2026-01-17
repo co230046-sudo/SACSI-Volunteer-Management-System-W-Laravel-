@@ -23,13 +23,10 @@ class VolunteerListController extends Controller
         $this->factLogger = $factLogger;
     }
 
-    /**
-     * Renders the Volunteer List page + provides dropdown datasets
-     * (courses, locations, district list, batch list).
-     */
+    // Volunteer List page
     public function index(Request $request)
     {
-        // Build course abbreviations like your original logic
+        // Build course abbreviations
         $majorWords = [
             'Bachelor','Science','Arts','Education','Engineering',
             'Technology','Accountancy','Business','Management',
@@ -47,7 +44,7 @@ class VolunteerListController extends Controller
             return $c;
         });
 
-        // For filters (list)
+        // Filter dropdowns
         $barangays = Location::query()
             ->pluck('barangay')
             ->filter()
@@ -69,10 +66,10 @@ class VolunteerListController extends Controller
                 'district_name' => "District $id",
             ]);
 
-        // For Add-Volunteer barangay dropdown (with district mapping)
+        // Add-volunteer barangay dropdown (with district mapping)
         $locations = Location::orderBy('barangay')->get(['location_id','barangay','district_id']);
 
-        // ✅ provide batch years to Blade so dropdown has REAL options
+        // Batch dropdown (real values)
         $batches = VolunteerProfile::query()
             ->whereNotNull('batch_year')
             ->where('batch_year', '!=', '')
@@ -92,15 +89,7 @@ class VolunteerListController extends Controller
         ));
     }
 
-    /**
-     * Manual Add Volunteer (from modal)
-     *
-     * ✅ PATCHES:
-     * - Duplicate check now covers: full_name, id_number, email, fb_messenger
-     * - Field-specific error messages (only the fields that conflict)
-     * - Keeps your error_modal_entries payload style
-     * - Batch support: expects text input (e.g., 2025) and stores into batch_year
-     */
+    // Manual add volunteer (modal)
     public function store(Request $request)
     {
         $admin = Auth::guard('admin')->user();
@@ -117,7 +106,6 @@ class VolunteerListController extends Controller
                 ->withInput();
         }
 
-        // ✅ helper: normalize fb URL like frontend (adds https:// if missing)
         $normalizeUrl = function (?string $raw): string {
             $raw = trim((string)$raw);
             if ($raw === '') return '';
@@ -127,7 +115,6 @@ class VolunteerListController extends Controller
             return $raw;
         };
 
-        // ✅ helper: host allowlist matches your JS
         $isAllowedFbHost = function (string $host): bool {
             $h = strtolower(trim($host));
             $h = preg_replace('~^www\.~', '', $h);
@@ -140,11 +127,6 @@ class VolunteerListController extends Controller
             return false;
         };
 
-        /**
-         * ✅ PATCH:
-         * - profile_picture has NO 4MB limit now (removed max:4096)
-         * - fb_messenger is still nullable string here; we validate it in one place below
-         */
         $validated = $request->validate([
             'full_name'         => ['required','regex:/^[A-Za-zÑñ\s\.\'-]+$/u','max:255'],
             'id_number'         => ['required','regex:/^\d{6,7}$/'],
@@ -163,20 +145,16 @@ class VolunteerListController extends Controller
             'fb_messenger' => ['required','string','max:500'],
 
             'barangay'          => ['required','string'],
-            'district'          => ['required'], // keep as-is (you cast later)
+            'district'          => ['required'],
             'status'            => ['nullable','in:active,inactive'],
             'class_schedule'    => ['nullable','string'],
 
-            // ✅ optional image, NO size limit
             'profile_picture'   => ['nullable','image','mimes:jpg,jpeg,png'],
         ],[
             'emergency_contact.different' => 'Emergency contact must be different from the contact number.',
             'batch_number.required'       => 'Please enter a batch (e.g., 2025).',
         ]);
 
-        /**
-         * ✅ DUPLICATE GUARD (unchanged core, but keep it after basic validation)
-         */
         $fullNameRaw = trim((string)($validated['full_name'] ?? ''));
         $idnum       = trim((string)($validated['id_number'] ?? ''));
         $emailRaw    = trim((string)($validated['email'] ?? ''));
@@ -268,11 +246,6 @@ class VolunteerListController extends Controller
                 ->withInput();
         }
 
-        /**
-         * ✅ FB / Messenger server validation matches frontend:
-         * - allow facebook.com / fb.com / m.me / messenger.com
-         * - allow user input without scheme (auto-add https://)
-         */
         if (!empty($validated['fb_messenger'])) {
             $normalized = $normalizeUrl($validated['fb_messenger']);
             $host = parse_url($normalized, PHP_URL_HOST) ?? '';
@@ -285,11 +258,9 @@ class VolunteerListController extends Controller
                     ->withInput();
             }
 
-            // store normalized url
             $validated['fb_messenger'] = $normalized;
         }
 
-        // Resolve location (barangay + district must exist)
         $districtId = (int)$validated['district'];
 
         $location = Location::where('barangay', $validated['barangay'])
@@ -304,7 +275,6 @@ class VolunteerListController extends Controller
                 ->withInput();
         }
 
-        // ✅ Profile picture upload (optional). If none -> default stays.
         $profilePath = 'defaults/default_user.png';
         $profileUrl  = null;
 
@@ -313,13 +283,11 @@ class VolunteerListController extends Controller
                 ->store('profile_pictures/volunteers', 'public');
         }
 
-        // Class schedule default if blank
         $schedule = trim($validated['class_schedule'] ?? '');
         if ($schedule === '') {
             $schedule = 'No class schedule';
         }
 
-        // Overlap check only when schedule provided (not "No class schedule")
         $conflicts = $this->scheduleHasOverlap($schedule);
         if (!empty($conflicts)) {
             $days = implode(', ', array_keys($conflicts));
@@ -368,14 +336,13 @@ class VolunteerListController extends Controller
             });
 
             return redirect()->back()
-            ->with('success', 'Volunteer saved successfully.')
-            ->with('vlAddVolunteerName', $volunteer->full_name)
-            ->with('vlAddVolunteerIdNumber', $volunteer->id_number)
-            ->with('vlAddSavedAtIso', $volunteer->created_at
-                ? $volunteer->created_at->toIso8601String()
-                : now()->toIso8601String()
-            );
-
+                ->with('success', 'Volunteer saved successfully.')
+                ->with('vlAddVolunteerName', $volunteer->full_name)
+                ->with('vlAddVolunteerIdNumber', $volunteer->id_number)
+                ->with('vlAddSavedAtIso', $volunteer->created_at
+                    ? $volunteer->created_at->toIso8601String()
+                    : now()->toIso8601String()
+                );
 
         } catch (\Throwable $e) {
 
@@ -409,11 +376,7 @@ class VolunteerListController extends Controller
         }
     }
 
-
-    /**
-     * Parses a "HH:MM-HH:MM" range into [startMinutes, endMinutes].
-     * Returns null if format invalid.
-     */
+    // Schedule helpers
     private function parseRangeStr(string $range): ?array
     {
         $range = preg_replace('/\s+/', '', $range);
@@ -427,10 +390,6 @@ class VolunteerListController extends Controller
         return $end > $start ? [$start, $end] : null;
     }
 
-    /**
-     * Extracts ranges per day from the stored schedule string format.
-     * Output: ["Monday" => [[start,end],...], ...]
-     */
     private function extractScheduleByDay(?string $schedule): array
     {
         $output = [];
@@ -464,18 +423,11 @@ class VolunteerListController extends Controller
         return $output;
     }
 
-    /**
-     * Returns true if two [start,end] minute ranges overlap.
-     */
     private function overlaps(array $a, array $b): bool
     {
         return !($a[1] <= $b[0] || $a[0] >= $b[1]);
     }
 
-    /**
-     * Detects overlaps per day from the stored schedule string.
-     * Returns a map of conflicts keyed by day.
-     */
     private function scheduleHasOverlap(?string $schedule): array
     {
         $schedule = trim((string)$schedule);
@@ -508,38 +460,7 @@ class VolunteerListController extends Controller
         return $conflicts;
     }
 
-    /**
-     * Convert stored path to public storage URL.
-     */
-    private function toPublicStorageUrl(?string $path): ?string
-    {
-        $p = trim((string)$path);
-        if ($p === '') return null;
-
-        $p = str_replace('\\', '/', $p);
-
-        if (preg_match('~^https?://~i', $p)) {
-            return $p;
-        }
-
-        $needle = '/storage/app/public/';
-        if (stripos($p, $needle) !== false) {
-            $p = substr($p, stripos($p, $needle) + strlen($needle));
-        }
-
-        if (stripos($p, '/public/') !== false && stripos($p, $needle) === false) {
-            $p = substr($p, stripos($p, '/public/') + strlen('/public/'));
-        }
-
-        $p = ltrim($p, '/');
-
-        return asset('storage/' . $p);
-    }
-
-    /**
-     * Returns filtered, sorted volunteer data for the cards grid (AJAX).
-     * Includes batch_year so the UI can display/filter it.
-     */
+    // Volunteer cards data (AJAX)
     public function data(Request $request)
     {
         $perPage       = max(1, (int)$request->query('per_page', 12));
@@ -745,10 +666,34 @@ class VolunteerListController extends Controller
         ]);
     }
 
-    /**
-     * Centralized FactLog helper.
-    */
-        private function logFact(
+    // Path -> public url
+    private function toPublicStorageUrl(?string $path): ?string
+    {
+        $p = trim((string)$path);
+        if ($p === '') return null;
+
+        $p = str_replace('\\', '/', $p);
+
+        if (preg_match('~^https?://~i', $p)) {
+            return $p;
+        }
+
+        $needle = '/storage/app/public/';
+        if (stripos($p, $needle) !== false) {
+            $p = substr($p, stripos($p, $needle) + strlen($needle));
+        }
+
+        if (stripos($p, '/public/') !== false && stripos($p, $needle) === false) {
+            $p = substr($p, stripos($p, '/public/') + strlen('/public/'));
+        }
+
+        $p = ltrim($p, '/');
+
+        return asset('storage/' . $p);
+    }
+
+    // Fact log helper
+    private function logFact(
         string $type,
         $adminId = null,
         $entity = null,
@@ -761,11 +706,10 @@ class VolunteerListController extends Controller
         $this->factLogger->log(
             $type,
             $action,
-            $entity,     // can be model or string entity type
+            $entity,
             $entityId,
             $details,
             $adminId
         );
     }
-
 }

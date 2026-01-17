@@ -54,6 +54,12 @@
                 </div>
             </div>
 
+            @if (session('success'))
+                <small style="display:block; margin-bottom:10px; background-color:#28a745; padding:12px; border-radius:12px;">
+                    {{ session('success') }}
+                </small>
+            @endif
+
             {{-- Display ALL errors below password --}}
             @if($errors->any() || session('login_error'))
                 <div style="margin-bottom:10px;">
@@ -70,7 +76,7 @@
                     @endif
                 </div>
             @endif
-
+                
             <hr class="form-divider">
 
             <button type="submit" class="btn-primary">Login</button>

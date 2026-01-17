@@ -18,13 +18,16 @@ use Carbon\Carbon;
 
 class CreateEventController extends Controller
 {
+    // Views / constants
     private const EVENT_DETAILS_VIEW = 'event_details.event_details';
 
+    // Event statuses
     private const STATUS_PLANNED   = 'planned';
     private const STATUS_ONGOING   = 'ongoing';
     private const STATUS_COMPLETED = 'completed';
     private const STATUS_CANCELLED = 'cancelled';
 
+    // Create Event (page)
     public function create()
     {
         return view('create_event.create_event', [
@@ -35,11 +38,13 @@ class CreateEventController extends Controller
         ]);
     }
 
+    // Redirect to event details page
     public function show(Event $event)
     {
         return redirect()->route('event.details.show', $event->event_id);
     }
 
+    // Store Event
     public function store(Request $request)
     {
         session()->put('event_form_data', $request->all());
@@ -81,6 +86,7 @@ class CreateEventController extends Controller
             return back()->withErrors(['auth' => 'Authentication failed.'])->withInput();
         }
 
+        // Duplicate check (allow override with force_create=1)
         $force = $request->input('force_create') === '1';
         $possibleDup = Event::query()
             ->where('title', $request->title)
@@ -138,7 +144,7 @@ class CreateEventController extends Controller
                 ]);
             }
 
-            // -------------------- NORMALIZED LOGGING (CREATE) --------------------
+            // Logs
             $summary = 'Created Event - "' . $event->title . '" (Code: ' . $event->event_code . ')';
 
             $eventLogPayload = $this->eventPayload(
@@ -162,7 +168,6 @@ class CreateEventController extends Controller
                 ]
             );
 
-            // EventLog can keep "Create" action, but details are now JSON.
             $this->logEvent($event->event_id, $admin->admin_id, 'Create', $eventLogPayload);
 
             $factPayload = $this->factPayload(
@@ -180,7 +185,6 @@ class CreateEventController extends Controller
             );
 
             $this->logFact($admin->admin_id, $event, 'Create', $factPayload);
-            // -------------------------------------------------------------------
 
             DB::commit();
             session()->forget('event_form_data');
@@ -194,6 +198,7 @@ class CreateEventController extends Controller
         }
     }
 
+    // Edit Event (page)
     public function edit(Event $event)
     {
         $event->load(['organizers']);
@@ -206,6 +211,7 @@ class CreateEventController extends Controller
         ]);
     }
 
+    // Update Event
     public function update(Request $request, Event $event)
     {
         $admin = Auth::guard('admin')->user();
@@ -241,7 +247,7 @@ class CreateEventController extends Controller
         try {
             DB::beginTransaction();
 
-            // Capture "before" snapshot for better logs (optional, but super useful)
+            // Before snapshot (for logs)
             $before = [
                 'title' => $event->title,
                 'description' => $event->description,
@@ -286,6 +292,7 @@ class CreateEventController extends Controller
                 ]);
             }
 
+            // After snapshot (for logs)
             $after = [
                 'title' => $event->title,
                 'description' => $event->description,
@@ -298,11 +305,10 @@ class CreateEventController extends Controller
                 'max_volunteers' => Schema::hasColumn('events', 'max_volunteers') ? $event->max_volunteers : null,
             ];
 
-            // Decide "changed fields" cleanly
+            // Changed fields
             $changedFields = [];
             foreach ($after as $k => $v) {
                 $bv = $before[$k] ?? null;
-                // normalize datetime comparison
                 if (in_array($k, ['start_datetime','end_datetime'], true)) {
                     $bv = $bv ? (string)$bv : null;
                     $v = $v ? (string)$v : null;
@@ -310,7 +316,7 @@ class CreateEventController extends Controller
                 if ($bv !== $v) $changedFields[] = $k;
             }
 
-            // -------------------- NORMALIZED LOGGING (UPDATE) --------------------
+            // Logs
             $summary = 'Updated Event - "' . $event->title . '" (Code: ' . $event->event_code . ')';
 
             $eventLogPayload = $this->eventPayload(
@@ -345,7 +351,6 @@ class CreateEventController extends Controller
             );
 
             $this->logFact($admin->admin_id, $event, 'Edit', $factPayload);
-            // -------------------------------------------------------------------
 
             DB::commit();
 
@@ -358,6 +363,7 @@ class CreateEventController extends Controller
         }
     }
 
+    // Add expected volunteers (AJAX)
     public function addVolunteers(Request $request, Event $event)
     {
         $admin = Auth::guard('admin')->user();
@@ -404,9 +410,6 @@ class CreateEventController extends Controller
 
             DB::commit();
 
-            // (Optional) If you want, we can normalize logging here too later.
-            // For now, keep it unchanged.
-
             return response()->json([
                 'success' => true,
                 'added'   => count($toInsert),
@@ -418,6 +421,7 @@ class CreateEventController extends Controller
         }
     }
 
+    // Remove expected volunteer (AJAX)
     public function removeExpectedVolunteer(Event $event, $volunteerId)
     {
         $admin = Auth::guard('admin')->user();
@@ -439,8 +443,6 @@ class CreateEventController extends Controller
 
             DB::commit();
 
-            // (Optional) normalize logging here too later.
-
             return response()->json(['success' => true]);
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -448,6 +450,7 @@ class CreateEventController extends Controller
         }
     }
 
+    // Organizer input cleanup (max 3, de-dupe)
     private function normalizeOrganizerInput(Request $request): array
     {
         $names    = (array) $request->input('organizers.name', []);
@@ -489,6 +492,7 @@ class CreateEventController extends Controller
         return array_slice($out, 0, 3);
     }
 
+    // Event code generator (e.g. ABC-123)
     private function generateUniqueEventCode(): string
     {
         do {
@@ -510,9 +514,7 @@ class CreateEventController extends Controller
         return $out;
     }
 
-    /**
-     * EventLog writer (now accepts string OR array payload)
-     */
+    // EventLog writer (details supports string or array payload)
     private function logEvent(int $eventId, ?int $adminId, string $action, $details = null): void
     {
         $encoded = null;
@@ -531,9 +533,7 @@ class CreateEventController extends Controller
         ]);
     }
 
-    /**
-     * FactLog writer (kept compatible, but now JSON-safe)
-     */
+    // FactLog writer (details supports string or array payload)
     private function logFact(?int $adminId, $entity, ?string $action = null, $details = null): FactLog
     {
         $admin   = Auth::guard('admin')->user();
@@ -565,8 +565,7 @@ class CreateEventController extends Controller
         ]);
     }
 
-    // -------------------- Payload helpers (normalize) --------------------
-
+    // Payload helpers
     private function factPayload(string $type, ?string $summary, ?int $adminId, ?string $adminUsername, array $data = []): array
     {
         return array_merge([

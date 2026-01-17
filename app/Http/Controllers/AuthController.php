@@ -10,7 +10,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
-// ✅ Centralized fact logger
 use App\Services\FactLogger;
 
 class AuthController extends Controller
@@ -19,15 +18,7 @@ class AuthController extends Controller
     {
     }
 
-    /* ===========================
-       HELPERS (FactLog summary format)
-       Required format:
-       - Login Successful - "David"
-       - Logout Successful - "David"
-       - Registration Successful - "David"
-       - Login Failed - "attempt"
-    ============================ */
-
+    // HELPERS
     private function quoted(?string $value, string $fallback = 'Unknown'): string
     {
         $v = trim((string)($value ?? ''));
@@ -55,17 +46,13 @@ class AuthController extends Controller
         return 'Login Failed - ' . $this->quoted($attemptedLoginField, '(blank)');
     }
 
-    /* ===========================
-       SHOW LOGIN PAGE
-    ============================ */
+    // SHOW LOGIN PAGE
     public function showLogin()
     {
         return view('authentication.admin.login');
     }
 
-    /* ===========================
-       HANDLE LOGIN
-    ============================ */
+    // LOGIN
     public function login(Request $request)
     {
         $request->validate([
@@ -80,13 +67,11 @@ class AuthController extends Controller
         $password   = $request->input('password');
         $ip         = $request->ip();
 
-        // Attempt to find admin by username, email, or full_name
         $admin = AdminAccount::where('username', $loginField)
             ->orWhere('email', $loginField)
             ->orWhere('full_name', $loginField)
             ->first();
 
-        // ✅ SUCCESS
         if ($admin && Hash::check($password, $admin->password)) {
 
             Auth::guard('admin')->login($admin);
@@ -100,7 +85,6 @@ class AuthController extends Controller
                 'login_time' => now(),
             ]);
 
-            // ✅ Centralized FactLog
             $this->factLogger->log(
                 type: 'auth.login',
                 action: 'login',
@@ -120,7 +104,6 @@ class AuthController extends Controller
                 ->with('success', 'Welcome back, ' . ($admin->full_name ?? 'Admin') . '!');
         }
 
-        // ❌ FAILED
         AdminAuthenticateLog::create([
             'admin_id'   => $admin?->admin_id,
             'ip_address' => $ip,
@@ -129,7 +112,6 @@ class AuthController extends Controller
             'login_time' => now(),
         ]);
 
-        // ✅ Centralized FactLog (admin may be null)
         $this->factLogger->log(
             type: 'auth.failed_login',
             action: 'failed_login',
@@ -152,18 +134,14 @@ class AuthController extends Controller
             ->with('login_error', 'Incorrect username, email, or full name, or password.');
     }
 
-    /* ===========================
-       SHOW REGISTER PAGE
-    ============================ */
+    // SHOW REGISTER PAGE
     public function showRegister()
     {
         $roles = ['super_admin', 'admin'];
         return view('authentication.admin.register', compact('roles'));
     }
 
-    /* ===========================
-       HANDLE REGISTRATION
-    ============================ */
+    // REGISTER
     public function register(Request $request)
     {
         $request->validate([
@@ -227,7 +205,6 @@ class AuthController extends Controller
             'login_time' => now(),
         ]);
 
-        // ✅ Centralized FactLog
         $this->factLogger->log(
             type: 'auth.register',
             action: 'register',
@@ -248,9 +225,7 @@ class AuthController extends Controller
             ->with('success', 'Registration successful! Welcome, ' . $admin->full_name . '!');
     }
 
-    /* ===========================
-       HANDLE LOGOUT
-    ============================ */
+    // LOGOUT
     public function logout(Request $request)
     {
         $admin   = Auth::guard('admin')->user();
@@ -266,7 +241,6 @@ class AuthController extends Controller
                 'login_time' => now(),
             ]);
 
-            // ✅ Centralized FactLog
             $this->factLogger->log(
                 type: 'auth.logout',
                 action: 'logout',
@@ -281,14 +255,51 @@ class AuthController extends Controller
                 adminId: $adminId
             );
 
-            // Keep your behavior (mark pending imports abandoned)
-            ImportLog::where('admin_id', $adminId)
-                ->where('status', 'Pending')
-                ->update([
+            // Mark latest pending import abandoned
+            $importLogId = $request->session()->get('import_log_id');
+
+            if ($importLogId) {
+                $pending = ImportLog::where('import_id', $importLogId)
+                    ->where('admin_id', $adminId)
+                    ->where('status', 'Pending')
+                    ->first();
+            } else {
+                $pending = ImportLog::where('admin_id', $adminId)
+                    ->where('status', 'Pending')
+                    ->orderByDesc('created_at')
+                    ->first();
+            }
+
+            if ($pending) {
+
+                $fileName  = $pending->file_name ?: 'N/A';
+                $username  = $admin?->username ?: 'Admin';
+
+                $remark = 'CSV Import: "' . $fileName . '" - "' . $username . '" logged out before completing import.';
+
+                $pending->update([
                     'status'   => 'Abandoned',
                     'admin_id' => $adminId,
-                    'remarks'  => "{$admin->username} logged out before completing import."
+                    'remarks'  => $remark,
                 ]);
+
+                $this->factLogger->log(
+                    type: 'csv_import.abandoned',
+                    action: 'abandoned',
+                    entity: 'ImportLog',
+                    entityId: (int) $pending->import_id,
+                    details: [
+                        'summary' => $remark,
+                        'data' => [
+                            'file_name' => $fileName,
+                            'username'  => $username,
+                            'import_id' => (int) $pending->import_id,
+                            'status'    => 'Abandoned',
+                        ],
+                    ],
+                    adminId: (int) $adminId
+                );
+            }
         }
 
         Auth::guard('admin')->logout();

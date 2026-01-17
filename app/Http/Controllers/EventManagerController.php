@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class EventManagerController extends Controller
 {
+    // Event Manager page
     public function index(Request $request)
     {
         $now = now('Asia/Manila');
@@ -57,7 +58,7 @@ class EventManagerController extends Controller
 
         $barangaysByDistrict = $locations
             ->groupBy('district_id')
-            ->map(fn($items) => $items->pluck('barangay')->values()->all())
+            ->map(fn ($items) => $items->pluck('barangay')->values()->all())
             ->toArray();
 
         $defaultTab = $request->query('tab', 'planned');
@@ -102,7 +103,7 @@ class EventManagerController extends Controller
                     ->distinct()
                     ->orderBy('action')
                     ->pluck('action')
-                    ->filter(fn($a) => !empty($a))
+                    ->filter(fn ($a) => !empty($a))
             )
             ->unique()
             ->values();
@@ -119,125 +120,112 @@ class EventManagerController extends Controller
         ));
     }
 
+    // Bulk delete events
     public function bulkDestroy(Request $request)
-{
-    $admin = Auth::guard('admin')->user();
-    if (!$admin) {
-        return back()->withErrors(['auth' => 'Authentication failed.']);
-    }
-
-    $ids = (array) $request->input('event_ids', []);
-    $ids = array_values(array_unique(array_filter($ids, fn($v) => $v !== null && $v !== '')));
-
-    if (count($ids) === 0) {
-        return back()->with('error', 'Nothing selected to delete.');
-    }
-
-    $events = Event::with('location')->whereIn('event_id', $ids)->get();
-
-    if ($events->isEmpty()) {
-        return back()->with('error', 'No events were deleted. They may already be gone.');
-    }
-
-    $deleted = 0;
-
-    DB::transaction(function () use ($events, $admin, &$deleted) {
-
-        $adminId = $admin->admin_id ?? null;
-        $adminUsername = $admin->username ?? ($admin->name ?? null);
-
-        $count = $events->count();
-
-        /**
-         * ✅ IMPORTANT CHANGE:
-         * Remove bulk summary logging entirely.
-         * We only want per-event delete logs, even during bulk delete.
-         */
-
-        // ✅ Per-event delete logs (always keep)
-        foreach ($events as $event) {
-            $title = $event->title ?? 'Untitled Event';
-            $code  = $event->event_code ?? '—';
-
-            $start = $event->start_datetime ? $event->start_datetime->format('M d, Y h:i A') : '—';
-            $end   = $event->end_datetime ? $event->end_datetime->format('M d, Y h:i A') : '—';
-
-            $venue = $event->venue ?? '—';
-            $district = $event->location?->district_id ?? $event->district_id ?? '—';
-            $barangay = $event->location?->barangay ?? '—';
-
-            // ✅ REQUIRED NEW FORMAT
-            $summary = 'Deleted Event - “' . $title . '” (Code: ' . $code . ')';
-
-            $payload = $this->eventPayload(
-                type: 'event.deleted',
-                summary: $summary,
-                event: $event,
-                adminId: $adminId,
-                adminUsername: $adminUsername,
-                data: [
-                    'event' => [
-                        'id' => $event->event_id,
-                        'code' => $event->event_code,
-                        'title' => $title,
-                        'start' => $start !== '—' ? $start : null,
-                        'end' => $end !== '—' ? $end : null,
-                        'venue' => $venue !== '—' ? $venue : null,
-                        'barangay' => $barangay !== '—' ? $barangay : null,
-                        'district' => $district !== '—' ? $district : null,
-                    ],
-                    'method' => $count > 1 ? 'bulk_delete' : 'delete',
-                ]
-            );
-
-            // ✅ EventLog entry (one per deleted event)
-            EventLog::create([
-                'event_id'  => $event->event_id,
-                'admin_id'  => $adminId,
-                'action'    => 'Delete',
-                'details'   => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-                'timestamp' => now(),
-            ]);
-
-            // ✅ FactLog entry (one per deleted event)
-            FactLog::create([
-                'admin_id'    => $adminId,
-                'entity_type' => 'Event',
-                'entity_id'   => $event->event_id,
-                'action'      => 'Delete',
-                'details'     => json_encode(
-                    $this->factPayload(
-                        type: 'event.deleted',
-                        summary: $summary,
-                        adminId: $adminId,
-                        adminUsername: $adminUsername,
-                        data: [
-                            'event' => [
-                                'id' => $event->event_id,
-                                'code' => $event->event_code,
-                                'title' => $title,
-                            ],
-                            'method' => $count > 1 ? 'bulk_delete' : 'delete',
-                        ]
-                    ),
-                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-                ),
-                'timestamp'   => now(),
-            ]);
-
-            // ✅ Delete the event
-            $event->delete();
-            $deleted++;
+    {
+        $admin = Auth::guard('admin')->user();
+        if (!$admin) {
+            return back()->withErrors(['auth' => 'Authentication failed.']);
         }
-    });
 
-    return back()->with('success', "Deleted {$deleted} event(s) successfully.");
-}
+        $ids = (array) $request->input('event_ids', []);
+        $ids = array_values(array_unique(array_filter($ids, fn ($v) => $v !== null && $v !== '')));
 
-    // ------------------------------------------------------------------
-    // Normalized payload helpers (unchanged)
-    // ------------------------------------------------------------------
+        if (count($ids) === 0) {
+            return back()->with('error', 'Nothing selected to delete.');
+        }
 
+        $events = Event::with('location')->whereIn('event_id', $ids)->get();
+
+        if ($events->isEmpty()) {
+            return back()->with('error', 'No events were deleted. They may already be gone.');
+        }
+
+        $deleted = 0;
+
+        DB::transaction(function () use ($events, $admin, &$deleted) {
+            $adminId = $admin->admin_id ?? null;
+            $adminUsername = $admin->username ?? ($admin->name ?? null);
+
+            $count = $events->count();
+
+            // Only per-event delete logs (no bulk summary log)
+            foreach ($events as $event) {
+                $title = $event->title ?? 'Untitled Event';
+                $code  = $event->event_code ?? '—';
+
+                $start = $event->start_datetime ? $event->start_datetime->format('M d, Y h:i A') : '—';
+                $end   = $event->end_datetime ? $event->end_datetime->format('M d, Y h:i A') : '—';
+
+                $venue = $event->venue ?? '—';
+                $district = $event->location?->district_id ?? $event->district_id ?? '—';
+                $barangay = $event->location?->barangay ?? '—';
+
+                $summary = 'Deleted Event - “' . $title . '” (Code: ' . $code . ')';
+
+                $payload = $this->eventPayload(
+                    type: 'event.deleted',
+                    summary: $summary,
+                    event: $event,
+                    adminId: $adminId,
+                    adminUsername: $adminUsername,
+                    data: [
+                        'event' => [
+                            'id' => $event->event_id,
+                            'code' => $event->event_code,
+                            'title' => $title,
+                            'start' => $start !== '—' ? $start : null,
+                            'end' => $end !== '—' ? $end : null,
+                            'venue' => $venue !== '—' ? $venue : null,
+                            'barangay' => $barangay !== '—' ? $barangay : null,
+                            'district' => $district !== '—' ? $district : null,
+                        ],
+                        'method' => $count > 1 ? 'bulk_delete' : 'delete',
+                    ]
+                );
+
+                EventLog::create([
+                    'event_id'  => $event->event_id,
+                    'admin_id'  => $adminId,
+                    'action'    => 'Delete',
+                    'details'   => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                    'timestamp' => now(),
+                ]);
+
+                FactLog::create([
+                    'admin_id'    => $adminId,
+                    'entity_type' => 'Event',
+                    'entity_id'   => $event->event_id,
+                    'action'      => 'Delete',
+                    'details'     => json_encode(
+                        $this->factPayload(
+                            type: 'event.deleted',
+                            summary: $summary,
+                            adminId: $adminId,
+                            adminUsername: $adminUsername,
+                            data: [
+                                'event' => [
+                                    'id' => $event->event_id,
+                                    'code' => $event->event_code,
+                                    'title' => $title,
+                                ],
+                                'method' => $count > 1 ? 'bulk_delete' : 'delete',
+                            ]
+                        ),
+                        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                    ),
+                    'timestamp'   => now(),
+                ]);
+
+                $event->delete();
+                $deleted++;
+            }
+        });
+
+        return back()->with('success', "Deleted {$deleted} event(s) successfully.");
+    }
+
+    // Payload helpers
     private function factPayload(string $type, ?string $summary, ?int $adminId, ?string $adminUsername, array $data = []): array
     {
         return array_merge([

@@ -21,9 +21,7 @@ class VolunteerProfileController extends Controller
         $this->factLogger = $factLogger;
     }
 
-    /**
-     * Centralized FactLog helper using your App\Services\FactLogger.php schema
-     */
+    // Fact log helper
     private function logFact(
         string $type,
         ?string $action = null,
@@ -42,18 +40,13 @@ class VolunteerProfileController extends Controller
         );
     }
 
-    /**
-     * Show a specific volunteer profile
-     */
+    // Show volunteer profile
     public function show($id)
     {
-        // ✅ Volunteer + relations
         $volunteer = VolunteerProfile::with(['course', 'location'])->findOrFail($id);
 
-        // ✅ Dropdown helper data (for edit modal inputs)
         $courses = Course::orderBy('course_name')->get();
 
-        // ✅ IMPORTANT: pass locations so Barangay dropdown works + auto assigns District
         $locations = Location::query()
             ->select('barangay', 'district_id')
             ->whereNotNull('barangay')
@@ -63,7 +56,6 @@ class VolunteerProfileController extends Controller
             ->orderBy('barangay')
             ->get();
 
-        // ✅ Barangays (sorted, distinct, scalar strings)
         $barangays = Location::query()
             ->select('barangay')
             ->whereNotNull('barangay')
@@ -73,7 +65,6 @@ class VolunteerProfileController extends Controller
             ->pluck('barangay')
             ->values();
 
-        // ✅ Districts (sorted, distinct, scalar strings/ints)
         $districts = Location::query()
             ->select('district_id')
             ->whereNotNull('district_id')
@@ -82,9 +73,6 @@ class VolunteerProfileController extends Controller
             ->pluck('district_id')
             ->values();
 
-        /**
-         * ✅ Event History
-         */
         $eventHistory = EventAttendance::query()
             ->where('volunteer_id', $volunteer->volunteer_id)
             ->whereNotNull('event_id')
@@ -106,9 +94,6 @@ class VolunteerProfileController extends Controller
             ->paginate(8)
             ->withQueryString();
 
-        /**
-         * ✅ Summary widgets
-         */
         $eventHistoryCount = EventAttendance::query()
             ->where('volunteer_id', $volunteer->volunteer_id)
             ->whereNotNull('event_id')
@@ -125,7 +110,7 @@ class VolunteerProfileController extends Controller
         return view('volunteer_profile.volunteer_profile', compact(
             'volunteer',
             'courses',
-            'locations', // ✅ added (fixes barangay dropdown + district auto-select)
+            'locations',
             'barangays',
             'districts',
             'eventHistory',
@@ -134,18 +119,19 @@ class VolunteerProfileController extends Controller
         ));
     }
 
+    // AJAX unique checks for edit modal
     public function checkUnique(Request $request)
     {
-        $volunteerId = $request->input('volunteer_id'); // current profile being edited
+        $volunteerId = $request->input('volunteer_id');
 
         $email = trim((string) $request->input('email'));
         $fb    = trim((string) $request->input('fb_messenger'));
         $idNo  = trim((string) $request->input('id_number'));
 
         $out = [
-            'email' => true,
+            'email'        => true,
             'fb_messenger' => true,
-            'id_number' => true,
+            'id_number'    => true,
         ];
 
         if ($email !== '') {
@@ -167,14 +153,12 @@ class VolunteerProfileController extends Controller
         }
 
         return response()->json([
-            'ok' => true,
+            'ok'     => true,
             'unique' => $out,
         ]);
     }
 
-    /**
-     * Update profile
-     */
+    // Update profile
     public function update(Request $request, $id)
     {
         $request->validate([
@@ -224,7 +208,6 @@ class VolunteerProfileController extends Controller
 
         $volunteer = VolunteerProfile::findOrFail($id);
 
-        // ✅ capture BEFORE (for FactLogger diff)
         $before = $volunteer->only([
             'full_name',
             'id_number',
@@ -257,10 +240,8 @@ class VolunteerProfileController extends Controller
             'class_schedule',
         ]);
 
-        // ✅ do update
         $volunteer->update($payload);
 
-        // ✅ compute CHANGES for FactLogger
         $after = $volunteer->only(array_keys($before));
 
         $labels = [
@@ -336,20 +317,15 @@ class VolunteerProfileController extends Controller
         return redirect()->back()->with('success', 'Profile updated successfully.');
     }
 
-    /**
-     * Delete profile (✅ real delete + redirect + FactLog)
-     */
+    // Delete profile
     public function destroy($id)
     {
         $admin = Auth::guard('admin')->user();
         $adminId = $admin?->admin_id;
 
-        // ✅ Get volunteer
         $volunteer = VolunteerProfile::findOrFail($id);
-
         $name = $volunteer->full_name ?? 'Unknown';
 
-        // ✅ Snapshot BEFORE delete (for audit log)
         $snapshot = $volunteer->only([
             'volunteer_id',
             'full_name',
@@ -365,10 +341,8 @@ class VolunteerProfileController extends Controller
             'import_id',
         ]);
 
-        // ✅ Execute delete
         $volunteer->delete();
 
-        // ✅ Fact log (even if admin guard is somehow null, it still writes payload safely)
         $this->logFact(
             'volunteer_profile.deleted',
             'Deleted',
@@ -379,16 +353,15 @@ class VolunteerProfileController extends Controller
                 'data' => [
                     'snapshot' => $snapshot,
                     'deleted_by' => [
-                        'admin_id' => $adminId,
-                        'username' => $admin?->username,
-                        'full_name' => $admin?->full_name,
+                        'admin_id'   => $adminId,
+                        'username'   => $admin?->username,
+                        'full_name'  => $admin?->full_name,
                     ],
                 ],
             ],
             is_numeric($adminId) ? (int) $adminId : null
         );
 
-        // ✅ Redirect back to list (your route exists)
         return redirect()->route('volunteers.list')
             ->with('success', 'Volunteer profile deleted.');
     }

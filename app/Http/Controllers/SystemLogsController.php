@@ -8,13 +8,12 @@ use Illuminate\Support\Carbon;
 
 class SystemLogsController extends Controller
 {
+    // System logs page
     public function index(Request $request)
     {
         $query = FactLog::query()->with(['admin']);
 
-        /* ============================================================
-        1) DATE FILTERS
-        ============================================================ */
+        // Date filters
         $dateStart = $request->filled('date_start')
             ? Carbon::parse($request->date_start)->startOfDay()
             : null;
@@ -26,23 +25,18 @@ class SystemLogsController extends Controller
         if ($dateStart) $query->where('timestamp', '>=', $dateStart);
         if ($dateEnd)   $query->where('timestamp', '<=', $dateEnd);
 
-        /* ============================================================
-        2) ACTION FILTER
-        ============================================================ */
+        // Action filter
         if ($request->filled('action')) {
             $query->where('action', $request->action);
         }
 
-        /* ============================================================
-        3) CATEGORY FILTER (INFERRED)
-        - We keep your original rules but make them a bit more robust.
-        ============================================================ */
+        // Category filter
         if ($request->filled('category')) {
             $cat = $request->category;
 
             $query->where(function ($sub) use ($cat) {
 
-                // AUTH
+                // Auth logs
                 if ($cat === 'auth') {
                     $sub->where(function ($q) {
                         $q->where('action', 'like', '%login%')
@@ -52,7 +46,7 @@ class SystemLogsController extends Controller
                     return;
                 }
 
-                // IMPORTS (GENERAL + SPECIFIC)
+                // Import logs
                 if (in_array($cat, ['attendance_import', 'volunteer_import', 'import'], true)) {
                     $sub->where(function ($q) {
                         $q->where('action', 'like', '%import%')
@@ -74,7 +68,7 @@ class SystemLogsController extends Controller
                     return;
                 }
 
-                // EVENTS
+                // Event logs
                 if ($cat === 'event') {
                     $sub->where(function ($q) {
                         $q->where('entity_type', 'like', '%event%')
@@ -85,7 +79,7 @@ class SystemLogsController extends Controller
                     return;
                 }
 
-                // VOLUNTEERS
+                // Volunteer logs
                 if ($cat === 'volunteer') {
                     $sub->where(function ($q) {
                         $q->where('entity_type', 'like', '%volunteer%')
@@ -94,7 +88,7 @@ class SystemLogsController extends Controller
                     return;
                 }
 
-                // ATTENDANCE
+                // Attendance logs
                 if ($cat === 'attendance') {
                     $sub->where(function ($q) {
                         $q->where('entity_type', 'like', '%attendance%')
@@ -103,16 +97,12 @@ class SystemLogsController extends Controller
                     return;
                 }
 
-                // SYSTEM = anything
+                // System = anything
                 $sub->whereNotNull('fact_log_id');
             });
         }
 
-        /* ============================================================
-        4) SEARCH (SERVER SIDE)
-        - Fix: AdminAccount uses full_name (not name)
-        - Also search inside decoded JSON later via details_decoded field
-        ============================================================ */
+        // Search
         if ($request->filled('q')) {
             $q = trim($request->q);
 
@@ -123,38 +113,28 @@ class SystemLogsController extends Controller
                     ->orWhere('details', 'like', "%{$q}%")
                     ->orWhereHas('admin', function ($a) use ($q) {
                         $a->where('username', 'like', "%{$q}%")
-                          ->orWhere('full_name', 'like', "%{$q}%"); // ✅ FIX
+                          ->orWhere('full_name', 'like', "%{$q}%");
                     });
             });
         }
 
         $query->orderByDesc('timestamp');
 
-        $perPage = (int)($request->get('per_page', 5));
+        $perPage = (int) ($request->get('per_page', 5));
         $perPage = max(3, min(15, $perPage));
 
         $logs = $query->paginate($perPage)->withQueryString();
 
-        /* ============================================================
-        5) DECODE DETAILS SAFELY FOR UI
-        ✅ details_payload  = decoded JSON (if present)
-        ✅ details_decoded  = clean human text for table cell (NO HTML / NO entities)
-        ============================================================ */
+        // Decode / clean details for UI
         $cleanText = function (?string $text): string {
-            $text = (string)$text;
+            $text = (string) $text;
 
-            // decode HTML entities
             $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-
-            // remove tags if any got stored
             $text = strip_tags($text);
 
-            // remove UI junk that should never be logged as plain text
-            // (ex: " | Show More", "Show More", extra separators)
             $text = preg_replace('/\s*\|\s*show\s+more\s*$/i', '', $text);
             $text = preg_replace('/\bshow\s+more\b/i', '', $text);
 
-            // normalize whitespace
             $text = preg_replace('/\s+/', ' ', trim($text));
 
             return $text;
@@ -166,7 +146,6 @@ class SystemLogsController extends Controller
 
             $decoded = null;
 
-            // JSON sniff (safe)
             if ($trim !== '' && isset($trim[0]) && ($trim[0] === '{' || $trim[0] === '[')) {
                 $decoded = json_decode($raw, true);
                 if (json_last_error() !== JSON_ERROR_NONE) {
@@ -177,20 +156,18 @@ class SystemLogsController extends Controller
             if (is_array($decoded)) {
                 $log->details_payload = $decoded;
 
-                // Prefer summary, then type, then action; always clean it
                 $human =
                     $decoded['summary']
                     ?? $decoded['type']
                     ?? ($decoded['action'] ?? null)
                     ?? '[log]';
 
-                $log->details_decoded = $cleanText((string)$human);
+                $log->details_decoded = $cleanText((string) $human);
             } else {
                 $log->details_payload = null;
                 $log->details_decoded = $cleanText($raw);
             }
 
-            // ✅ If it ends with "Entry #X —" or "Entry #X:" add No Name
             if ($log->details_decoded !== '' && preg_match('/(entry\s*#\d+\s*(—|:)\s*)$/i', $log->details_decoded)) {
                 $log->details_decoded .= ' No Name';
             }
@@ -198,9 +175,7 @@ class SystemLogsController extends Controller
             return $log;
         });
 
-        /* ============================================================
-        6) ACTION DROPDOWN VALUES
-        ============================================================ */
+        // Dropdown values
         $availableActions = FactLog::query()
             ->whereNotNull('action')
             ->where('action', '!=', '')

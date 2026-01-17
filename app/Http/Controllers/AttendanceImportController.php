@@ -14,7 +14,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
-// ✅ Centralized fact logger
 use App\Services\FactLogger;
 
 class AttendanceImportController extends Controller
@@ -28,26 +27,27 @@ class AttendanceImportController extends Controller
     {
     }
 
-    /** Make preview session exclusive per event */
+    // Preview session storage is scoped per event
     private function previewSessionKey(Event $event): string
     {
         return 'attendance_preview_event_' . $event->event_id;
     }
 
-    /** Same avatar URL logic as roster */
+    // Avatar URL fallback used in preview table
     private function volunteerAvatarUrl(?VolunteerProfile $v): string
     {
         if ($v && !empty($v->profile_picture_path)) {
             return asset('storage/' . ltrim((string)$v->profile_picture_path, '/'));
         }
-        // keep support if you also have full URL stored somewhere
+
         if ($v && !empty($v->avatar_url)) {
             return (string)$v->avatar_url;
         }
+
         return asset('storage/defaults/default_user.png');
     }
 
-    /** Summary format: "<Action> Attendance - “<Title>” (Code: <CODE>)" */
+    // Summary format used by FactLogger
     private function attendanceSummary(string $action, Event $event): string
     {
         $title = trim((string)($event->title ?? ''));
@@ -57,7 +57,7 @@ class AttendanceImportController extends Controller
         return sprintf('%s Attendance - “%s” (Code: %s)', $action, $safeTitle, ($code !== '' ? $code : '—'));
     }
 
-    /** Thin wrapper for centralized FactLogger (no IP in details, per your rule) */
+    // Fact logging for attendance import actions
     private function logAttendanceFact(string $type, string $action, Event $event, array $data = []): void
     {
         $admin = Auth::guard('admin')->user();
@@ -82,10 +82,9 @@ class AttendanceImportController extends Controller
         );
     }
 
+    // Attendance import page
     public function index(Event $event)
     {
-        // ❌ As requested: DO NOT log index()
-
         $derivedStatus = $this->deriveStatus(
             $event->status,
             $event->start_datetime ? Carbon::parse($event->start_datetime) : null,
@@ -106,6 +105,7 @@ class AttendanceImportController extends Controller
         ]);
     }
 
+    // Clear preview data
     public function reset(Event $event)
     {
         session()->forget($this->previewSessionKey($event));
@@ -123,6 +123,7 @@ class AttendanceImportController extends Controller
             ->with('success', 'Import preview cleared.');
     }
 
+    // Upload CSV and build preview buckets
     public function preview(Request $request, Event $event)
     {
         $derivedStatus = $this->deriveStatus(
@@ -268,6 +269,7 @@ class AttendanceImportController extends Controller
             ->with('success', 'Preview ready. Review rows, edit/delete if needed, then Save Import.');
     }
 
+    // Update a row inside the preview session
     public function updatePreviewRow(Request $request, Event $event)
     {
         $derivedStatus = $this->deriveStatus(
@@ -339,6 +341,7 @@ class AttendanceImportController extends Controller
         return response()->json(['ok' => true, 'preview' => $preview]);
     }
 
+    // Delete a row from the preview session
     public function deletePreviewRow(Request $request, Event $event)
     {
         $derivedStatus = $this->deriveStatus(
@@ -403,6 +406,7 @@ class AttendanceImportController extends Controller
         return response()->json(['ok' => true, 'preview' => $preview]);
     }
 
+    // Save attendance rows into the database
     public function commit(Request $request, Event $event)
     {
         $derivedStatus = $this->deriveStatus(
@@ -458,7 +462,6 @@ class AttendanceImportController extends Controller
 
                 $volunteerId = null;
 
-                // IMPORTANT: always resolve volunteer at commit too (source of truth)
                 if (!$isWalkIn) {
                     $v = $this->findVolunteer($schoolId, $email);
                     $volunteerId = $v?->volunteer_id;
@@ -472,7 +475,7 @@ class AttendanceImportController extends Controller
                 $attendancePayload = [
                     'event_id' => $event->event_id,
                     'event_code' => $r['event_code'] ?? ($event->event_code ?? null),
-                    'volunteer_id' => $volunteerId,  // ✅ THIS is what EventDetails uses to fetch profile pic
+                    'volunteer_id' => $volunteerId,
                     'full_name' => $r['full_name'] ?? null,
                     'school_id' => $schoolId,
                     'school_email' => $email,
@@ -572,9 +575,7 @@ class AttendanceImportController extends Controller
             ->with('success', $msg);
     }
 
-    /* =========================
-       STATUS DERIVATION
-    ========================= */
+    // Status calculation based on stored status + time window
     private function deriveStatus(?string $stored, ?Carbon $start, ?Carbon $end, Carbon $now): string
     {
         $stored = strtolower((string)($stored ?? self::STATUS_PLANNED));
@@ -590,10 +591,7 @@ class AttendanceImportController extends Controller
         return self::STATUS_COMPLETED;
     }
 
-    /* =========================
-       CSV + helpers
-    ========================= */
-
+    // CSV parsing
     private function readCsv(string $path): array
     {
         $handle = fopen($path, 'r');
@@ -714,7 +712,6 @@ class AttendanceImportController extends Controller
                 $volunteerId = $volunteer?->volunteer_id;
 
                 if ($volunteer) {
-                    // ✅ make preview avatar behave like roster
                     $avatarUrl = $this->volunteerAvatarUrl($volunteer);
                     $profileUrl = route('volunteers.show', $volunteer->volunteer_id);
                     $courseName = optional($volunteer->course)->course_name;

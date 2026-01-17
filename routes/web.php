@@ -17,10 +17,7 @@ use App\Http\Controllers\EventTypeController;
 use App\Http\Controllers\EventOrganizerDirectoryController;
 use App\Http\Controllers\EventSummaryController;
 use App\Http\Controllers\SystemLogsController;
-use App\Models\ActivityLog;
-use App\Models\Admin;
 use App\Http\Controllers\AdminUserController;
-
 
 Route::get('/', function () {
     return redirect()->route('auth.login');
@@ -33,14 +30,20 @@ Route::get('/register', [AuthController::class, 'showRegister'])->name('auth.reg
 Route::post('/register', [AuthController::class, 'register'])->name('auth.register.submit');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+/* ------------------ SESSION EXPIRED (419 helper) ------------------ */
+Route::get('/_session-expired', function () {
+    return redirect()
+        ->route('auth.login')
+        ->with('success', 'Session expired. Please login again.');
+})->name('session.expired');
+
 /* ------------------ PROTECTED ROUTES ------------------ */
 Route::middleware(['auth:admin'])->group(function () {
 
     Route::get('/home', [HomePageController::class, 'index'])->name('home');
 
     /* ------------------ ADMIN PROFILE + DASHBOARD ------------------ */
-    // Dynamic profile first (must be above /admin/profile)
-    Route::middleware(['auth:admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::prefix('admin')->name('admin.')->group(function () {
 
         // ✅ ADMIN PROFILE PAGE
         Route::get('/profile', [AdminProfileController::class, 'index'])
@@ -57,17 +60,17 @@ Route::middleware(['auth:admin'])->group(function () {
         Route::get('/profile/logs/{id}', [AdminProfileController::class, 'getLogs'])
             ->name('profile.logs');
 
-        // ✅ ✅ ✅ FETCH PROFILE FOR MODAL (THIS WAS BROKEN BEFORE)
+        // ✅ FETCH PROFILE FOR MODAL
         Route::get('/profile/view/{id}', [AdminProfileController::class, 'viewProfile'])
             ->name('profile.view');
 
         // ✅ DASHBOARD
         Route::get('/dashboard', [DashboardController::class, 'index'])
             ->name('dashboard');
-               // ✅ REGISTER USER UNDER ADMIN
+
+        // ✅ REGISTER USER UNDER ADMIN
         Route::post('/user/store', [AdminUserController::class, 'store'])
             ->name('user.store');
-
     });
 
     /* ------------------ VOLUNTEER IMPORT ------------------ */
@@ -152,12 +155,10 @@ Route::middleware(['auth:admin'])->group(function () {
         // ✅ Force {event} to be numeric everywhere inside /events/*
         Route::pattern('event', '[0-9]+');
 
-        // ✅ MUST be above /{event:event_id} routes, so it never gets captured
         /* ------------------ Event Organizer Directory ------------------ */
         Route::get('/organizers', [EventOrganizerDirectoryController::class, 'index'])
             ->name('organizers.index');
 
-        // Organizer Directory CRUD (DB)
         Route::put('/organizers/{organizer}', [EventOrganizerDirectoryController::class, 'update'])
             ->name('organizers.update');
 
@@ -198,7 +199,7 @@ Route::middleware(['auth:admin'])->group(function () {
             ->whereNumber('event')
             ->name('events.update');
 
-        // ✅ summary (FIXED: points to EventSummaryController)
+        // summary
         Route::get('/{event:event_id}/summary', [EventSummaryController::class, 'show'])
             ->whereNumber('event')
             ->name('events.summary');
@@ -212,21 +213,20 @@ Route::middleware(['auth:admin'])->group(function () {
             ->whereNumber('event')
             ->name('events.expectedVolunteers.remove');
 
-        // cancel
+        // cancel/restore/delete
         Route::post('/{event:event_id}/cancel', [EventDetailsController::class, 'cancel'])
             ->whereNumber('event')
             ->name('events.cancel');
 
-        // restore
         Route::post('/{event:event_id}/restore', [EventDetailsController::class, 'restore'])
             ->whereNumber('event')
             ->name('events.restore');
 
-        // delete (single event)
         Route::delete('/{event:event_id}', [EventDetailsController::class, 'destroy'])
             ->whereNumber('event')
             ->name('events.destroy');
 
+        // organizers
         Route::put('/{event:event_id}/organizers', [EventDetailsController::class, 'updateOrganizer'])
             ->whereNumber('event')
             ->name('events.organizers.update');
@@ -261,6 +261,12 @@ Route::middleware(['auth:admin'])->group(function () {
             ->name('attendance.import.preview.delete');
     });
 
-    /* ------------------ System Logs ------------------ */ 
-    Route::get('/system-logs', [SystemLogsController::class, 'index']) ->name('system.logs.index');
+    /* ------------------ System Logs ------------------ */
+    Route::get('/system-logs', [SystemLogsController::class, 'index'])
+        ->name('system.logs.index');
+});
+
+/* ------------------ BACKUP FALLBACK ------------------ */
+Route::fallback(function () {
+    return redirect()->route('auth.login');
 });

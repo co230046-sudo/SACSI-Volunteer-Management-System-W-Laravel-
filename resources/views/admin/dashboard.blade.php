@@ -6,63 +6,121 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
+
 <style>
-/* GENERAL LAYOUT */
+
+/* ============================================
+   GLOBAL WRAPPER + PAGE SPACING
+============================================ */
 #Student-Section {
     opacity: 1;
-    padding-top: 20px;
+    padding-top: 40px;
     margin-top: 20px;
 }
 
-/* DASHBOARD CARDS */
+body {
+    background: #f4f6f9 !important;
+    font-family: 'Nunito', sans-serif;
+}
+
+/* ============================================
+   DASHBOARD CARDS – PREMIUM DESIGN
+============================================ */
 .dashboard-card {
-    border-radius: 20px;
-    padding: 25px;
+    border-radius: 22px;
+    padding: 28px 20px;
+    min-height: 170px;
+
     color: white;
-    min-height: 160px;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    box-shadow: 0px 5px 15px rgba(0,0,0,0.15);
-    transition: 0.2s;
+
+    cursor: pointer;
+    transition: 0.25s ease-in-out;
+
+    box-shadow:
+        0 4px 12px rgba(0,0,0,0.12),
+        0 6px 20px rgba(0,0,0,0.10);
 }
+
 .dashboard-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0px 10px 22px rgba(0,0,0,0.25);
+    transform: translateY(-6px) scale(1.03);
+    box-shadow:
+        0 14px 28px rgba(0, 0, 0, 0.22),
+        0 10px 10px rgba(0, 0, 0, 0.12);
 }
 
-/* COLORS */
-.bg-red { background: #C0392B; }
-.bg-blue { background: #2C6EAD; }
-.bg-teal { background: #16A085; }
-.bg-orange { background: #D35400; }
+.dashboard-card h5 {
+    font-size: 1.05rem;
+    margin-bottom: 5px;
+    opacity: 0.9;
+}
 
-/* SECTION TITLES */
+.dashboard-card h2 {
+    font-size: 2.3rem;
+    font-weight: 800;
+    margin: 0;
+}
+
+/* Stronger gradient versions for your colors */
+.bg-red {
+    background: linear-gradient(135deg, #c0392b, #e74c3c);
+}
+.bg-blue {
+    background: linear-gradient(135deg, #2C6EAD, #1B4F72);
+}
+.bg-teal {
+    background: linear-gradient(135deg, #16A085, #117864);
+}
+.bg-orange {
+    background: linear-gradient(135deg, #D35400, #E67E22);
+}
+
+/* ============================================
+   SECTION TITLES
+============================================ */
 .section-title {
-    font-size: 1.3rem;
-    font-weight: 700;
+    font-size: 1.35rem;
+    font-weight: 800;
     color: #b3263a;
-    margin-bottom: 15px;
+    margin-bottom: 18px;
     display: flex;
-    gap: 8px;
+    gap: 10px;
     align-items: center;
 }
 
-/* CHART + LIST CARDS */
+/* ============================================
+   CHART + LIST CARD UPGRADE
+============================================ */
 .chart-card, .list-card {
-    border-radius: 20px;
-    padding: 20px;
+    border-radius: 22px;
     background: #ffffff;
-    box-shadow: 0px 4px 14px rgba(0,0,0,0.12);
-    height: 100%;
+    padding: 24px;
+
+    box-shadow:
+        0 5px 18px rgba(0,0,0,0.12),
+        0 8px 32px rgba(0,0,0,0.06);
+
+    transition: 0.20s ease-in-out;
 }
 
-/* CHART FIXED HEIGHT BOX */
+.chart-card:hover,
+.list-card:hover {
+    transform: translateY(-5px);
+    box-shadow:
+        0 14px 34px rgba(0,0,0,0.18),
+        0 10px 12px rgba(0,0,0,0.08);
+}
+
+/* ============================================
+   FIXED CHART AREA
+============================================ */
 .fixed-chart {
     position: relative;
     width: 100%;
-    height: 330px !important;  /* SAME HEIGHT for BOTH charts */
+    height: 330px !important;
 }
 
 .chart-card canvas {
@@ -70,31 +128,76 @@
     height: 100% !important;
 }
 
-/* Placeholder faded look */
 .placeholder-chart {
-    opacity: 0.4;
+    opacity: 0.3;
+    filter: grayscale(100%);
 }
 
-/* List styling */
+/* ============================================
+   LIST ITEMS
+============================================ */
 .list-item {
-    padding: 12px 5px;
+    padding: 14px 8px;
     border-bottom: 1px solid #eee;
+
     display: flex;
     justify-content: space-between;
-    font-size: 0.95rem;
-}
-.list-item:last-child { border-bottom: none; }
 
-.dashboard-card {
-    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
 }
+
+.list-item:hover {
+    background: #f8f9fa;
+}
+
+.list-item:last-child {
+    border-bottom: none;
+}
+
+/* ============================================
+   BUTTON IMPROVEMENTS
+============================================ */
+.btn {
+    font-weight: 700 !important;
+    padding: 10px 16px !important;
+    border-radius: 10px !important;
+}
+
+.btn i {
+    margin-right: 6px;
+}
+
+/* Print and CSV buttons hover */
+.btn-danger:hover,
+.btn-success:hover,
+.btn-primary:hover {
+    transform: translateY(-2px);
+}
+
+/* ============================================
+   MOBILE RESPONSIVENESS IMPROVED
+============================================ */
+@media (max-width: 768px) {
+    .dashboard-card {
+        min-height: 150px;
+    }
+    .dashboard-card h2 {
+        font-size: 1.8rem;
+    }
+    .section-title {
+        font-size: 1.2rem;
+    }
+}
+
 </style>
+
 
 @php
     // Normalize data structures
-    $volunteersPerLevel      = collect($volunteersPerLevel ?? ['No Data' => 0]);
-    $eventsThisMonth         = collect($eventsThisMonth ?? ['No Data' => 0]); // still used for CSV if needed
-    $batchParticipationByMonth = collect($batchParticipationByMonth ?? []);   // NEW: month => [batch => count]
+    $volunteersPerLevel        = collect($volunteersPerLevel ?? ['No Data' => 0]);
+    $eventsThisMonth           = collect($eventsThisMonth ?? ['No Data' => 0]); // still used for CSV if needed
+    $batchParticipationByMonth = collect($batchParticipationByMonth ?? []);     // month => [batch => count]
 
     $upcomingEvents  = $upcomingEvents  ?? 0;
     $completedEvents = $completedEvents ?? 0;
@@ -117,10 +220,6 @@
             <button class="btn btn-success" onclick="downloadCSV()">
                 <i class="fa fa-file-csv"></i> Export CSV
             </button>
-
-            <button class="btn btn-primary" onclick="downloadNumbers()">
-                <i class="fa fa-file-excel"></i> Download for Numbers
-            </button>
         </div>
 
         <!-- TOP CARDS -->
@@ -131,7 +230,7 @@
                     <div class="dashboard-card bg-red text-center">
                         <i class="fa fa-users fa-3x mb-2"></i>
                         <h5>Total Volunteers</h5>
-                        <h2>{{ $totalVolunteers }}</h2>
+                        <h2 id="totalVolunteersCount">{{ $totalVolunteers }}</h2>
                     </div>
                 </a>
             </div>
@@ -141,7 +240,7 @@
                     <div class="dashboard-card bg-blue text-center">
                         <i class="fa fa-calendar-plus fa-3x mb-2"></i>
                         <h5>Upcoming Events</h5>
-                        <h2>{{ $upcomingEvents }}</h2>
+                        <h2 id="upcomingEventsCount">{{ $upcomingEvents }}</h2>
                     </div>
                 </a>
             </div>
@@ -151,7 +250,7 @@
                     <div class="dashboard-card bg-teal text-center">
                         <i class="fa fa-calendar-check fa-3x mb-2"></i>
                         <h5>Completed</h5>
-                        <h2>{{ $completedEvents }}</h2>
+                        <h2 id="completedEventsCount">{{ $completedEvents }}</h2>
                     </div>
                 </a>
             </div>
@@ -161,7 +260,7 @@
                     <div class="dashboard-card bg-orange text-center">
                         <i class="fa fa-calendar-times fa-3x mb-2"></i>
                         <h5>Cancelled</h5>
-                        <h2>{{ $cancelledEvents }}</h2>
+                        <h2 id="cancelledEventsCount">{{ $cancelledEvents }}</h2>
                     </div>
                 </a>
             </div>
@@ -249,25 +348,7 @@
         </div> <!-- end LISTS ROW -->
 
         <!-- BATCH PARTICIPATION BY MONTH -->
-        <div class="row mt-4 mb-5">
-            <div class="col-md-12">
-                <div class="chart-card">
-                    <h4 class="section-title"><i class="fa fa-chart-line"></i> Batch Participation by Month</h4>
-
-                    <div class="fixed-chart">
-                        <canvas id="eventsMonthChart"
-                            class="{{ $hasBatchParticipationData ? '' : 'placeholder-chart' }}">
-                        </canvas>
-                    </div>
-
-                    @unless($hasBatchParticipationData)
-                        <p class="text-center text-muted mt-2">No batch participation data available.</p>
-                    @endunless
-                </div>
-            </div>
-        </div>
-
-    </div>
+        
 </section>
 
 <!-- ✅ LOAD CHART.JS -->
@@ -303,7 +384,7 @@ document.addEventListener("DOMContentLoaded", function () {
         values = [1];
     }
 
-    new Chart(document.getElementById("studentsLevelChart"), {
+    const studentsLevelChart = new Chart(document.getElementById("studentsLevelChart"), {
         type: "bar",
         data: {
             labels: labels,
@@ -337,7 +418,7 @@ document.addEventListener("DOMContentLoaded", function () {
         eventValues = [1, 1, 1]; // prevents blank chart
     }
 
-    new Chart(document.getElementById("eventsStatusBar"), {
+    const eventsStatusBar = new Chart(document.getElementById("eventsStatusBar"), {
         type: "bar",
         data: {
             labels: ["Upcoming", "Completed", "Cancelled"],
@@ -361,11 +442,11 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     /* ============================================================
-       ✅ BATCH PARTICIPATION BY MONTH (MULTI-LINE)
+       ✅ BATCH PARTICIPATION BY MONTH (MULTI-LINE + TOGGLE FILTERS)
        Shape expected:
        {
-         "January":  { "Batch 2021": 10, "Batch 2022": 5 },
-         "February": { "Batch 2021": 8,  "Batch 2022": 12 },
+         "Jan 2025":  { "1st Year": 10, "2nd Year": 5 },
+         "Feb 2025":  { "1st Year": 8,  "2nd Year": 12 },
          ...
        }
     ============================================================ */
@@ -409,7 +490,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 return value;
             }),
             borderColor: color,
-            backgroundColor: "rgba(0,0,0,0)",   // no fill
+            backgroundColor: "transparent",   // no fill
             borderWidth: 3,
             pointRadius: 5,
             tension: 0.35,
@@ -417,7 +498,9 @@ document.addEventListener("DOMContentLoaded", function () {
         };
     });
 
-    new Chart(document.getElementById("eventsMonthChart"), {
+    const monthChartCtx = document.getElementById("eventsMonthChart").getContext("2d");
+
+    const eventsMonthChart = new Chart(monthChartCtx, {
         type: "line",
         data: {
             labels: monthLabels,
@@ -427,7 +510,7 @@ document.addEventListener("DOMContentLoaded", function () {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { display: true },
+                legend: { display: false }, // we will use buttons instead of legend
                 tooltip: {
                     callbacks: {
                         label: function(context) {
@@ -445,6 +528,31 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             }
         }
+    });
+
+    /* ============================================================
+       ✅ BATCH TOGGLE FILTER BUTTONS (OPTION A)
+    ============================================================ */
+    const toggleContainer = document.getElementById("batchToggleButtons");
+
+    batchNames.forEach((batch, index) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.classList.add("btn", "btn-sm", "btn-outline-primary");
+        btn.textContent = batch;
+
+        btn.addEventListener("click", () => {
+            const dataset = eventsMonthChart.data.datasets[index];
+            dataset.hidden = !dataset.hidden;
+
+            // Toggle button style
+            btn.classList.toggle("btn-outline-primary");
+            btn.classList.toggle("btn-primary");
+
+            eventsMonthChart.update();
+        });
+
+        toggleContainer.appendChild(btn);
     });
 
 });

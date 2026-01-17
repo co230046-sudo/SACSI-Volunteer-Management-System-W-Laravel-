@@ -18,6 +18,7 @@ use App\Http\Controllers\EventOrganizerDirectoryController;
 use App\Http\Controllers\EventSummaryController;
 use App\Http\Controllers\SystemLogsController;
 use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\ApiDashboardController;
 
 Route::get('/', function () {
     return redirect()->route('auth.login');
@@ -45,30 +46,41 @@ Route::middleware(['auth:admin'])->group(function () {
     /* ------------------ ADMIN PROFILE + DASHBOARD ------------------ */
     Route::prefix('admin')->name('admin.')->group(function () {
 
-        // ✅ ADMIN PROFILE PAGE
-        Route::get('/profile', [AdminProfileController::class, 'index'])
-            ->name('profile.self');
+        // pages
+        Route::get('/registration', function () {
+            return view('admin.registration');
+        })->name('register');
+
+        Route::get('/list', [AdminProfileController::class, 'adminList'])
+            ->name('list');
+
+        // profile
+        Route::get('/profile/view/{id}', [AdminProfileController::class, 'viewProfile'])
+            ->name('profile.view');
+
+        Route::get('/profile/{id}/edit', [AdminProfileController::class, 'edit'])
+            ->name('profile.edit');
 
         Route::get('/profile/{id}', [AdminProfileController::class, 'index'])
             ->name('profile');
 
-        // ✅ UPDATE PROFILE
+        Route::get('/profile', [AdminProfileController::class, 'index'])
+            ->name('profile.self');
+
         Route::put('/profile/update', [AdminProfileController::class, 'update'])
             ->name('profile.update');
 
-        // ✅ FETCH LOGS (MODAL)
         Route::get('/profile/logs/{id}', [AdminProfileController::class, 'getLogs'])
             ->name('profile.logs');
 
-        // ✅ FETCH PROFILE FOR MODAL
-        Route::get('/profile/view/{id}', [AdminProfileController::class, 'viewProfile'])
-            ->name('profile.view');
-
-        // ✅ DASHBOARD
+        // dashboard
         Route::get('/dashboard', [DashboardController::class, 'index'])
             ->name('dashboard');
 
-        // ✅ REGISTER USER UNDER ADMIN
+        Route::get('/dashboard/data', [ApiDashboardController::class, 'fetch'])
+            ->name('dashboard.data');
+
+        // register admin user
         Route::post('/user/store', [AdminUserController::class, 'store'])
             ->name('user.store');
     });
@@ -152,7 +164,7 @@ Route::middleware(['auth:admin'])->group(function () {
     /* ------------------ EVENTS ------------------ */
     Route::prefix('events')->group(function () {
 
-        // ✅ Force {event} to be numeric everywhere inside /events/*
+        // Force {event} to be numeric everywhere inside /events/*
         Route::pattern('event', '[0-9]+');
 
         /* ------------------ Event Organizer Directory ------------------ */

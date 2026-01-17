@@ -800,7 +800,13 @@ document.addEventListener("DOMContentLoaded", () => {
               <span class="link-text">Dashboard</span>
           </a>
       </li>
-
+     {{-- Super Admin Only: View Admin Profiles --}}
+    @if(auth('admin')->check() && preg_match('/super/i', auth('admin')->user()->role))
+      <a href="{{ route('admin.list') }}">
+          <i class="fas fa-users-cog me-2"></i>
+          <span class="link-text">Admin Profiles</span>
+      </a>
+      @endif
 
         <a href="{{ route('system.logs.index') }}" class="nav-link system-log-link">
           <i class="fas fa-clipboard-list me-2"></i><span class="link-text">System Logs</span>

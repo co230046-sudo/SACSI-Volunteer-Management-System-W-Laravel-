@@ -14,15 +14,24 @@ class AdminUserController extends Controller
      */
     public function store(Request $request)
     {
+        auth()->shouldUse('admin');
+
+        $currentAdmin = auth('admin')->user();
+
+        // Only super admins can register new admins
+        if (!preg_match('/super/i', $currentAdmin->role)) {
+            abort(403, 'Unauthorized action.');
+        }
+
         // Validation
         $request->validate([
             'full_name'       => 'required|string|max:255',
             'email'           => 'required|email|unique:admin_accounts,email',
-            'username'        => 'required|string|unique:admin_accounts,username',
+            'username'        => 'required|string|max:100|unique:admin_accounts,username',
             'contact_number'  => 'nullable|string|max:20',
-            'password'        => 'required|confirmed|min:8',  // You enforce 8-char rule on UI
+            'password'        => 'required|min:8|confirmed',
             'role'            => 'required|string',
-            'profile_picture' => 'nullable|mimes:jpg,jpeg,png,tif,tiff|max:5120',
+            'profile_picture' => 'nullable|image|mimes:jpg,jpeg,png,tif,tiff|max:5120',
         ]);
 
         // Upload profile picture
@@ -45,22 +54,20 @@ class AdminUserController extends Controller
             'status'          => 'active',
         ]);
 
-        // Redirect back to registration page WITH SUCCESS
-        return redirect()
-            ->route('admin.register')
-            ->with('success', 'Admin account created successfully!');
+        // Return back to profile page with success
+        return back()->with('success', 'Admin account created successfully!');
     }
-
 
     /**
      * Change password (optional)
      */
     public function changePassword(Request $request)
     {
+        auth()->shouldUse('admin');
+
         $request->validate([
             'current_password'          => 'required',
-            'new_password'              => 'required|min:8',
-            'new_password_confirmation' => 'required|same:new_password',
+            'new_password'              => 'required|min:8|confirmed',
         ]);
 
         $user = Auth::guard('admin')->user();

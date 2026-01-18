@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\AdminAccount;
-use App\Models\FactLog;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
@@ -32,18 +31,13 @@ class AdminProfileController extends Controller
                 ->with('error', 'Only super admins can view other admin profiles.');
         }
 
-        // Load logs
-        $logs = ($admin->factLogs ?? collect())
-            ->sortByDesc('created_at')
-            ->values();
-
         // Admin list for super admin only
         $allAdmins = $isSuperAdmin
             ? AdminAccount::orderBy('full_name')->get()
             : collect([]);
 
         return view('admin.profile', compact(
-            'admin', 'logs', 'allAdmins', 'currentAdmin'
+            'admin', 'allAdmins', 'currentAdmin'
         ));
     }
 
@@ -78,7 +72,6 @@ class AdminProfileController extends Controller
         $currentAdmin = auth('admin')->user();
         $isSuperAdmin = preg_match('/super/i', $currentAdmin->role);
 
-        // Determine which admin profile is being updated
         $admin = ($isSuperAdmin && $request->admin_id)
             ? AdminAccount::find($request->admin_id)
             : $currentAdmin;
@@ -87,14 +80,10 @@ class AdminProfileController extends Controller
             return back()->with('error', 'Admin not found.');
         }
 
-        // Restrict update
         if (!$isSuperAdmin && $admin->admin_id != $currentAdmin->admin_id) {
             return back()->with('error', 'Only super admins can update other admin profiles.');
         }
 
-        /* ============================================================
-            VALIDATION
-        ============================================================ */
         $request->validate([
             'full_name' => 'required|string|max:255',
 
@@ -115,27 +104,7 @@ class AdminProfileController extends Controller
             'profile_picture' => 'nullable|mimes:jpg,jpeg,png|max:5120',
         ]);
 
-        /* ============================================================
-            LOG CHANGES
-        ============================================================ */
-        if ($admin->full_name !== $request->full_name) {
-            $this->logChange($currentAdmin->admin_id, $admin->admin_id, "Name Changed",
-                "From \"{$admin->full_name}\" to \"{$request->full_name}\"");
-        }
-
-        if ($admin->email !== $request->email) {
-            $this->logChange($currentAdmin->admin_id, $admin->admin_id, "Email Changed",
-                "From \"{$admin->email}\" to \"{$request->email}\"");
-        }
-
-        if ($admin->contact_number !== $request->contact_number) {
-            $this->logChange($currentAdmin->admin_id, $admin->admin_id, "Contact Updated",
-                "From \"{$admin->contact_number}\" to \"{$request->contact_number}\"");
-        }
-
-        /* ============================================================
-            SUPER ADMIN FIELDS
-        ============================================================ */
+        // SUPER ADMIN FIELDS
         if ($isSuperAdmin && $request->filled('username')) {
             $admin->username = $request->username;
         }
@@ -144,9 +113,7 @@ class AdminProfileController extends Controller
             $admin->role = $request->role;
         }
 
-        /* ============================================================
-            PASSWORD UPDATE
-        ============================================================ */
+        // PASSWORD UPDATE
         if ($request->filled('current_password') || $request->filled('new_password')) {
 
             if ($admin->admin_id != $currentAdmin->admin_id) {
@@ -165,17 +132,13 @@ class AdminProfileController extends Controller
             $admin->password = Hash::make($request->new_password);
         }
 
-        /* ============================================================
-            PROFILE PICTURE FIXED ✔
-        ============================================================ */
+        // PROFILE PICTURE
         if ($request->hasFile('profile_picture')) {
             $admin->profile_picture =
                 $request->file('profile_picture')->store('admin_photos', 'public');
         }
 
-        /* ============================================================
-            SAVE PROFILE
-        ============================================================ */
+        // SAVE PROFILE
         $admin->full_name = $request->full_name;
         $admin->email = $request->email;
         $admin->contact_number = $request->contact_number;
@@ -184,20 +147,6 @@ class AdminProfileController extends Controller
 
         return redirect()->route('admin.profile', $admin->admin_id)
             ->with('success', 'Profile updated successfully!');
-    }
-
-    /* ============================================================
-        LOG HELPER
-    ============================================================ */
-    private function logChange($adminId, $entityId, $action, $details)
-    {
-        FactLog::create([
-            'admin_id'    => $adminId,
-            'entity_type' => 'Admin Profile',
-            'entity_id'   => $entityId,
-            'action'      => $action,
-            'details'     => $details,
-        ]);
     }
 
     /* ============================================================
@@ -232,31 +181,18 @@ class AdminProfileController extends Controller
             return response()->json(['success' => false], 404);
         }
 
-        $logs = $admin->factLogs()
-            ->orderBy('created_at', 'desc')
-            ->take(20)
-            ->get()
-            ->map(function ($log) {
-                return [
-                    'action'     => $log->action,
-                    'details'    => $log->details,
-                    'created_at' => $log->created_at->format('M d, Y h:i A'),
-                ];
-            });
-
         return response()->json([
             'success' => true,
             'data' => [
-                'name'           => $admin->full_name,
-                'username'       => $admin->username,
-                'email'          => $admin->email,
+                'name' => $admin->full_name,
+                'username' => $admin->username,
+                'email' => $admin->email,
                 'contact_number' => $admin->contact_number,
-                'role'           => $admin->role,
+                'role' => $admin->role,
                 'profile_picture' =>
                     $admin->profile_picture
                         ? asset('storage/' . $admin->profile_picture)
                         : asset('assets/adminpic.png'),
-                'logs' => $logs,
             ]
         ]);
     }

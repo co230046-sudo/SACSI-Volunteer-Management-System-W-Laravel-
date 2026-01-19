@@ -1,440 +1,204 @@
-{{-- ============================================================
-   ✅ TRANSFER INVALID ENTRIES MODAL — PATCHED
-   ✅ Removes local success modal system (AppNoticeModal + ppSuccessModal)
-   ✅ Uses Universal Feedback Modal (UFM) ONLY
-============================================================ --}}
+{{-- ===========================================================
+   ✅ TRANSFER INVALID <-> VALID (CONFIRM MODAL) — FULL PATCH
+   - Same modal system as Edit Volunteer (overlay + is-open)
+   - ✅ Invalid -> Valid (POST) uses #moveToVerifiedForm (route already set in main blade)
+   - ✅ Valid -> Invalid (GET) uses route('volunteer.moveValidToInvalid', index)
+   - ✅ Uses Universal Feedback Modal (UFM) for SUCCESS/ERROR after redirect (flash)
+   - ✅ Transfer modal uses UFM only for warnings (no selection / missing form)
+   - ✅ Fixes "No details payload found" by using RECALL (does NOT depend on data-details attr)
+   - ✅ Prevents accidental multi-fire via guards + scoped IDs
+   - ✅ No auto-select-all (respects user selection)
+=========================================================== --}}
 
 <style>
-/* ===============================
-   PROFILE MODAL
-================================ */
-
-/* ✅ critical: do NOT let modal-content clip the header text/icons */
-#profilePictureModal .modal-content{
-  border-radius:14px;
-  overflow: visible;            /* <- important */
-  background: transparent;      /* inner shell holds bg */
+/* ===========================================================
+   BASE MODAL (scoped)
+=========================================================== */
+#transferEntriesModal.transfer-entries-modal{
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 9999;
+  font-family: 'Segoe UI', Roboto, sans-serif;
 }
-
-/* ✅ inner shell keeps rounded corners without clipping header glyphs */
-#profilePictureModal .pp-modal-shell{
-  border-radius:14px;
-  overflow:hidden;
-  background:#fff;
+#transferEntriesModal.transfer-entries-modal.is-open{
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
-
-#ppVolunteerName{ font-size:1.2rem; font-weight:700; }
+#transferEntriesModal .modal-overlay{
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.55);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
 
 /* ===========================================================
-   ✅ CONFLICT-SAFE HEADER (RENAMED)
-   - avoids global ".modal-header { margin: -... }" collisions
+   CONTENT SHELL
 =========================================================== */
-#profilePictureModal .pp-modal-header{
+#transferEntriesModal .modal-content{
+  width: 100%;
+  max-width: 520px;
+  border-radius: 14px;
+  overflow: visible;
+  background: transparent;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+  animation: txSlideIn 0.22s ease forwards;
+}
+#transferEntriesModal .tx-modal-shell{
+  background:#fff;
+  border-radius: 14px;
+  overflow:hidden;
+  padding: 1.25rem 1.35rem;
+}
+
+/* ===========================================================
+   HEADER
+=========================================================== */
+#transferEntriesModal .tx-modal-header{
   display:flex;
   align-items:center;
-  justify-content:space-between;
-  gap:12px;
+  justify-content:flex-start;
+  gap:10px;
 
-  /* tinted strip like reference */
   background: linear-gradient(180deg, rgba(178,0,12,0.14), rgba(178,0,12,0.06));
   border-bottom: 1px solid rgba(178,0,12,0.14);
 
-  padding: 12px 14px;
-  min-height: 58px;
+  margin: -1.25rem -1.35rem 0.9rem;
+  padding: 14px 16px;
+  min-height: 60px;
 
   border-top-left-radius: 14px;
   border-top-right-radius: 14px;
-
-  overflow: visible; /* anti-clip */
 }
-
-/* left stack */
-#profilePictureModal .pp-head-left{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  min-width:0;
-}
-#profilePictureModal .pp-head-icon{
-  display:block;
-  font-size:1.25rem;
-  line-height:1;
+#transferEntriesModal .tx-head-icon{
+  font-size: 1.55rem;
+  line-height: 1;
   color:#7F0008;
   opacity:.95;
 }
-#profilePictureModal .pp-head-title{
-  margin:0 !important;
-  font-weight:900;
-  font-size:1.08rem;
-  letter-spacing:.2px;
+#transferEntriesModal .tx-head-title{
+  margin:0;
+  font-weight: 950;
+  font-size: 1.15rem;
+  letter-spacing: .2px;
   color:#7F0008;
-  line-height:1.25;
-  padding:2px 0;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  min-width:0;
-}
-
-/* close button */
-#profilePictureModal .pp-head-close{
-  filter:none;
-  opacity:.9;
-  width:38px;
-  height:38px;
-  padding:0 !important;
-  margin:0 !important;
-  border-radius:10px;
-}
-#profilePictureModal .pp-head-close:hover{
-  opacity:1;
-  background: rgba(178,0,12,0.10);
-}
-
-/* ===============================
-   IMAGE CONTAINER (MAIN MODAL)
-================================ */
-.pp-image-wrapper{
-  position:relative; width:100%;
-  display:flex; justify-content:center; align-items:center;
-  padding:10px 0;
-}
-.pp-image{
-  max-width:95%;
-  max-height:70vh;
-  object-fit:contain;
-  border-radius:10px;
-  border:1px solid #ccc;
-}
-.pp-expand-btn{
-  position:absolute; top:8px; right:8px;
-  background:rgba(255,255,255,.9);
-  border:1px solid #bbb;
-  border-radius:8px;
-  padding:6px 9px;
-  cursor:pointer;
-  font-size:.85rem;
-}
-#ppNoImageText{ font-size:.95rem; opacity:.8; }
-
-/* ===============================
-   BUTTON ROWS
-================================ */
-.pp-control-row{
-  display:flex;
-  justify-content:center;
-  gap:12px;
-  margin-top:1.2rem;
-}
-.pp-control-row .btn{ min-width:120px; }
-
-/* ===============================
-   MORE OPTIONS DROPDOWN
-================================ */
-.pp-more-dropdown{ margin-top:.8rem; }
-.pp-more-dropdown button{ font-size:.9rem; }
-.pp-more-dropdown .dropdown-menu a{ font-size:.9rem; padding:6px 14px; }
-
-/* ===============================
-   FULLSCREEN OVERLAY (PREVIEW + CROP)
-================================ */
-.picture-modal-overlay{
-  display:none;
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,.55);
-  justify-content:center;
-  align-items:center;
-  z-index:999999;
-}
-.picture-expanded-modal{
-  background:#fff;
-  border-radius:16px;
-  padding:15px 20px 18px;
-  width:96%;
-  max-width:960px;
-  max-height:92vh;
-  display:flex;
-  flex-direction:column;
-  box-shadow:0 10px 35px rgba(0,0,0,.35);
-}
-.picture-expanded-modal-header{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  margin-bottom:8px;
-}
-.picture-expanded-image-wrap{
-  flex:1;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  min-height:0;
-}
-.picture-expanded-modal img{
-  max-width:100%;
-  max-height:72vh;
-  border-radius:10px;
-  border:1px solid #ddd;
-  display:block;
-  margin:0 auto;
-}
-
-/* ===============================
-   CROP TOOLBAR
-================================ */
-#cropControls{
-  padding-top:10px;
-  border-top:1px solid #eee;
-  margin-top:8px;
-}
-.crop-toolbar{ margin-bottom:6px; }
-.crop-toolbar button{ min-width:80px; }
-
-#cropAppliedToast{
-  position:absolute;
-  top:14px; left:50%;
-  transform:translateX(-50%);
-  background:#28a745;
-  color:#fff;
-  padding:6px 14px;
-  border-radius:6px;
-  font-size:.9rem;
-  font-weight:600;
-  display:none;
-  opacity:0;
-  transition:opacity .25s ease-in-out;
-  z-index:99999999;
-}
-
-@media (max-width:576px){
-  .picture-expanded-modal{ padding:12px 12px 14px; max-width:100%; }
 }
 
 /* ===========================================================
-   ✅ NO CHANGES MODAL — CONFLICT-SAFE (FIX HEADER CLIPPING)
+   BODY
 =========================================================== */
-#ppNoChangesModal .modal-content{
-  border-radius:16px;
-  overflow: visible;        /* not a clipping mask */
-  background: transparent;
+#transferEntriesModal .tx-body{
+  padding: 0.2rem 0.1rem 0.2rem;
 }
-#ppNoChangesModal .pp-nc-shell{
-  border-radius:16px;
-  overflow:hidden;
-  background:#fff;
+#transferEntriesModal .tx-note{
+  background:#fff5f6;
+  border: 1px dashed #f3c2c7;
+  border-radius: 12px;
+  padding: .75rem .9rem;
+  color:#5c1b24;
+  font-weight: 700;
+  font-size: .92rem;
+  line-height: 1.35;
 }
-#ppNoChangesModal .pp-nc-header{
+#transferEntriesModal .tx-count{
+  margin-top:.85rem;
   display:flex;
   align-items:center;
-  justify-content:space-between;
-  gap:12px;
-
-  padding:14px 16px 12px;
-  background:#eaf2ff;
-  border-bottom:1px solid #d6e6ff;
-
-  border-top-left-radius:16px;
-  border-top-right-radius:16px;
-
-  overflow: visible;
+  justify-content:center;
+  gap:.5rem;
+  font-weight: 950;
+  color:#7F0008;
 }
-#ppNoChangesModal .pp-nc-left{
+#transferEntriesModal .tx-count i{ color:#7F0008; }
+
+/* ===========================================================
+   FOOTER BUTTONS
+=========================================================== */
+#transferEntriesModal .tx-footer{
+  display:flex;
+  justify-content:center;
+  gap:.75rem;
+  flex-wrap:wrap;
+  margin-top: 1rem;
+}
+#transferEntriesModal .modal-btn{
   display:flex;
   align-items:center;
-  gap:10px;
-  min-width:0;
+  justify-content:center;
+  gap:0.45rem;
+  padding: 0.55rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 650;
+  border-radius: 8px;
+  cursor:pointer;
+  border:none;
+  transition: all 0.2s ease;
+  height: 44px;
 }
-#ppNoChangesModal .pp-nc-icon{
-  display:block;
-  line-height:1;
-  color:#1565c0;
-  font-size:1.1rem;
+#transferEntriesModal .modal-btn.cancel{
+  background:#f3f3f3;
+  color:#333;
 }
-#ppNoChangesModal .pp-nc-title{
-  margin:0 !important;
-  color:#1565c0;
-  font-weight:900;
-  font-size:1.02rem;
-  line-height:1.25;
-  padding:2px 0;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  min-width:0;
+#transferEntriesModal .modal-btn.cancel:hover{
+  background:#e0e0e0;
+  transform: translateY(-1px);
 }
-#ppNoChangesModal .pp-nc-body{
-  padding:1.1rem 1.25rem;
-  font-size:.98rem;
-  line-height:1.5;
-  background:#fff;
+#transferEntriesModal .modal-btn.primary{
+  background:#B2000C;
+  color:#fff;
 }
-#ppNoChangesModal .pp-nc-footer{
-  padding:12px 16px;
-  background:#f8fafc;
-  border-top:1px solid #eee;
+#transferEntriesModal .modal-btn.primary:hover{
+  background:#7F0008;
+  transform: translateY(-1px);
+}
+#transferEntriesModal .modal-btn.primary:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+  transform:none;
+}
 
-  display:flex;
-  justify-content:flex-end;
-
-  border-bottom-left-radius:16px;
-  border-bottom-right-radius:16px;
+/* ===========================================================
+   ANIM
+=========================================================== */
+@keyframes txSlideIn{
+  from { opacity:0; transform: translateY(-14px) scale(0.98); }
+  to   { opacity:1; transform: translateY(0) scale(1); }
 }
 </style>
 
-{{-- ============================================================
-   ✅ PROFILE PICTURE MODAL
-============================================================ --}}
-<div class="modal fade" id="profilePictureModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
+<div class="transfer-entries-modal" id="transferEntriesModal" aria-hidden="true">
+  <div class="modal-overlay">
     <div class="modal-content">
+      <div class="tx-modal-shell">
 
-      <div class="pp-modal-shell">
-
-        {{-- ✅ FIXED HEADER (conflict-safe) --}}
-        <div class="pp-modal-header">
-          <div class="pp-head-left">
-            <i class="fa-solid fa-image pp-head-icon" aria-hidden="true"></i>
-            <h5 class="pp-head-title">Profile Picture</h5>
-          </div>
-          <button type="button" class="btn-close pp-head-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <div class="tx-modal-header">
+          <i class="fa-solid fa-triangle-exclamation tx-head-icon" aria-hidden="true"></i>
+          <h2 class="tx-head-title" id="txTitle">Transfer Entries</h2>
         </div>
 
-        <div class="modal-body text-center">
-          <h5 id="ppVolunteerName" class="mb-3"></h5>
-
-          <div class="pp-image-wrapper">
-            <img id="ppModalImage" class="pp-image" style="display:none;">
-            <p id="ppNoImageText" class="text-muted" style="display:none;">
-              <i class="fa-regular fa-image fa-lg"></i><br>No Image Available
-            </p>
-
-            <button class="pp-expand-btn" type="button" onclick="expandPicture()">
-              <i class="fa-solid fa-up-right-and-down-left-from-center"></i>
-            </button>
+        <div class="tx-body">
+          <div class="tx-note" id="txMessage">
+            Are you sure you want to transfer the selected entries?
           </div>
 
-          <div id="ppMoreOptions" class="dropdown pp-more-dropdown" style="display:none;">
-            <button class="btn btn-outline-dark btn-sm dropdown-toggle" data-bs-toggle="dropdown">
-              More Options
-            </button>
-            <ul class="dropdown-menu">
-              <li><a id="ppOpenButton" class="dropdown-item" href="#" target="_blank">
-                <i class="fa-solid fa-eye"></i> Open File</a></li>
-              <li><a id="ppDownloadButton" class="dropdown-item" href="#" download>
-                <i class="fa-solid fa-download"></i> Download</a></li>
-              <li><a id="ppCropButton" class="dropdown-item" href="#">
-                <i class="fa-solid fa-crop"></i> Crop Image</a></li>
-            </ul>
-          </div>
-
-          <div class="pp-control-row">
-            <button class="btn btn-outline-primary" type="button" onclick="triggerPPFileInput()">
-              <i class="fa-solid fa-upload"></i> Replace
-            </button>
-            <button class="btn btn-outline-danger" type="button" onclick="previewDefaultPicture()">
-              <i class="fa-solid fa-user-xmark"></i> Default
-            </button>
-          </div>
-
-          <div class="pp-control-row">
-            <button id="ppEditSaveBtn" class="btn btn-secondary" type="button" onclick="toggleEditOrSave()">
-              <i class="fa-solid fa-pen-to-square"></i> Edit
-            </button>
-            <button class="btn btn-secondary" type="button" onclick="revertPictureChanges()">
-              <i class="fa-solid fa-rotate-left"></i> Revert
-            </button>
+          <div class="tx-count">
+            <i class="fa-solid fa-list-check"></i>
+            <span>Selected:</span>
+            <span id="txCount">0</span>
           </div>
         </div>
 
-      </div><!-- /pp-modal-shell -->
+        <div class="tx-footer">
+          <button type="button" class="modal-btn cancel" id="txCancelBtn">
+            <i class="fa-solid fa-xmark"></i> Cancel
+          </button>
 
-    </div>
-  </div>
-</div>
-
-{{-- ============================================================
-   ✅ FULLSCREEN VIEWER (also used for crop)
-============================================================ --}}
-<div id="pictureExpandOverlay" class="picture-modal-overlay">
-  <div class="picture-expanded-modal">
-
-    <div class="picture-expanded-modal-header">
-      <h3 class="m-0">
-        <i class="fa-solid fa-image me-2"></i>
-        <span id="fullscreenTitleText">Preview</span>
-      </h3>
-
-      <div id="fullscreenButtonBar">
-        <button class="btn btn-sm btn-outline-primary me-2" type="button" onclick="enterCropMode()">
-          <i class="fa-solid fa-crop"></i> Crop
-        </button>
-        <button type="button" onclick="closeExpandedPicture()" style="border:none;background:none;font-size:1.4rem;">
-          <i class="fa-solid fa-xmark" style="color:#b2000c;"></i>
-        </button>
-      </div>
-    </div>
-
-    <div class="picture-expanded-image-wrap">
-      <img id="expandedPicture" alt="Preview">
-    </div>
-
-    <div id="cropControls" style="display:none;">
-      <div class="crop-toolbar d-flex justify-content-center flex-wrap gap-2">
-        <button class="btn btn-outline-primary btn-sm" type="button" onclick="setCropPreset(1)">1:1</button>
-        <button class="btn btn-outline-primary btn-sm" type="button" onclick="setCropPreset(4/5)">4:5</button>
-        <button class="btn btn-outline-primary btn-sm" type="button" onclick="setCropPreset(16/9)">16:9</button>
-        <button class="btn btn-outline-dark btn-sm" type="button" onclick="setCropPreset('free')">Free</button>
-      </div>
-
-      <div class="crop-toolbar d-flex justify-content-center flex-wrap gap-2">
-        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="rotateCrop(-90)">Rotate Left</button>
-        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="rotateCrop(90)">Rotate Right</button>
-        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="flipCropX()">Flip X</button>
-        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="flipCropY()">Flip Y</button>
-        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="zoomCrop(0.2)">Zoom In</button>
-        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="zoomCrop(-0.2)">Zoom Out</button>
-        <button class="btn btn-outline-danger btn-sm" type="button" onclick="resetCrop()">Reset</button>
-      </div>
-
-      <div class="d-flex justify-content-center gap-2 mt-2">
-        <button class="btn btn-success btn-sm" type="button" onclick="applyCropFullscreen()">
-          <i class="fa-solid fa-check"></i> Apply Crop
-        </button>
-        <button class="btn btn-secondary btn-sm" type="button" onclick="exitCropMode()">
-          <i class="fa-solid fa-xmark"></i> Cancel
-        </button>
-      </div>
-    </div>
-
-    <div id="cropAppliedToast">
-      <i class="fa-solid fa-check"></i> Crop Applied
-    </div>
-  </div>
-</div>
-
-{{-- ============================================================
-   ✅ NO CHANGES MODAL (Bootstrap) — FIXED
-============================================================ --}}
-<div class="modal fade" id="ppNoChangesModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:460px;">
-    <div class="modal-content">
-      <div class="pp-nc-shell">
-
-        <div class="pp-nc-header">
-          <div class="pp-nc-left">
-            <i class="fa-solid fa-circle-info pp-nc-icon" aria-hidden="true"></i>
-            <h5 class="pp-nc-title">No Changes Detected</h5>
-          </div>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-
-        <div class="pp-nc-body" id="ppNoChangesBody">
-          No changes were made to the profile picture.
-        </div>
-
-        <div class="pp-nc-footer">
-          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">OK</button>
+          <button type="button" class="modal-btn primary" id="txConfirmBtn">
+            <i class="fa-solid fa-check"></i> Yes, Transfer
+          </button>
         </div>
 
       </div>
@@ -442,583 +206,356 @@
   </div>
 </div>
 
-{{-- ============================================================
-   ✅ Hidden server payloads (single copy)
-============================================================ --}}
-@if(session('success_schedule'))
-  <div id="__pp_success_html__" style="display:none;">
-    {!! session('success_schedule') !!}
+{{-- ===========================================================
+   ✅ MOVE FLASH PAYLOADS (SUCCESS + ERROR) -> UFM
+   IMPORTANT:
+   - We read your controller flags:
+     show_success_modal + success_modal_message
+     show_error_modal   + error_modal_message
+   - Unique IDs so this file won't clash with other modals
+=========================================================== --}}
+
+@if(session('show_success_modal') && session('success_modal_message'))
+  <div id="__tx_success_html__" style="display:none;">
+    {!! session('success_modal_message') !!}
   </div>
 @endif
 
-@if($errors->any())
-  <div id="__pp_errors_html__" style="display:none;">
-    <ul class="mb-0">
-      @foreach($errors->all() as $err)
-        <li>{{ $err }}</li>
-      @endforeach
-    </ul>
+@if(session('show_error_modal') && session('error_modal_message'))
+  <div id="__tx_error_html__" style="display:none;">
+    {!! session('error_modal_message') !!}
   </div>
 @endif
-
-{{-- ============================================================
-   ✅ Backend form (OFFSCREEN, NOT display:none) — critical for file uploads
-============================================================ --}}
-<form id="pictureForm" method="POST" enctype="multipart/form-data"
-      style="position:fixed; left:-99999px; top:-99999px; width:1px; height:1px; opacity:0;">
-  @csrf
-  <input type="hidden" name="index" id="ppFormIndex">
-  <input type="hidden" name="type"  id="ppFormType">
-
-  {{-- ✅ This is the ONLY picker we use for Replace (trusted by browser) --}}
-  <input type="file" name="file" id="ppFormFile" accept="image/*">
-</form>
-
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 
 <script>
-/* =====================================================
-   GLOBAL STATE
-===================================================== */
-let currentVolunteerIndex = null;
-let currentVolunteerType  = null;
-let originalPictureSrc    = null;
+/* ===========================================================
+   ✅ MOVE FLASH -> UNIVERSAL FEEDBACK MODAL (UFM) — FINAL PATCH
+   Fixes "No details payload found" by:
+   - storing the details HTML in window.__UFM_LAST__
+   - replacing controller <span class="...-details-link">Show Details</span>
+     with a link that calls recallLastUfm()
+   - DOES NOT rely on data-details / data-ufm-details formats
+=========================================================== */
+(function () {
 
-let pendingUploadFile = null;  // used for preview + crop + save guard
-let pendingDefault    = false;
+  function getPayload(){
+    const errEl = document.getElementById('__tx_error_html__');
+    const errHtml = (errEl?.innerHTML || '').trim();
+    if (errHtml) {
+      return {
+        variant: 'error',
+        title: 'Transfer failed',
+        subtitle: 'Some entries could not be transferred.',
+        detailsHtml: errHtml,
+        source: 'transfer_move_flash_error'
+      };
+    }
 
-let hasUserChanged    = false;
-let isEditingPicture  = false;
+    const okEl = document.getElementById('__tx_success_html__');
+    const okHtml = (okEl?.innerHTML || '').trim();
+    if (okHtml) {
+      return {
+        variant: 'success',
+        title: 'Transfer complete',
+        subtitle: 'Entries moved successfully.',
+        detailsHtml: okHtml,
+        source: 'transfer_move_flash_success'
+      };
+    }
 
-let cropper    = null;
-let isCropMode = false;
-let flipX      = 1;
-let flipY      = 1;
-
-const UPDATE_PICTURE_URL = @json(route('volunteer.import.updatePicture'));
-const DEFAULT_PIC_SRC    = "/storage/defaults/default_user.png";
-
-const $id = (id) => document.getElementById(id);
-
-/* =====================================================
-   ✅ UFM WRAPPER (safe)
-===================================================== */
-function ufmShow({ variant='info', title='Notice', subtitle='', html='', source='' } = {}) {
-  if (window.FeedbackModal?.show) {
-    window.FeedbackModal.show({ variant, title, subtitle, html, source });
-    return true;
-  }
-  // fallback (should be rare)
-  alert((title ? title + "\n\n" : "") + String(html||'').replace(/<[^>]+>/g,' ').trim());
-  return false;
-}
-
-/* =====================================================
-   ✅ Success/Error Presenter (replaces ppSuccessModal)
-===================================================== */
-function openPPSuccessModal({ title="Changes saved", subtitle="Entry updated successfully.", html="" } = {}) {
-  ufmShow({
-    variant: (String(title).toLowerCase().includes('fail') || String(title).toLowerCase().includes('error')) ? 'error' : 'success',
-    title,
-    subtitle,
-    html,
-    source: 'transfer_modal_pp_flash'
-  });
-}
-
-/* =====================================================
-   HELPERS
-===================================================== */
-function normalizeSrc(src){
-  src = String(src || "").trim();
-  try {
-    const u = new URL(src, window.location.origin);
-    return u.pathname.replace(/\/+$/,"");
-  } catch(e){
-    return src.split("?")[0].replace(/\/+$/,"");
-  }
-}
-function showNoChanges(msg){
-  $id("ppNoChangesBody").textContent = msg || "No changes were made to the profile picture.";
-  new bootstrap.Modal($id("ppNoChangesModal")).show();
-}
-function originalWasDefault(){
-  const orig = normalizeSrc(originalPictureSrc || "");
-  const def  = normalizeSrc(DEFAULT_PIC_SRC);
-  return orig && orig === def;
-}
-
-/* =====================================================
-   AUTO OPEN: success OR errors (NOW -> UFM)
-===================================================== */
-document.addEventListener("DOMContentLoaded", () => {
-  const errHtml = $id("__pp_errors_html__")?.innerHTML?.trim();
-  if (errHtml) {
-    openPPSuccessModal({
-      title: "Save failed",
-      subtitle: "The server rejected the request.",
-      html: `<div style="color:#b2000c;font-weight:900;margin-bottom:8px;">Fix these issues:</div>${errHtml}`
-    });
-    return;
+    return null;
   }
 
-  const successHtml = $id("__pp_success_html__")?.innerHTML?.trim();
-  if (successHtml) {
-    openPPSuccessModal({
-      title: "Changes saved",
-      subtitle: "Entry updated successfully.",
-      html: successHtml
+  // Replace controller spans with a recall link
+  function injectRecallLink(html, variant){
+    if (!html) return html;
+
+    const linkHtml = `
+      <a href="#"
+         class="${variant === 'error' ? 'error-details-link' : 'success-details-link'}"
+         data-ufm-recall="1"
+         style="color:#1565c0; cursor:pointer; text-decoration:none; font-weight:600;">
+        Show Details
+      </a>
+    `;
+
+    return String(html).replace(
+      /<span([^>]*class=['"][^'"]*(success-details-link|error-details-link)[^'"]*['"][^>]*)>([\s\S]*?)<\/span>/gi,
+      linkHtml
+    );
+  }
+
+  function ensureRecallHandler(){
+    if (window.__TX_RECALL_BOUND__) return;
+    window.__TX_RECALL_BOUND__ = true;
+
+    // Provide recallLastUfm if missing
+    if (!window.recallLastUfm) {
+      window.recallLastUfm = function(){
+        const p = window.__UFM_LAST__;
+        if (!p || !window.FeedbackModal?.show) return;
+
+        window.FeedbackModal.show({
+          variant: p.variant || 'info',
+          title: p.title || 'Notice',
+          subtitle: p.subtitle || '',
+          html: p.html || '',
+          userAction: true,     // user click: allow showing even if single-fire guard exists
+          source: 'recallLastUfm_transfer'
+        });
+      };
+    }
+
+    // Delegate click for recall links we inject
+    document.addEventListener('click', function(e){
+      const a = e.target.closest('a[data-ufm-recall="1"]');
+      if (!a) return;
+      e.preventDefault();
+      window.recallLastUfm();
     });
   }
 
-  $id("profilePictureModal")?.addEventListener("hidden.bs.modal", () => {
-    resetPictureState();
-    exitCropMode();
-    closeExpandedPicture();
+  function showOnce(payload){
+    if (!payload) return;
+
+    // SINGLE-FIRE just for this move action flash
+    const key = '__UFM_FLASH_FIRED__:' + payload.source;
+    if (window[key]) return;
+    window[key] = true;
+
+    ensureRecallHandler();
+
+    // Store last details for recall
+    window.__UFM_LAST__ = {
+      variant: payload.variant,
+      title: payload.title,
+      subtitle: payload.subtitle,
+      html: payload.detailsHtml,
+      source: payload.source
+    };
+
+    const htmlWithRecall = injectRecallLink(payload.detailsHtml, payload.variant);
+
+    window.FeedbackModal.show({
+      variant: payload.variant,
+      title: payload.title,
+      subtitle: payload.subtitle,
+      html: htmlWithRecall,
+      source: payload.source
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const payload = getPayload();
+    if (!payload) return;
+
+    let tries = 0;
+    const maxTries = 80; // ~2s
+    const t = setInterval(function(){
+      tries++;
+      if (window.FeedbackModal?.show) {
+        clearInterval(t);
+        showOnce(payload);
+        return;
+      }
+      if (tries >= maxTries) {
+        clearInterval(t);
+        console.error('[TX FLASH] FeedbackModal not available - check UFM include/script order.');
+      }
+    }, 25);
   });
-});
 
-/* =====================================================
-   RESET STATE
-===================================================== */
-function resetEditSaveButton(){
-  const btn = $id("ppEditSaveBtn");
-  if (!btn) return;
-  btn.innerHTML = "<i class='fa-solid fa-pen-to-square'></i> Edit";
-  btn.classList.remove("btn-success");
-  btn.classList.add("btn-secondary");
-}
-function resetPictureState(){
-  currentVolunteerIndex = null;
-  currentVolunteerType  = null;
-  originalPictureSrc    = null;
-
-  pendingUploadFile = null;
-  pendingDefault    = false;
-  hasUserChanged    = false;
-  isEditingPicture  = false;
-
-  // also clear the form file input
-  const formFile = $id("ppFormFile");
-  if (formFile) formFile.value = "";
-
-  resetEditSaveButton();
-
-  const img  = $id("ppModalImage");
-  const text = $id("ppNoImageText");
-  const more = $id("ppMoreOptions");
-
-  img.src = "";
-  img.style.display = "none";
-  text.style.display = "block";
-  more.style.display = "none";
-}
-
-/* =====================================================
-   OPEN MODAL (critical: index/type MUST exist)
-===================================================== */
-function openImageModalFromButton(btn){
-  currentVolunteerIndex = btn.dataset.entryIndex ?? null;
-  currentVolunteerType  = btn.dataset.entryType ?? null;
-
-  if (currentVolunteerIndex === null || currentVolunteerIndex === "" || isNaN(Number(currentVolunteerIndex))) {
-    console.error("Missing data-entry-index on opener button", btn);
-    showNoChanges("Open failed: button missing data-entry-index.");
-    return;
-  }
-  if (!currentVolunteerType || !["valid","invalid"].includes(String(currentVolunteerType))) {
-    console.error("Missing data-entry-type on opener button", btn);
-    showNoChanges("Open failed: button missing data-entry-type (valid/invalid).");
-    return;
-  }
-
-  const src  = btn.dataset.pictureSrc || "";
-  const name = btn.dataset.volName || "Volunteer";
-
-  originalPictureSrc = src;
-  $id("ppVolunteerName").textContent = name;
-
-  const img  = $id("ppModalImage");
-  const text = $id("ppNoImageText");
-  const more = $id("ppMoreOptions");
-
-  if (src) {
-    img.src = src;
-    img.style.display = "block";
-    text.style.display = "none";
-    more.style.display = "block";
-    $id("ppOpenButton").href     = src;
-    $id("ppDownloadButton").href = src;
-  } else {
-    img.style.display = "none";
-    text.style.display = "block";
-    more.style.display = "none";
-    $id("ppOpenButton").href     = "#";
-    $id("ppDownloadButton").href = "#";
-  }
-
-  pendingUploadFile = null;
-  pendingDefault    = false;
-  hasUserChanged    = false;
-  isEditingPicture  = false;
-
-  // clear form file input each open
-  $id("ppFormFile").value = "";
-
-  resetEditSaveButton();
-
-  $id("ppCropButton").onclick = (e) => { e.preventDefault(); openCropFromMainModal(); };
-
-  new bootstrap.Modal($id("profilePictureModal")).show();
-}
-
-/* =====================================================
-   FULLSCREEN PREVIEW
-===================================================== */
-function expandPicture(){
-  exitCropMode();
-  const src = $id("ppModalImage").src;
-  if (!src) return;
-
-  $id("expandedPicture").src = src;
-  $id("fullscreenTitleText").textContent = "Preview";
-  $id("pictureExpandOverlay").style.display = "flex";
-}
-function closeExpandedPicture(){
-  exitCropMode();
-  $id("pictureExpandOverlay").style.display = "none";
-}
-function openCropFromMainModal(){
-  const src = $id("ppModalImage").src;
-  if (!src) return;
-
-  const expanded = $id("expandedPicture");
-  expanded.src = src;
-
-  $id("fullscreenTitleText").textContent = "Crop Image";
-  $id("pictureExpandOverlay").style.display = "flex";
-
-  expanded.onload = () => enterCropMode();
-}
-
-/* =====================================================
-   CROP MODE
-===================================================== */
-function enterCropMode(){
-  const img = $id("expandedPicture");
-  if (!img.src) return;
-
-  isCropMode = true;
-  flipX = flipY = 1;
-
-  $id("fullscreenButtonBar").style.display = "none";
-  $id("cropControls").style.display = "block";
-
-  if (cropper) cropper.destroy();
-  cropper = new Cropper(img, { aspectRatio:1, viewMode:1, autoCropArea:1, background:false });
-}
-function exitCropMode(){
-  isCropMode = false;
-  $id("fullscreenButtonBar").style.display = "block";
-  $id("cropControls").style.display = "none";
-
-  if (cropper) { cropper.destroy(); cropper = null; }
-}
-function rotateCrop(d){ cropper && cropper.rotate(d); }
-function zoomCrop(v){ cropper && cropper.zoom(v); }
-function flipCropX(){ if(cropper){ flipX=-flipX; cropper.scaleX(flipX);} }
-function flipCropY(){ if(cropper){ flipY=-flipY; cropper.scaleY(flipY);} }
-function resetCrop(){ if(!cropper) return; cropper.reset(); flipX=flipY=1; }
-function setCropPreset(ratio){
-  if(!cropper) return;
-  if(ratio === "free") cropper.setAspectRatio(NaN);
-  else cropper.setAspectRatio(ratio);
-}
-
-/* =====================================================
-   CROP APPLY + TOAST
-===================================================== */
-let cropToastTimer = null;
-function showCropAppliedToast(){
-  const toast = $id("cropAppliedToast");
-  if(!toast) return;
-
-  toast.style.display = "block";
-  requestAnimationFrame(()=> toast.style.opacity = "1");
-
-  if(cropToastTimer) clearTimeout(cropToastTimer);
-  cropToastTimer = setTimeout(()=>{
-    toast.style.opacity = "0";
-    setTimeout(()=> toast.style.display="none", 250);
-  }, 1500);
-}
-
-function applyCropFullscreen(){
-  if (!cropper) return;
-
-  cropper.getCroppedCanvas().toBlob(blob => {
-    if (!blob) return;
-
-    // ✅ Use JPEG to avoid massive PNG uploads
-    pendingUploadFile = new File([blob], "cropped.jpg", { type:"image/jpeg" });
-    pendingUploadFile.__fromCrop = true;
-
-    pendingDefault = false;
-    hasUserChanged = true;
-
-    const reader = new FileReader();
-    reader.onload = e => {
-      const src = e.target.result;
-      $id("expandedPicture").src = src;
-      $id("ppModalImage").src    = src;
-      $id("ppModalImage").style.display = "block";
-      $id("ppNoImageText").style.display = "none";
-      $id("ppMoreOptions").style.display = "none";
-    };
-    reader.readAsDataURL(pendingUploadFile);
-
-    if (!isEditingPicture) toggleEditOrSave();
-
-    exitCropMode();
-    showCropAppliedToast();
-  }, "image/jpeg", 0.85);
-}
-
-/* =====================================================
-   ✅ FILE REPLACE (FIXED)
-   Use the REAL form input (#ppFormFile). No DataTransfer here.
-===================================================== */
-function triggerPPFileInput(){
-  const input = $id("ppFormFile");
-  input.value = "";
-  input.click();
-
-  input.onchange = () => {
-    if (!input.files || !input.files.length) return;
-
-    pendingUploadFile = input.files[0];
-    pendingUploadFile.__fromCrop = false;
-
-    pendingDefault    = false;
-    hasUserChanged    = true;
-
-    if (!isEditingPicture) toggleEditOrSave();
-
-    const reader = new FileReader();
-    reader.onload = e => {
-      $id("ppModalImage").src = e.target.result;
-      $id("ppModalImage").style.display = "block";
-      $id("ppNoImageText").style.display = "none";
-      $id("ppMoreOptions").style.display = "none";
-    };
-    reader.readAsDataURL(pendingUploadFile);
-  };
-}
-
-/* =====================================================
-   DEFAULT PREVIEW
-===================================================== */
-function previewDefaultPicture(){
-  if (pendingDefault && !pendingUploadFile) {
-    showNoChanges("Default profile picture is already selected.");
-    return;
-  }
-  if (originalWasDefault() && !pendingUploadFile) {
-    showNoChanges("Already using the default profile picture.");
-    return;
-  }
-
-  pendingUploadFile = null;
-  pendingDefault    = true;
-  hasUserChanged    = true;
-
-  $id("ppFormFile").value = "";
-
-  if (!isEditingPicture) toggleEditOrSave();
-
-  $id("ppModalImage").src = DEFAULT_PIC_SRC;
-  $id("ppModalImage").style.display = "block";
-  $id("ppNoImageText").style.display = "none";
-  $id("ppMoreOptions").style.display = "none";
-}
-
-/* =====================================================
-   REVERT
-===================================================== */
-function revertPictureChanges(){
-  pendingUploadFile = null;
-  pendingDefault    = false;
-  hasUserChanged    = false;
-  isEditingPicture  = false;
-
-  $id("ppFormFile").value = "";
-
-  resetEditSaveButton();
-
-  const img  = $id("ppModalImage");
-  const text = $id("ppNoImageText");
-  const more = $id("ppMoreOptions");
-
-  if (originalPictureSrc) {
-    img.src = originalPictureSrc;
-    img.style.display = "block";
-    text.style.display = "none";
-    more.style.display = "block";
-    $id("ppOpenButton").href = originalPictureSrc;
-    $id("ppDownloadButton").href = originalPictureSrc;
-  } else {
-    img.src = "";
-    img.style.display = "none";
-    text.style.display = "block";
-    more.style.display = "none";
-    $id("ppOpenButton").href = "#";
-    $id("ppDownloadButton").href = "#";
-  }
-}
-
-/* =====================================================
-   EDIT / SAVE
-===================================================== */
-function toggleEditOrSave(){
-  const btn = $id("ppEditSaveBtn");
-
-  if (!isEditingPicture) {
-    isEditingPicture = true;
-    btn.innerHTML = "<i class='fa-solid fa-save'></i> Save";
-    btn.classList.remove("btn-secondary");
-    btn.classList.add("btn-success");
-    return;
-  }
-
-  if (!hasUserChanged) {
-    showNoChanges("No changes were made to the profile picture.");
-    return;
-  }
-
-  if (pendingDefault && !pendingUploadFile && originalWasDefault()) {
-    showNoChanges("Already using the default profile picture.");
-    return;
-  }
-
-  savePictureChanges();
-}
-
-/* =====================================================
-   SAVE (Replace fixed)
-===================================================== */
-function savePictureChanges(){
-  const form = $id("pictureForm");
-  if (!form) return;
-
-  if (currentVolunteerIndex === null || currentVolunteerIndex === "" || isNaN(Number(currentVolunteerIndex))) {
-    showNoChanges("Save failed: missing entry index (data-entry-index).");
-    console.error("Invalid index:", currentVolunteerIndex);
-    return;
-  }
-  if (!currentVolunteerType || !["valid","invalid"].includes(String(currentVolunteerType))) {
-    showNoChanges("Save failed: missing entry type (data-entry-type valid/invalid).");
-    console.error("Invalid type:", currentVolunteerType);
-    return;
-  }
-
-  [...form.querySelectorAll("input[name='set_default']")].forEach(el => el.remove());
-
-  $id("ppFormIndex").value = Number(currentVolunteerIndex);
-  $id("ppFormType").value  = String(currentVolunteerType);
-  form.action = UPDATE_PICTURE_URL;
-
-  if (pendingDefault && !pendingUploadFile) {
-    $id("ppFormFile").value = "";
-    const hidden = document.createElement("input");
-    hidden.type = "hidden";
-    hidden.name = "set_default";
-    hidden.value = "1";
-    form.appendChild(hidden);
-  }
-
-  if (pendingUploadFile && pendingUploadFile.__fromCrop === true) {
-    const dt = new DataTransfer();
-    dt.items.add(pendingUploadFile);
-    $id("ppFormFile").files = dt.files;
-  }
-
-  bootstrap.Modal.getInstance($id("profilePictureModal"))?.hide();
-  form.submit();
-}
+})();
 </script>
 
 <script>
 /* ===========================================================
-   ✅ GLOBAL "SEE MORE" HANDLER (UFM)
-   - Handles controller links: .update-details-link / .success-details-link / etc.
-   - Supports class schedule links: .cs-see-more (data-cs-details)
+   ✅ TRANSFER LOGIC (Invalid <-> Valid) — PATCHED
 =========================================================== */
-(function(){
-  if (window.__ufmDelegatedBound) return;
-  window.__ufmDelegatedBound = true;
+(function () {
+  "use strict";
 
-  function decodeB64Utf8(raw) {
-    const s = String(raw || '').trim().replace(/\s+/g,'');
-    if (!s) return '';
-    if (window.FeedbackModal?.decodeBase64Utf8) {
-      return window.FeedbackModal.decodeBase64Utf8(s);
-    }
-    try { return decodeURIComponent(escape(atob(s))); }
-    catch (e) { try { return atob(s); } catch (_) { return ''; } }
+  const modal  = document.getElementById('transferEntriesModal');
+  if (!modal) return;
+
+  const overlay = modal.querySelector('.modal-overlay');
+  const titleEl = document.getElementById('txTitle');
+  const msgEl   = document.getElementById('txMessage');
+  const countEl = document.getElementById('txCount');
+
+  const cancelBtn  = document.getElementById('txCancelBtn');
+  const confirmBtn = document.getElementById('txConfirmBtn');
+
+  let mode = 'invalid_to_valid';
+  let singleValidIndex = null;
+
+  let submitting = false;
+  if (typeof window.__TX_OPENING__ === 'undefined') window.__TX_OPENING__ = false;
+
+  function openModal() {
+    if (window.__TX_OPENING__) return;
+    window.__TX_OPENING__ = true;
+
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+
+    setTimeout(() => { window.__TX_OPENING__ = false; }, 60);
   }
 
-  document.addEventListener('click', function(e){
-    const el = e.target.closest(
-      '.cs-see-more,' +
-      '.update-details-link,' +
-      '.move-details-link,' +
-      '.deleted-details-link,' +
-      '.restored-details-link,' +
-      '.reset-details-link,' +
-      '.success-details-link,' +
-      '.error-details-link,' +
-      '.show-modal-details,' +
-      '.see-more-link,' +
-      '[data-ufm-details]'
-    );
-    if (!el) return;
+  function closeModal() {
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+    submitting = false;
+    confirmBtn.disabled = false;
+  }
 
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-
-    let payload =
-      el.getAttribute('data-ufm-details') ||
-      el.getAttribute('data-cs-details') ||
-      el.getAttribute('data-details') ||
-      '';
-
-    const looksB64 = /^[A-Za-z0-9+/=]+$/.test(payload) && payload.length > 40;
-    const html = looksB64 ? decodeB64Utf8(payload) : String(payload || '').trim();
-
-    if (!html) {
-      ufmShow({
-        variant: 'warning',
-        title: 'Details unavailable',
-        subtitle: 'No payload found or decoding failed.',
-        html: "<div style='font-weight:900;color:#b2000c;'>No details available.</div>",
-        source: 'ufm_details_missing'
+  function showUfmWarn(title, subtitle, html){
+    if (window.FeedbackModal?.show) {
+      window.FeedbackModal.show({
+        variant:'warning',
+        title, subtitle,
+        html,
+        userAction:true,
+        source:'transfer_modal_warn'
       });
       return;
     }
+    alert(title + "\n" + subtitle);
+  }
 
-    const cls = (el.className || '').toLowerCase();
-    const isErr = cls.includes('error');
-    const isOk  = cls.includes('success') || cls.includes('update');
+  function getCheckedInvalid(){
+    return Array.from(document.querySelectorAll(
+      '#invalid-entries-table tbody input[name="selected_invalid[]"]'
+    )).filter(cb => cb.checked);
+  }
 
-    ufmShow({
-      variant: isErr ? 'error' : (isOk ? 'success' : 'info'),
-      title: 'Details',
-      subtitle: isErr ? "Here's what went wrong." : "Here's the full breakdown.",
-      html,
-      source: 'ufm_details_click'
+  function setCopyToHiddenFormInvalidToValid() {
+    const form = document.getElementById('moveToVerifiedForm');
+    if (!form) return { ok:false, reason:'#moveToVerifiedForm not found' };
+
+    form.querySelectorAll('input[name="selected_invalid[]"]').forEach(n => n.remove());
+
+    const selected = getCheckedInvalid();
+    selected.forEach(cb => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'selected_invalid[]';
+      input.value = cb.value;
+      form.appendChild(input);
     });
-  }, true); // capture
+
+    return { ok:true, form, count: selected.length };
+  }
+
+  // Bulk: Invalid -> Valid
+  window.openTransferInvalidToValid = function(){
+    mode = 'invalid_to_valid';
+    singleValidIndex = null;
+
+    const selected = getCheckedInvalid().length;
+
+    titleEl.textContent = 'Move to Verified';
+    msgEl.innerHTML =
+      selected
+      ? `Do you want to move the selected <b>${selected}</b> invalid entr${selected===1?'y':'ies'} to the <b>Verified</b> list?`
+      : `Do you want to move selected invalid entries to the <b>Verified</b> list?`;
+
+    countEl.textContent = String(selected);
+    openModal();
+  };
+
+  // Single: Invalid -> Valid
+  window.submitMoveToValid = function(btn){
+    try{
+      const row = btn?.closest('tr');
+      const cb  = row?.querySelector('input[name="selected_invalid[]"]');
+      if (cb) cb.checked = true;
+    }catch(e){}
+    window.openTransferInvalidToValid();
+  };
+
+  // Single: Valid -> Invalid
+  window.moveValidToInvalid = function(index){
+    mode = 'valid_to_invalid';
+    singleValidIndex = String(index);
+
+    titleEl.textContent = 'Move to Invalid';
+    msgEl.innerHTML = `Do you want to move <b>Entry #${Number(index)+1}</b> back to the <b>Invalid</b> list?`;
+    countEl.textContent = '1';
+    openModal();
+  };
+
+  // Wire bulk button
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('#openMoveModalBtn');
+    if (!btn) return;
+    e.preventDefault();
+    window.openTransferInvalidToValid();
+  });
+
+  // Close
+  cancelBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', function(e){ if (e.target === overlay) closeModal(); });
+  document.addEventListener('keydown', function(e){
+    if (modal.classList.contains('is-open') && e.key === 'Escape') closeModal();
+  });
+
+  // Confirm
+  confirmBtn.addEventListener('click', function(){
+    if (submitting) return;
+    submitting = true;
+    confirmBtn.disabled = true;
+
+    if (mode === 'invalid_to_valid') {
+      const selectedCount = getCheckedInvalid().length;
+
+      if (!selectedCount) {
+        submitting = false;
+        confirmBtn.disabled = false;
+        showUfmWarn(
+          'No selection',
+          'Select invalid entries first',
+          "<div style='font-weight:900;'>Please select at least one invalid entry before transferring.</div>"
+        );
+        return;
+      }
+
+      const r = setCopyToHiddenFormInvalidToValid();
+      if (!r.ok) {
+        submitting = false;
+        confirmBtn.disabled = false;
+        showUfmWarn('Missing form', 'Cannot transfer', `<div style="font-weight:900;">${r.reason}</div>`);
+        return;
+      }
+
+      r.form.submit();
+      closeModal();
+      return;
+    }
+
+    if (mode === 'valid_to_invalid') {
+      if (singleValidIndex === null || singleValidIndex === '') {
+        submitting = false;
+        confirmBtn.disabled = false;
+        showUfmWarn('Missing index', 'Cannot transfer', `<div style="font-weight:900;">No entry index provided.</div>`);
+        return;
+      }
+
+      const urlTemplate = @json(route('volunteer.moveValidToInvalid', ['index' => '__IDX__']));
+      const url = urlTemplate.replace('__IDX__', encodeURIComponent(singleValidIndex));
+      window.location.href = url;
+      closeModal();
+      return;
+    }
+
+    submitting = false;
+    confirmBtn.disabled = false;
+    closeModal();
+  });
+
 })();
 </script>

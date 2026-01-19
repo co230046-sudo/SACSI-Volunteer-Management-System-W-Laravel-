@@ -1,13 +1,7 @@
 {{-- ===========================================================
-   ✅ TRANSFER INVALID <-> VALID (CONFIRM MODAL) — FULL PATCH
-   - Same modal system as Edit Volunteer (overlay + is-open)
-   - ✅ Invalid -> Valid (POST) uses #moveToVerifiedForm (route already set in main blade)
-   - ✅ Valid -> Invalid (GET) uses route('volunteer.moveValidToInvalid', index)
-   - ✅ Uses Universal Feedback Modal (UFM) for SUCCESS/ERROR after redirect (flash)
-   - ✅ Transfer modal uses UFM only for warnings (no selection / missing form)
-   - ✅ Fixes "No details payload found" by using RECALL (does NOT depend on data-details attr)
-   - ✅ Prevents accidental multi-fire via guards + scoped IDs
-   - ✅ No auto-select-all (respects user selection)
+   ✅ TRANSFER INVALID <-> VALID (CONFIRM MODAL) — FIXED v3
+   - Fixes single-row Invalid -> Valid even if main blade passes index instead of "this"
+   - Fixes checkbox selector mismatch (name may be selected_invalid[], selected_invalid[3], etc.)
 =========================================================== --}}
 
 <style>
@@ -208,13 +202,7 @@
 
 {{-- ===========================================================
    ✅ MOVE FLASH PAYLOADS (SUCCESS + ERROR) -> UFM
-   IMPORTANT:
-   - We read your controller flags:
-     show_success_modal + success_modal_message
-     show_error_modal   + error_modal_message
-   - Unique IDs so this file won't clash with other modals
 =========================================================== --}}
-
 @if(session('show_success_modal') && session('success_modal_message'))
   <div id="__tx_success_html__" style="display:none;">
     {!! session('success_modal_message') !!}
@@ -229,133 +217,99 @@
 
 <script>
 /* ===========================================================
-   ✅ MOVE FLASH -> UNIVERSAL FEEDBACK MODAL (UFM) — FINAL PATCH
-   Fixes "No details payload found" by:
-   - storing the details HTML in window.__UFM_LAST__
-   - replacing controller <span class="...-details-link">Show Details</span>
-     with a link that calls recallLastUfm()
-   - DOES NOT rely on data-details / data-ufm-details formats
+   ✅ TRANSFER FLASH -> UFM (LIKE EDIT VOLUNTEER)
+   Fixes: "No details payload found" for controller flash spans
 =========================================================== */
 (function () {
+  function escHtml(s){
+    return String(s ?? '')
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+  }
 
-  function getPayload(){
+  function b64utf8Encode(str){
+    try {
+      const bytes = new TextEncoder().encode(String(str ?? ''));
+      let bin = '';
+      bytes.forEach(b => bin += String.fromCharCode(b));
+      return btoa(bin);
+    } catch (e) {
+      try { return btoa(unescape(encodeURIComponent(String(str ?? '')))); }
+      catch (_) { return ''; }
+    }
+  }
+
+  if (!window.__UFM_LAST__) window.__UFM_LAST__ = null;
+
+  function getFlashPayload(){
     const errEl = document.getElementById('__tx_error_html__');
     const errHtml = (errEl?.innerHTML || '').trim();
     if (errHtml) {
-      return {
-        variant: 'error',
-        title: 'Transfer failed',
-        subtitle: 'Some entries could not be transferred.',
-        detailsHtml: errHtml,
-        source: 'transfer_move_flash_error'
-      };
+      return { variant:'error', title:'Transfer failed', subtitle:'Some entries could not be transferred.', html: errHtml, source:'transfer_flash_error' };
     }
 
     const okEl = document.getElementById('__tx_success_html__');
     const okHtml = (okEl?.innerHTML || '').trim();
     if (okHtml) {
-      return {
-        variant: 'success',
-        title: 'Transfer complete',
-        subtitle: 'Entries moved successfully.',
-        detailsHtml: okHtml,
-        source: 'transfer_move_flash_success'
-      };
+      return { variant:'success', title:'Transfer complete', subtitle:'Entries moved successfully.', html: okHtml, source:'transfer_flash_success' };
     }
 
     return null;
   }
 
-  // Replace controller spans with a recall link
-  function injectRecallLink(html, variant){
-    if (!html) return html;
+  function attachDetailsPayloadToHtml(anyHtml, detailsHtml){
+    const b64 = b64utf8Encode(detailsHtml || anyHtml || '');
+    if (!b64) return anyHtml;
 
-    const linkHtml = `
-      <a href="#"
-         class="${variant === 'error' ? 'error-details-link' : 'success-details-link'}"
-         data-ufm-recall="1"
-         style="color:#1565c0; cursor:pointer; text-decoration:none; font-weight:600;">
-        Show Details
-      </a>
-    `;
+    const safeB64 = escHtml(b64);
 
-    return String(html).replace(
+    return String(anyHtml || '').replace(
       /<span([^>]*class=['"][^'"]*(success-details-link|error-details-link)[^'"]*['"][^>]*)>([\s\S]*?)<\/span>/gi,
-      linkHtml
+      function(_, attrs, cls, inner){
+        const kind = /error-details-link/i.test(cls) ? 'error' : 'success';
+        return `<a href="#"
+                  class="${kind}-details-link"
+                  data-ufm-details="${safeB64}"
+                  style="color:#1565c0; cursor:pointer; text-decoration:none; font-weight:600;">
+                  ${inner}
+                </a>`;
+      }
     );
   }
 
-  function ensureRecallHandler(){
-    if (window.__TX_RECALL_BOUND__) return;
-    window.__TX_RECALL_BOUND__ = true;
-
-    // Provide recallLastUfm if missing
-    if (!window.recallLastUfm) {
-      window.recallLastUfm = function(){
-        const p = window.__UFM_LAST__;
-        if (!p || !window.FeedbackModal?.show) return;
-
-        window.FeedbackModal.show({
-          variant: p.variant || 'info',
-          title: p.title || 'Notice',
-          subtitle: p.subtitle || '',
-          html: p.html || '',
-          userAction: true,     // user click: allow showing even if single-fire guard exists
-          source: 'recallLastUfm_transfer'
-        });
-      };
-    }
-
-    // Delegate click for recall links we inject
-    document.addEventListener('click', function(e){
-      const a = e.target.closest('a[data-ufm-recall="1"]');
-      if (!a) return;
-      e.preventDefault();
-      window.recallLastUfm();
-    });
-  }
-
-  function showOnce(payload){
+  function showPayload(payload){
     if (!payload) return;
 
-    // SINGLE-FIRE just for this move action flash
-    const key = '__UFM_FLASH_FIRED__:' + payload.source;
-    if (window[key]) return;
-    window[key] = true;
-
-    ensureRecallHandler();
-
-    // Store last details for recall
     window.__UFM_LAST__ = {
       variant: payload.variant,
       title: payload.title,
       subtitle: payload.subtitle,
-      html: payload.detailsHtml,
+      html: payload.html,
       source: payload.source
     };
 
-    const htmlWithRecall = injectRecallLink(payload.detailsHtml, payload.variant);
+    const htmlWithPayload = attachDetailsPayloadToHtml(payload.html, payload.html);
 
     window.FeedbackModal.show({
       variant: payload.variant,
       title: payload.title,
       subtitle: payload.subtitle,
-      html: htmlWithRecall,
+      html: htmlWithPayload,
       source: payload.source
     });
   }
 
-  document.addEventListener('DOMContentLoaded', function () {
-    const payload = getPayload();
+  document.addEventListener('DOMContentLoaded', function(){
+    const payload = getFlashPayload();
     if (!payload) return;
 
     let tries = 0;
-    const maxTries = 80; // ~2s
+    const maxTries = 80;
     const t = setInterval(function(){
       tries++;
       if (window.FeedbackModal?.show) {
         clearInterval(t);
-        showOnce(payload);
+        showPayload(payload);
         return;
       }
       if (tries >= maxTries) {
@@ -364,13 +318,17 @@
       }
     }, 25);
   });
-
 })();
 </script>
 
 <script>
 /* ===========================================================
-   ✅ TRANSFER LOGIC (Invalid <-> Valid) — PATCHED
+   ✅ TRANSFER LOGIC (Invalid <-> Valid) — FIXED v3
+   Key fixes:
+   - checkbox selector uses name^="selected_invalid" (works with [] or [i])
+   - submitMoveToValid(arg) accepts:
+       - DOM button: submitMoveToValid(this)
+       - numeric/string index: submitMoveToValid(3)
 =========================================================== */
 (function () {
   "use strict";
@@ -387,7 +345,9 @@
   const confirmBtn = document.getElementById('txConfirmBtn');
 
   let mode = 'invalid_to_valid';
-  let singleValidIndex = null;
+
+  let singleValidIndex   = null; // valid -> invalid
+  let singleInvalidIndex = null; // invalid -> valid
 
   let submitting = false;
   if (typeof window.__TX_OPENING__ === 'undefined') window.__TX_OPENING__ = false;
@@ -411,6 +371,9 @@
     document.body.style.overflow = '';
     submitting = false;
     confirmBtn.disabled = false;
+
+    singleInvalidIndex = null;
+    singleValidIndex = null;
   }
 
   function showUfmWarn(title, subtitle, html){
@@ -427,10 +390,19 @@
     alert(title + "\n" + subtitle);
   }
 
-  function getCheckedInvalid(){
+  // ✅ robust checkbox selector (works with selected_invalid[], selected_invalid[3], etc.)
+  function getAllInvalidCheckboxes(){
     return Array.from(document.querySelectorAll(
-      '#invalid-entries-table tbody input[name="selected_invalid[]"]'
-    )).filter(cb => cb.checked);
+      '#invalid-entries-table tbody input[type="checkbox"][name^="selected_invalid"]'
+    ));
+  }
+
+  function getCheckedInvalid(){
+    return getAllInvalidCheckboxes().filter(cb => cb.checked);
+  }
+
+  function uncheckAllInvalid(){
+    getAllInvalidCheckboxes().forEach(cb => { cb.checked = false; });
   }
 
   function setCopyToHiddenFormInvalidToValid() {
@@ -440,6 +412,17 @@
     form.querySelectorAll('input[name="selected_invalid[]"]').forEach(n => n.remove());
 
     const selected = getCheckedInvalid();
+
+    // ✅ single fallback (even if checkbox naming/behavior is weird)
+    if (selected.length === 0 && singleInvalidIndex !== null && singleInvalidIndex !== '') {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'selected_invalid[]';
+      input.value = String(singleInvalidIndex);
+      form.appendChild(input);
+      return { ok:true, form, count: 1, usedSingle:true };
+    }
+
     selected.forEach(cb => {
       const input = document.createElement('input');
       input.type = 'hidden';
@@ -448,13 +431,14 @@
       form.appendChild(input);
     });
 
-    return { ok:true, form, count: selected.length };
+    return { ok:true, form, count: selected.length, usedSingle:false };
   }
 
   // Bulk: Invalid -> Valid
   window.openTransferInvalidToValid = function(){
     mode = 'invalid_to_valid';
     singleValidIndex = null;
+    singleInvalidIndex = null;
 
     const selected = getCheckedInvalid().length;
 
@@ -468,19 +452,72 @@
     openModal();
   };
 
-  // Single: Invalid -> Valid
-  window.submitMoveToValid = function(btn){
-    try{
-      const row = btn?.closest('tr');
-      const cb  = row?.querySelector('input[name="selected_invalid[]"]');
-      if (cb) cb.checked = true;
-    }catch(e){}
-    window.openTransferInvalidToValid();
+  /**
+   * ✅ Single: Invalid -> Valid
+   * Supports BOTH:
+   *   submitMoveToValid(this)
+   *   submitMoveToValid(3)
+   */
+  window.submitMoveToValid = function(arg){
+    mode = 'invalid_to_valid';
+    singleValidIndex = null;
+
+    // clear all first so it's truly "single"
+    uncheckAllInvalid();
+
+    // case A: arg is a button element
+    if (arg && typeof arg === 'object' && (arg.nodeType === 1 || arg instanceof Element)) {
+      const btn = arg;
+
+      // try check its row checkbox if present
+      try{
+        const row = btn.closest('tr');
+        const cb  = row?.querySelector('input[type="checkbox"][name^="selected_invalid"]');
+        if (cb) {
+          cb.checked = true;
+          singleInvalidIndex = cb.value; // safest
+        } else {
+          // fallback: data-index on row/button
+          singleInvalidIndex =
+            btn.getAttribute('data-index') ||
+            row?.getAttribute('data-index') ||
+            btn.dataset?.index ||
+            row?.dataset?.index ||
+            null;
+        }
+      }catch(e){
+        singleInvalidIndex = null;
+      }
+
+    } else {
+      // case B: arg is an index/value
+      singleInvalidIndex = (arg !== null && arg !== undefined && String(arg).trim() !== '')
+        ? String(arg).trim()
+        : null;
+
+      // if we can find a checkbox with value == arg, check it (nice UI consistency)
+      if (singleInvalidIndex) {
+        const cb = getAllInvalidCheckboxes().find(x => String(x.value) === String(singleInvalidIndex));
+        if (cb) cb.checked = true;
+      }
+    }
+
+    // count display: checked count; if none but have single fallback, show 1
+    let selected = getCheckedInvalid().length;
+    if (selected === 0 && singleInvalidIndex) selected = 1;
+
+    titleEl.textContent = 'Move to Verified';
+    msgEl.innerHTML =
+      `Do you want to move the selected <b>${selected}</b> invalid entr${selected===1?'y':'ies'} to the <b>Verified</b> list?`;
+    countEl.textContent = String(selected);
+
+    openModal();
   };
 
-  // Single: Valid -> Invalid
+  // Single: Valid -> Invalid (already works)
   window.moveValidToInvalid = function(index){
     mode = 'valid_to_invalid';
+    singleInvalidIndex = null;
     singleValidIndex = String(index);
 
     titleEl.textContent = 'Move to Invalid';
@@ -489,7 +526,7 @@
     openModal();
   };
 
-  // Wire bulk button
+  // Bulk open button
   document.addEventListener('click', function(e){
     const btn = e.target.closest('#openMoveModalBtn');
     if (!btn) return;
@@ -511,9 +548,9 @@
     confirmBtn.disabled = true;
 
     if (mode === 'invalid_to_valid') {
-      const selectedCount = getCheckedInvalid().length;
+      const checkedCount = getCheckedInvalid().length;
 
-      if (!selectedCount) {
+      if (!checkedCount && !(singleInvalidIndex !== null && singleInvalidIndex !== '')) {
         submitting = false;
         confirmBtn.disabled = false;
         showUfmWarn(

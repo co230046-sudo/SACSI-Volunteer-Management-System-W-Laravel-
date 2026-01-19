@@ -31,6 +31,9 @@ Route::get('/register', [AuthController::class, 'showRegister'])->name('auth.reg
 Route::post('/register', [AuthController::class, 'register'])->name('auth.register.submit');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+/* ===== USER LIVE CHECK ROUTES ===== */
+Route::get('/user/check-username/{username}', [AuthController::class, 'checkUsername']);
+Route::get('/user/check-email/{email}', [AuthController::class, 'checkEmail']);
 /* ------------------ SESSION EXPIRED (419 helper) ------------------ */
 Route::get('/_session-expired', function () {
     return redirect()

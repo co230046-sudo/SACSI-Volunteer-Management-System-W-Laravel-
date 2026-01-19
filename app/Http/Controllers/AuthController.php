@@ -135,95 +135,76 @@ class AuthController extends Controller
     }
 
     // SHOW REGISTER PAGE
-    public function showRegister()
-    {
-        $roles = ['super_admin', 'admin'];
-        return view('authentication.admin.register', compact('roles'));
-    }
+public function showRegister()
+{
+    $roles = ['super_admin', 'admin'];
+    return view('authentication.admin.register', compact('roles'));
+}
 
-    // REGISTER
-    public function register(Request $request)
-    {
-        $request->validate([
-            'full_name' => 'required|string|max:255',
-            'username'  => 'required|string|max:100|unique:admin_accounts,username',
-            'email'     => [
-                'required',
-                'email',
-                'unique:admin_accounts,email',
-                'regex:/@(gmail\.com|adzu\.edu\.ph)$/i'
-            ],
-            'password'  => [
-                'required',
-                'confirmed',
-                'min:8',
-                'regex:/^(?=.*[A-Z])(?=.*\d).+$/',
-            ],
-            'profile_picture' => 'required|image|mimes:jpg,jpeg,png|max:2048',
-            'role'            => 'required|in:super_admin,admin',
-        ], [
-            'full_name.required' => 'Please enter your full name.',
-            'username.required'  => 'Please enter your username.',
-            'username.unique'    => 'This username is already taken.',
-            'email.required'     => 'Please enter your email.',
-            'email.email'        => 'Please enter a valid email address.',
-            'email.unique'       => 'This email is already registered.',
-            'email.regex'        => 'Only @gmail.com or @adzu.edu.ph emails are allowed.',
-            'password.required'  => 'Please enter your password.',
-            'password.confirmed' => 'Passwords do not match.',
-            'password.min'       => 'Password must be at least 8 characters.',
-            'password.regex'     => 'Password must include at least one uppercase letter and one number.',
-            'profile_picture.required' => 'Please upload a profile picture.',
-            'profile_picture.image'    => 'Only JPG, JPEG, or PNG files are allowed.',
-            'role.required'      => 'Please select a role.',
-            'role.in'            => 'Selected role is invalid.',
+// LIVE CHECK: USERNAME
+public function checkUsername($username)
+{
+    return response()->json([
+        'exists' => AdminAccount::where('username', $username)->exists()
+    ]);
+}
+
+// LIVE CHECK: EMAIL
+public function checkEmail($email)
+{
+    return response()->json([
+        'exists' => AdminAccount::where('email', $email)->exists()
+    ]);
+}
+
+// REGISTER
+public function register(Request $request)
+{
+    $request->validate([
+        'full_name' => 'required|string|max:255',
+        'username'  => 'required|string|max:100|unique:admin_accounts,username',
+        'email'     => [
+            'required',
+            'email',
+            'unique:admin_accounts,email',
+            'regex:/@(gmail\.com|adzu\.edu\.ph)$/i'
+        ],
+        'password'  => [
+            'required',
+            'confirmed',
+            'min:8',
+            'regex:/^(?=.*[A-Z])(?=.*\d).+$/',
+        ],
+        'profile_picture' => 'required|image|mimes:jpg,jpeg,png|max:2048',
+        'role'            => 'required|in:super_admin,admin',
+    ], [
+        'username.unique' => 'This username is already taken.',
+        'email.unique'    => 'This email is already registered.',
+    ]);
+
+    $profilePath = $request->file('profile_picture')
+        ->store('profile_pictures/admin', 'public');
+
+    $admin = null;
+
+    DB::transaction(function () use ($request, $profilePath, &$admin) {
+        $admin = AdminAccount::create([
+            'full_name'       => $request->full_name,
+            'username'        => $request->username,
+            'email'           => $request->email,
+            'password'        => Hash::make($request->password),
+            'profile_picture' => $profilePath,
+            'role'            => $request->role,
+            'status'          => 'active',
         ]);
 
-        $profilePath = $request->file('profile_picture')->store('profile_pictures/admin', 'public');
+        Auth::guard('admin')->login($admin);
+    });
 
-        $admin = null;
+    return redirect()->route('home')
+        ->with('success', 'Registration successful! Welcome, ' . $admin->full_name . '!');
+}
 
-        DB::transaction(function () use ($request, $profilePath, &$admin) {
-            $admin = AdminAccount::create([
-                'full_name'       => $request->full_name,
-                'username'        => $request->username,
-                'email'           => $request->email,
-                'password'        => Hash::make($request->password),
-                'profile_picture' => $profilePath,
-                'role'            => $request->role,
-                'status'          => 'active',
-            ]);
-
-            Auth::guard('admin')->login($admin);
-        });
-
-        AdminAuthenticateLog::create([
-            'admin_id'   => $admin->admin_id,
-            'ip_address' => $request->ip(),
-            'status'     => 'success',
-            'reason'     => 'Registration and auto-login',
-            'login_time' => now(),
-        ]);
-
-        $this->factLogger->log(
-            type: 'auth.register',
-            action: 'register',
-            entity: $admin,
-            entityId: $admin->admin_id,
-            details: [
-                'summary' => $this->summaryRegisterSuccess($admin->username),
-                'data' => [
-                    'email'  => $admin->email,
-                    'role'   => $admin->role,
-                    'status' => 'success',
-                ],
-            ],
-            adminId: $admin->admin_id
-        );
-
-        return redirect()->route('home')
-            ->with('success', 'Registration successful! Welcome, ' . $admin->full_name . '!');
-    }
 
     // LOGOUT
     public function logout(Request $request)

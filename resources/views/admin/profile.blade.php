@@ -2,6 +2,10 @@
 @include('layouts.page_loader')
 @include('layouts.back_button')
 <style>
+/* ============================
+   REGISTER ADMIN MODAL
+============================ */
+
 #registerAdminModal .modal-content{
     border-radius:18px;
     border:none;
@@ -36,6 +40,7 @@
 #registerAdminModal select{
     border-radius:10px;
     padding:10px 12px;
+    height:44px;
 }
 
 #registerAdminModal input:focus,
@@ -46,7 +51,15 @@
 
 #registerAdminModal .modal-footer{
     border-top:none;
-    padding:20px;
+    padding:16px 24px;
+    display:flex;
+    gap:12px;
+}
+
+#registerAdminModal .modal-footer .btn{
+    flex:1;
+    border-radius:10px;
+    height:44px;
 }
 
 #registerAdminModal .btn-success{
@@ -64,38 +77,10 @@
     border-radius:10px;
 }
 
-#regPreviewImg{
-    transition:all .3s ease;
-}
-#regPreviewImg:hover{
-    transform:scale(1.05);
-}
-#registerAdminModal .modal-body .mb-3{
-    margin-bottom: 14px !important;
-}
-
 #registerAdminModal label{
-    margin-bottom: 4px;
-    font-size: 14px;
-    font-weight: 600;
-}
-
-#registerAdminModal input,
-#registerAdminModal select{
-    height: 44px;
-    border-radius: 10px;
-}
-
-#registerAdminModal .modal-footer{
-    padding: 16px 24px;
-    display:flex;
-    gap:12px;
-}
-
-#registerAdminModal .modal-footer .btn{
-    flex:1;
-    border-radius:10px;
-    height:44px;
+    margin-bottom:4px;
+    font-size:14px;
+    font-weight:600;
 }
 
 #registerAdminModal .upload-btn{
@@ -103,37 +88,73 @@
 }
 
 #registerAdminModal .profile-preview-wrapper{
-    margin-bottom: 12px;
+    margin-bottom:12px;
 }
 
 #registerAdminModal .password-eye{
-    top: 38px !important;
+    top:38px !important;
 }
+
+#regPreviewImg{
+    transition:all .3s ease;
+}
+
+#regPreviewImg:hover{
+    transform:scale(1.05);
+}
+
+/* ============================
+   ADMIN LIST LAYOUT
+============================ */
+
+.col-md-4 .card{
+    display:flex;
+    flex-direction:column;
+    height:50%;
+}
+
+.admin-list{
+    flex:1;
+    overflow-y:auto;
+    max-height:520px;
+    padding-right:6px;
+}
+
+/* ============================
+   REGISTER BUTTON
+============================ */
+
 .register-btn{
+    margin-top:12px;
     background:#198754;
-    color:#fff;
+    color:white;
     border:none;
-    border-radius:10px;
-    padding:10px 18px;
+    border-radius:12px;
+    padding:12px;
     font-size:14px;
     font-weight:600;
+    width:100%;
     display:flex;
     align-items:center;
     justify-content:center;
     gap:6px;
-    width: 383px;
-
-    position:absolute;
-    bottom:15px;
-    right:15px;
-
-    box-shadow:0 4px 10px rgba(0,0,0,0.15);
-    transition:0.2s ease;
+    box-shadow:0 4px 10px rgba(0,0,0,.15);
+    transition:.2s ease;
 }
 
 .register-btn:hover{
     background:#157347;
     transform:translateY(-1px);
+}
+.admin-list{
+    display:block;        /* override flex inheritance */
+    align-content:start;
+    justify-content:start;
+    padding-top:0;
+}
+
+.admin-list > .card:first-child{
+    margin-top:0;
 }
 
 </style>
@@ -151,9 +172,15 @@
 
 
 <div class="text-center">
-    <img src="{{ $admin->profile_picture ? asset('storage/'.$admin->profile_picture) : asset('assets/adminpic.png') }}"
-         class="rounded-circle mb-3"
-         style="width:140px;height:140px;object-fit:cover;">
+    <img src="{{ $admin && $admin->profile_picture
+    ? asset('storage/'.$admin->profile_picture)
+    : asset('assets/defaults/default_profile_picture.png') }}"
+ class="rounded-circle mb-3"
+ style="width:140px;height:140px;object-fit:cover;"
+ alt="Profile">
+
+
+
 
     <h2><i class="fa-solid fa-user-shield text-danger"></i> {{ $admin->full_name }}</h2>
     <p class="text-muted"><i class="fa-solid fa-id-badge"></i> {{ $admin->role }}</p>
@@ -193,7 +220,12 @@
 </div>
 
 <!-- RIGHT : ADMIN LIST -->
+<!-- RIGHT : ADMIN LIST -->
+@if($admin->role === 'super_admin')
+
+<!-- RIGHT : ADMIN LIST -->
 <div class="col-md-4">
+
 <div class="card shadow-sm p-3 h-100">
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -202,16 +234,21 @@
     </h5>
 </div>
 
-
-<div style="max-height:520px; overflow-y:auto;">
+<!-- SCROLL AREA -->
+<div class="admin-list">
 
 @forelse($allAdmins as $other)
 
 <div class="card border-0 shadow-sm mb-3 p-2 text-center">
 
-<img src="{{ $other->profile_picture ? asset('storage/'.$other->profile_picture) : asset('assets/adminpic.png') }}"
-     class="rounded-circle mx-auto mb-2"
-     style="width:70px;height:70px;object-fit:cover;">
+<img src="{{ $other && $other->profile_picture
+    ? asset('storage/'.$other->profile_picture)
+    : asset('assets/defaults/default_profile_picture.png') }}"
+class="rounded-circle mx-auto mb-2"
+style="width:70px;height:70px;object-fit:cover;"
+alt="Profile">
+
+
 
 <h6 class="mb-0">{{ $other->full_name }}</h6>
 <small class="text-muted">{{ $other->role }}</small>
@@ -227,20 +264,20 @@
 @empty
 <p class="text-muted text-center">No other administrators found.</p>
 @endforelse
+
+</div>
+
+<!-- BUTTON OUTSIDE SCROLL -->
 <button class="register-btn"
         data-bs-toggle="modal"
         data-bs-target="#registerAdminModal">
     <i class="fa fa-user-plus me-2"></i> Register New User
 </button>
 
-
-
-</div>
 </div>
 </div>
 
-</div>
-</div>
+@endif  
 
 <!-- MODAL -->
 <div class="modal fade" id="adminProfileModal" tabindex="-1">

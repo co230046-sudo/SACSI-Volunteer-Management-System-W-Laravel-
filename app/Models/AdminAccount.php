@@ -24,6 +24,7 @@ class AdminAccount extends Authenticatable
         'profile_picture',
         'role',
         'full_name',
+        'contact_number',
         'status',
     ];
 

@@ -16,8 +16,18 @@ use App\Models\EventLog;
 use App\Models\FactLog;
 use Carbon\Carbon;
 
+// add at top
+use App\Services\FactLogger;
+
 class CreateEventController extends Controller
 {
+    private FactLogger $factLogger;
+
+    public function __construct(FactLogger $factLogger)
+    {
+        $this->factLogger = $factLogger;
+    }
+
     // Views / constants
     private const EVENT_DETAILS_VIEW = 'event_details.event_details';
 
@@ -135,14 +145,35 @@ class CreateEventController extends Controller
 
             $event = Event::create($eventData);
 
+            $organizerIds = [];
+
             foreach ($normalizedOrganizers as $org) {
-                EventOrganizer::create([
-                    'event_id' => $event->event_id,
-                    'name'     => $org['name'],
-                    'email'    => $org['email'],
-                    'contact'  => $org['contact'],
-                ]);
+
+                $email = $org['email'] ? strtolower($org['email']) : null;
+                $name  = strtolower(trim($org['name']));
+
+                $organizer = EventOrganizer::where(function ($q) use ($email, $name) {
+                    if ($email) {
+                        $q->whereRaw('LOWER(TRIM(email)) = ?', [$email]);
+                    } else {
+                        $q->whereRaw('LOWER(TRIM(name)) = ?', [$name]);
+                    }
+                })->first();
+
+
+                if (!$organizer) {
+                    $organizer = EventOrganizer::create([
+                        'name'    => $org['name'],
+                        'email' => $org['email'] ?: null,
+                        'contact' => $org['contact'] ?: null,
+                    ]);
+                }
+
+                $organizerIds[] = $organizer->organizer_id;
             }
+
+            $event->organizers()->sync($organizerIds);
+
 
             // Logs
             $summary = 'Created Event - "' . $event->title . '" (Code: ' . $event->event_code . ')';
@@ -247,19 +278,15 @@ class CreateEventController extends Controller
         try {
             DB::beginTransaction();
 
-            // Before snapshot (for logs)
-            $before = [
-                'title' => $event->title,
-                'description' => $event->description,
-                'venue' => $event->venue,
-                'location_id' => $event->location_id,
-                'district_id' => $event->district_id,
-                'event_type_id' => $event->event_type_id,
-                'start_datetime' => $event->start_datetime,
-                'end_datetime' => $event->end_datetime,
-                'max_volunteers' => Schema::hasColumn('events', 'max_volunteers') ? $event->max_volunteers : null,
-            ];
+            // ---------------- BEFORE SNAPSHOT ----------------
+            $before = $event->only([
+                'title','description','venue','location_id','district_id',
+                'event_type_id','start_datetime','end_datetime','max_volunteers'
+            ]);
 
+            $beforeOrganizers = $event->organizers->pluck('name')->map(fn($v)=>trim($v))->toArray();
+
+            // ---------------- SAVE EVENT ----------------
             $event->fill([
                 'title'          => $request->title,
                 'description'    => $request->description,
@@ -281,82 +308,121 @@ class CreateEventController extends Controller
 
             $event->save();
 
-            EventOrganizer::where('event_id', $event->event_id)->delete();
+            // ---------------- ORGANIZERS ----------------
+            $organizerIds = [];
 
             foreach ($normalizedOrganizers as $org) {
-                EventOrganizer::create([
-                    'event_id' => $event->event_id,
-                    'name'     => $org['name'],
-                    'email'    => $org['email'],
-                    'contact'  => $org['contact'],
-                ]);
-            }
 
-            // After snapshot (for logs)
-            $after = [
-                'title' => $event->title,
-                'description' => $event->description,
-                'venue' => $event->venue,
-                'location_id' => $event->location_id,
-                'district_id' => $event->district_id,
-                'event_type_id' => $event->event_type_id,
-                'start_datetime' => $event->start_datetime,
-                'end_datetime' => $event->end_datetime,
-                'max_volunteers' => Schema::hasColumn('events', 'max_volunteers') ? $event->max_volunteers : null,
-            ];
+                $email = $org['email'] ? strtolower($org['email']) : null;
+                $name  = strtolower(trim($org['name']));
 
-            // Changed fields
-            $changedFields = [];
-            foreach ($after as $k => $v) {
-                $bv = $before[$k] ?? null;
-                if (in_array($k, ['start_datetime','end_datetime'], true)) {
-                    $bv = $bv ? (string)$bv : null;
-                    $v = $v ? (string)$v : null;
+                $organizer = EventOrganizer::where(function ($q) use ($email, $name) {
+                    if ($email) {
+                        $q->whereRaw('LOWER(TRIM(email)) = ?', [$email]);
+                    } else {
+                        $q->whereRaw('LOWER(TRIM(name)) = ?', [$name]);
+                    }
+                })->first();
+
+                if (!$organizer) {
+                    $organizer = EventOrganizer::create([
+                        'name'    => $org['name'],
+                        'email'   => $org['email'] ?: null,
+                        'contact' => $org['contact'] ?: null,
+                    ]);
                 }
-                if ($bv !== $v) $changedFields[] = $k;
+
+                $organizerIds[] = $organizer->organizer_id;
             }
 
-            // Logs
-            $summary = 'Updated Event - "' . $event->title . '" (Code: ' . $event->event_code . ')';
+            $event->organizers()->sync($organizerIds);
 
-            $eventLogPayload = $this->eventPayload(
-                type: 'event.updated',
-                summary: $summary,
-                event: $event,
-                adminId: $admin->admin_id,
-                adminUsername: $admin->username,
-                data: [
-                    'changed_fields' => $changedFields,
-                    'before' => $before,
-                    'after' => $after,
-                    'organizers' => $normalizedOrganizers,
+            // ---------------- AFTER SNAPSHOT ----------------
+            $event->load('organizers');
+
+            $after = $event->only([
+                'title','description','venue','location_id','district_id',
+                'event_type_id','start_datetime','end_datetime','max_volunteers'
+            ]);
+
+            $afterOrganizers = $event->organizers->pluck('name')->map(fn($v)=>trim($v))->toArray();
+
+            // ---------------- ONE-LINE DIFF ----------------
+            $parts = [];
+
+            // Organizer diff
+            foreach (array_diff($afterOrganizers, $beforeOrganizers) as $n) {
+                $parts[] = 'added organizer "' . $n . '"';
+            }
+            foreach (array_diff($beforeOrganizers, $afterOrganizers) as $n) {
+                $parts[] = 'removed organizer "' . $n . '"';
+            }
+
+            // Event type
+            if ($before['event_type_id'] != $after['event_type_id']) {
+                $old = EventType::where('event_type_id',$before['event_type_id'])->value('label');
+                $new = EventType::where('event_type_id',$after['event_type_id'])->value('label');
+                $parts[] = 'event type ' . $old . ' → ' . $new;
+            }
+
+            // Dates
+            if ($before['start_datetime'] != $after['start_datetime']) {
+                $parts[] = 'start date '
+                    . Carbon::parse($before['start_datetime'])->format('M j')
+                    . ' → '
+                    . Carbon::parse($after['start_datetime'])->format('M j');
+            }
+
+            if ($before['end_datetime'] != $after['end_datetime']) {
+                $parts[] = 'end date '
+                    . Carbon::parse($before['end_datetime'])->format('M j')
+                    . ' → '
+                    . Carbon::parse($after['end_datetime'])->format('M j');
+            }
+
+            // Simple text fields
+            foreach (['title','venue','description'] as $f) {
+                if (($before[$f] ?? null) != ($after[$f] ?? null)) {
+                    $parts[] = $f . ' updated';
+                }
+            }
+
+            // ---------------- SUMMARY ----------------
+            $summary = 'Updated Event "' . $event->title . '" (Code: ' . $event->event_code . ')';
+
+            if ($parts) {
+                $summary .= ': ' . implode(', ', $parts);
+            }
+
+            // ---------------- LOGGING ----------------
+            $this->logEvent($event->event_id, $admin->admin_id, 'Edit', [
+                'before'=>$before,
+                'after'=>$after,
+                'organizers'=>$normalizedOrganizers
+            ]);
+
+            $this->factLogger->log(
+                'event.updated',
+                'Edit',
+                $event,
+                $event->event_id,
+                [
+                    'summary' => $summary,
+                    'data' => [
+                        'before'=>$before,
+                        'after'=>$after,
+                        'organizers_before'=>$beforeOrganizers,
+                        'organizers_after'=>$afterOrganizers,
+                    ]
                 ]
             );
-
-            $this->logEvent($event->event_id, $admin->admin_id, 'Edit', $eventLogPayload);
-
-            $factPayload = $this->factPayload(
-                type: 'event.updated',
-                summary: $summary,
-                adminId: $admin->admin_id,
-                adminUsername: $admin->username,
-                data: [
-                    'event' => [
-                        'id' => $event->event_id,
-                        'code' => $event->event_code,
-                        'title' => $event->title,
-                    ],
-                    'changed_fields' => $changedFields,
-                ]
-            );
-
-            $this->logFact($admin->admin_id, $event, 'Edit', $factPayload);
 
             DB::commit();
 
             return redirect()
                 ->route('event.details.show', $event->event_id)
                 ->with('submit_success', 'Event updated successfully.');
+
         } catch (\Throwable $e) {
             DB::rollBack();
             return back()->withErrors(['server' => 'Failed to update event: ' . $e->getMessage()])->withInput();
@@ -602,4 +668,6 @@ class CreateEventController extends Controller
             'at' => now()->toIso8601String(),
         ], $data);
     }
+
+    
 }

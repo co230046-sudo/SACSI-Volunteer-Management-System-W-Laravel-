@@ -1,5 +1,11 @@
 <?php $pageTitle = 'Attendance Import'; ?>
 
+@php
+  $hasRoster = $event->expectedVolunteers()->count() > 0;
+  $isCompleted = ($event->status ?? null) === 'completed';
+@endphp
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -152,12 +158,17 @@
               </div>
 
               {{-- ✅ Optional: frontend hint (backend still enforces) --}}
-              @if(($derivedStatus ?? $event->status) !== 'completed')
+              @if(!$isCompleted)
                 <div class="hint-line hint-line--danger">
                   Import is locked unless Event Status is <span class="soft-strong">COMPLETED</span>.
                   Current: <span class="soft-strong">{{ strtoupper($event->status ?? '—') }}</span>
                 </div>
+              @elseif(!$hasRoster)
+                <div class="hint-line hint-line--danger">
+                  Import is locked because this event has <span class="soft-strong">no expected volunteers</span> in the roster.
+                </div>
               @endif
+
 
               <form
                 action="{{ route('attendance.import.preview', $event->event_id) }}"
@@ -172,10 +183,10 @@
                     <span class="file-pill__btn"><i class="fa-regular fa-file-lines"></i> Choose file</span>
                     <span class="file-pill__name" id="fileName">No file selected</span>
                     <input id="csvFile" type="file" name="csv_file" accept=".csv,.txt" required
-                           {{ (($event->status ?? null) !== 'completed') ? 'disabled' : '' }}>
+                           {{ (!$isCompleted || !$hasRoster) ? 'disabled' : '' }}>
                   </label>
 
-                  <button class="btn-export" type="submit" {{ (($event->status ?? null) !== 'completed') ? 'disabled' : '' }}>
+                  <button class="btn-export" type="submit" {{ (!$isCompleted || !$hasRoster) ? 'disabled' : '' }}>
                     <i class="fa-solid fa-magnifying-glass"></i> Preview Import
                   </button>
 
@@ -192,8 +203,7 @@
               </form>
 
               <div class="hint-line">
-                CSV must include: Event Access Code, Full Name, School ID, School Email Address, Attendance Confirmation (Present/Walk-in).
-                Course is optional (we’ll use matched profile course if missing). Ratings + comments optional.
+                CSV must include: Event Access Code, Full Name, School ID, School Email Address, Attendance Confirmation (Present/Walk-in). Ratings + comments optional.
               </div>
             </div>
 
@@ -242,7 +252,7 @@
                 <div class="save-row">
                   <form action="{{ route('attendance.import.commit', $event->event_id) }}" method="POST">
                     @csrf
-                    <button class="btn-save" {{ ($counts['valid'] ?? 0) <= 0 ? 'disabled' : '' }}>
+                    <button class="btn-save" {{ ($counts['valid'] ?? 0) <= 0 || !$hasRoster ? 'disabled' : '' }}>
                       <i class="fa-solid fa-floppy-disk"></i> Save Import
                     </button>
                   </form>
@@ -252,6 +262,12 @@
                     Rows tagged as <span class="soft-strong">Already Imported</span> are skipped (no overwrite).
                   </div>
                 </div>
+
+                @if(!$hasRoster)
+                  <div class="hint-line hint-line--danger mt-2">
+                    ⚠ This preview cannot be saved because the event has no expected volunteers in the roster.
+                  </div>
+                @endif
 
                 <div class="divider-lite"></div>
 

@@ -46,6 +46,25 @@
         return $allNoClass;
     };
 
+    $validBatchNumber = function($value) {
+        $v = trim((string)$value);
+
+        if ($v === '') return false;
+
+        // must be digits only
+        if (!ctype_digit($v)) return false;
+
+        $n = (int)$v;
+
+        // reject year-like numbers
+        if ($n >= 1900 && $n <= 2100) return false;
+
+        // must be positive
+        if ($n <= 0) return false;
+
+        return true;
+    };
+
     // -------------------------------------------------
     // NEW: detect overlapping schedule times (per day)
     // -------------------------------------------------
@@ -156,19 +175,31 @@
         $hasErrors = !empty($e['errors']) && is_array($e['errors']) && count($e['errors']) > 0;
 
         $missingFields = [];
+        
         foreach ([
             'full_name'       => 'Name',
             'id_number'       => 'School ID',
             'course'          => 'Course',
             'year_level'      => 'Year',
-            'batch_year'      => 'Batch Year',
+            'batch_number'    => 'Batch Number',
             'contact_number'  => 'Contact #',
             'email'           => 'Email',
-            'fb_messenger'   => 'FB/Messenger',
+            'fb_messenger'    => 'FB/Messenger',
             'barangay'        => 'Barangay',
             'district'        => 'District',
         ] as $k => $label) {
-            if (empty(trim($e[$k] ?? ''))) $missingFields[] = $label;
+
+            $val = trim($e[$k] ?? '');   // ✅ FIXED
+
+            if ($k === 'batch_number') {
+                if (!$validBatchNumber($val)) {
+                    $missingFields[] = $label;
+                }
+            } else {
+                if ($val === '') {
+                    $missingFields[] = $label;
+                }
+            }
         }
 
         $scheduleIsEmpty     = $scheduleLooksEmpty($e);
@@ -197,7 +228,7 @@
         'id_number'         => 'School ID',
         'course'            => 'Course',
         'year_level'        => 'Year',
-        'batch_year'        => 'Batch',
+        'batch_number' => 'Batch',
         'contact_number'    => 'Contact #',
         'email'             => 'Email',
         'emergency_contact' => 'Emergency #',
@@ -412,19 +443,31 @@
 
                                                     $missingFields = [];
                                                     foreach ([
-                                                        'full_name'      => 'Name',
-                                                        'id_number'      => 'School ID',
-                                                        'course'         => 'Course',
-                                                        'year_level'     => 'Year',
-                                                        'batch_year'     => 'Batch Year',
-                                                        'contact_number' => 'Contact #',
-                                                        'email'          => 'Email',
-                                                        'fb_messenger'   => 'FB/Messenger',
-                                                        'barangay'       => 'Barangay',
-                                                        'district'       => 'District',
+                                                        'full_name'       => 'Name',
+                                                        'id_number'       => 'School ID',
+                                                        'course'          => 'Course',
+                                                        'year_level'      => 'Year',
+                                                        'batch_number'    => 'Batch Number',
+                                                        'contact_number'  => 'Contact #',
+                                                        'email'           => 'Email',
+                                                        'fb_messenger'    => 'FB/Messenger',
+                                                        'barangay'        => 'Barangay',
+                                                        'district'        => 'District',
                                                     ] as $k => $label) {
-                                                        if (empty(trim($entry[$k] ?? ''))) $missingFields[] = $label;
+
+                                                        $val = trim($entry[$k] ?? '');
+
+                                                        if ($k === 'batch_number') {
+                                                            if (!$validBatchNumber($val)) {
+                                                                $missingFields[] = $label;
+                                                            }
+                                                        } else {
+                                                            if ($val === '') {
+                                                                $missingFields[] = $label;
+                                                            }
+                                                        }
                                                     }
+
 
                                                     // "Edit Volunteer" should only go red for non-schedule field issues.
                                                     $fieldsOk = !$hasNonScheduleErrors && empty($missingFields);
@@ -475,7 +518,7 @@
                                                         'id_number'         => 'School ID',
                                                         'course'            => 'Course',
                                                         'year_level'        => 'Year',
-                                                        'batch_year'        => 'Batch',
+                                                        'batch_number' => 'Batch Number',
                                                         'contact_number'    => 'Contact #',
                                                         'email'             => 'Email',
                                                         'emergency_contact' => 'Emergency #',
@@ -800,18 +843,26 @@
                                                         'id_number'      => 'School ID',
                                                         'course'         => 'Course',
                                                         'year_level'     => 'Year',
-                                                        'batch_year'     => 'Batch Year',
+                                                        'batch_number' => 'Batch Number',
                                                         'contact_number' => 'Contact #',
                                                         'email'          => 'Email',
                                                         'barangay'       => 'Barangay',
                                                         'fb_messenger'   => 'FB/Messenger',
                                                         'district'       => 'District',
-
-                                                        // ✅ ADD YOUR "facebook link" field here if it's required:
-                                                        'fb_messenger'   => 'FB/Messenger',
                                                     ] as $k => $label) {
-                                                        if (empty(trim($entry[$k] ?? ''))) $missingFields[] = $label;
+
+                                                    $val = trim($entry[$k] ?? '');
+
+                                                    if ($k === 'batch_number') {
+                                                        if (!$validBatchNumber($val)) {
+                                                            $missingFields[] = $label;
+                                                        }
+                                                    } else {
+                                                        if ($val === '') {
+                                                            $missingFields[] = $label;
+                                                        }
                                                     }
+                                                }
 
                                                     // Split schedule vs non-schedule errors so "Edit Volunteer" pill doesn't
                                                     // turn red just because the schedule has conflicts.

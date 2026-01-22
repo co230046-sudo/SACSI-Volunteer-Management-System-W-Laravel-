@@ -263,6 +263,16 @@
 <script>
 (function () {
 
+    function decodeBase64Utf8(str) {
+        try {
+            return new TextDecoder("utf-8").decode(
+                Uint8Array.from(atob(str), c => c.charCodeAt(0))
+            );
+        } catch (e) {
+            return '';
+        }
+    }
+
     function runWhenReady(fn) {
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', fn);
@@ -319,56 +329,35 @@
            ✅ FIX: Use base64 session('resetDetails') (same as Show Details)
         ===================================================== */
         function openUniversal(html, title, subtitle) {
+    if (typeof window.openUniversalModal === 'function') {
+        window.openUniversalModal({
+            title: title,
+            subtitle: subtitle,
+            html: html,
+            type: 'success'
+        });
+        return true;
+    }
 
-            // 1) If your app already exposes a global opener, use it
-            if (typeof window.openUniversalModal === 'function') {
-                window.openUniversalModal({ title, subtitle, html });
-                return true;
-            }
-            if (typeof window.showUniversalModal === 'function') {
-                window.showUniversalModal(title, subtitle, html);
-                return true;
-            }
+    // HARD fallback for UFM structure
+    const modal = document.getElementById('feedbackModal');
+    if (!modal) return false;
 
-            // 2) Fallback: try common universal modal DOM hooks
-            const modal =
-                document.getElementById('universalModal') ||
-                document.getElementById('feedbackModal') ||
-                document.getElementById('universalFeedbackModal');
+    modal.querySelector('[data-ufm-title]').innerHTML = title || '';
+    modal.querySelector('[data-ufm-subtitle]').innerHTML = subtitle || '';
+    modal.querySelector('[data-ufm-body]').innerHTML = html || '';
 
-            const body =
-                document.getElementById('universalModalBody') ||
-                document.getElementById('feedbackModalBody') ||
-                document.getElementById('universalFeedbackBody') ||
-                document.querySelector('.universal-modal-body');
+    modal.classList.add('active');
+    modal.setAttribute('aria-hidden','false');
 
-            const tEl =
-                document.getElementById('universalModalTitle') ||
-                document.getElementById('feedbackModalTitle') ||
-                document.querySelector('.universal-modal-title');
-
-            const sEl =
-                document.getElementById('universalModalSubtitle') ||
-                document.getElementById('feedbackModalSubtitle') ||
-                document.querySelector('.universal-modal-subtitle');
-
-            if (tEl) tEl.innerHTML = title || '';
-            if (sEl) sEl.innerHTML = subtitle || '';
-            if (body) body.innerHTML = html || '';
-
-            if (modal) {
-                modal.classList.add('active');
-                return true;
-            }
-
-            return false;
-        }
+    return true;
+}
 
         // ✅ Auto-open success after redirect (base64-safe)
         @if(session('resetDetails'))
             setTimeout(() => {
                 let decoded = '';
-                try { decoded = atob(String(@json(session('resetDetails'))).trim()); } catch (e) { decoded = ''; }
+                decoded = decodeBase64Utf8(String(@json(session('resetDetails'))).trim());
                 if (!decoded) return;
 
                 openUniversal(
@@ -390,7 +379,7 @@
             if (!encoded) return;
 
             let decoded = '';
-            try { decoded = atob(String(encoded).trim()); } catch (err) { decoded = ''; }
+            decoded = decodeBase64Utf8(String(encoded).trim());
             if (!decoded) return;
 
             openUniversal(

@@ -71,14 +71,15 @@ class VolunteerListController extends Controller
 
         // Batch dropdown (real values)
         $batches = VolunteerProfile::query()
-            ->whereNotNull('batch_year')
-            ->where('batch_year', '!=', '')
-            ->distinct()
-            ->orderByDesc('batch_year')
-            ->pluck('batch_year')
-            ->map(fn($y) => trim((string)$y))
-            ->filter()
-            ->values();
+                ->whereNotNull('batch_number')
+                ->where('batch_number', '!=', '')
+                ->distinct()
+                ->orderByDesc('batch_number')
+                ->pluck('batch_number')
+                ->map(fn($b) => trim((string)$b))
+                ->filter()
+                ->values();
+
 
         return view('volunteer_list.volunteer_list', compact(
             'courses',
@@ -152,7 +153,7 @@ class VolunteerListController extends Controller
             'profile_picture'   => ['nullable','image','mimes:jpg,jpeg,png'],
         ],[
             'emergency_contact.different' => 'Emergency contact must be different from the contact number.',
-            'batch_number.required'       => 'Please enter a batch (e.g., 2025).',
+            'batch_number.required' => 'Please enter a batch number (e.g., 1, 2, 3).',
         ]);
 
         $fullNameRaw = trim((string)($validated['full_name'] ?? ''));
@@ -310,7 +311,7 @@ class VolunteerListController extends Controller
                     'full_name'            => $validated['full_name'],
                     'id_number'            => $validated['id_number'],
                     'year_level'           => $validated['year_level'],
-                    'batch_year'           => trim((string)$validated['batch_number']),
+                    'batch_number' => trim((string)$validated['batch_number']),
                     'email'                => $validated['email'],
                     'contact_number'       => $validated['contact_number'],
                     'emergency_contact'    => $validated['emergency_contact'],
@@ -473,7 +474,7 @@ class VolunteerListController extends Controller
         $district      = $request->query('district');
         $yearLevel     = $request->query('year_level');
 
-        $batchYear     = $request->query('batch_year');
+        $batchNumber = $request->query('batch_number');
 
         $selectedDay   = $request->query('day');
         $selectedBlock = $request->query('schedule_day');
@@ -499,7 +500,7 @@ class VolunteerListController extends Controller
             'contact_number',
             'emergency_contact',
             'status',
-            'batch_year'
+            'batch_number'
         );
 
         // Search
@@ -508,10 +509,13 @@ class VolunteerListController extends Controller
                 $like = "%{$search}%";
 
                 $q->whereRaw("LOWER(full_name) LIKE ?", [$like])
-                  ->orWhereRaw("LOWER(barangay) LIKE ?", [$like])
-                  ->orWhereRaw("LOWER(email) LIKE ?", [$like])
-                  ->orWhere('contact_number', 'LIKE', "%{$searchRaw}%")
-                  ->orWhere('emergency_contact', 'LIKE', "%{$searchRaw}%");
+                ->orWhereRaw("LOWER(barangay) LIKE ?", [$like])
+                ->orWhereRaw("LOWER(email) LIKE ?", [$like])
+                ->orWhere('contact_number', 'LIKE', "%{$searchRaw}%")
+                ->orWhere('emergency_contact', 'LIKE', "%{$searchRaw}%")
+
+                // ✅ ADD THIS
+                ->orWhereRaw("CAST(batch_number AS CHAR) LIKE ?", ["%{$searchRaw}%"]);
 
                 if (in_array($search, ['1','district 1','d1'], true)) {
                     $q->orWhere('district', 1);
@@ -544,9 +548,10 @@ class VolunteerListController extends Controller
         if ($yearLevel && $yearLevel !== 'remove') {
             $query->where('year_level', $yearLevel);
         }
-        if ($batchYear && $batchYear !== 'remove') {
-            $query->where('batch_year', $batchYear);
+        if ($batchNumber && $batchNumber !== 'remove') {
+           $query->whereRaw('TRIM(batch_number) = ?', [trim($batchNumber)]);
         }
+
         if ($status && $status !== 'remove') {
             $query->where('status', $status);
         }
@@ -650,7 +655,7 @@ class VolunteerListController extends Controller
                     'contact_number'     => $item->contact_number,
                     'emergency_contact'  => $item->emergency_contact,
                     'status'             => $item->status,
-                    'batch_year'         => $item->batch_year,
+                    'batch_number' => $item->batch_number,
                 ];
             }),
             'total'         => $total,

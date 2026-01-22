@@ -1,4 +1,9 @@
 <?php $pageTitle = "Event Manager"; ?>
+
+@php
+/** @param \App\Models\Event $event */
+@endphp
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -295,6 +300,8 @@
 
         @php
           function emCard($event, $status){
+            ob_start();
+
             $start = $event->start_datetime ? \Carbon\Carbon::parse($event->start_datetime) : null;
             $end   = $event->end_datetime ? \Carbon\Carbon::parse($event->end_datetime) : null;
 
@@ -421,13 +428,17 @@
           </div>
         </article>
 
-        @php } @endphp
+        @php
+          return ob_get_clean();
+        }
+        @endphp
+
 
         {{-- Planned --}}
         <section class="em-pane" data-pane="planned" hidden>
           <div class="em-grid">
             @foreach($upcomingEvents as $event)
-              @php emCard($event,'planned'); @endphp
+              {!! emCard($event,'planned') !!}
             @endforeach
           </div>
 
@@ -449,7 +460,7 @@
         <section class="em-pane" data-pane="ongoing" hidden>
           <div class="em-grid">
             @foreach($ongoingEvents as $event)
-              @php emCard($event,'ongoing'); @endphp
+              {!! emCard($event,'cancelled') !!}
             @endforeach
           </div>
 
@@ -471,7 +482,7 @@
         <section class="em-pane" data-pane="completed" hidden>
           <div class="em-grid">
             @foreach($completedEvents as $event)
-              @php emCard($event,'completed'); @endphp
+              {!! emCard($event,'completed') !!}
             @endforeach
           </div>
 
@@ -493,8 +504,9 @@
         <section class="em-pane" data-pane="cancelled" hidden>
           <div class="em-grid">
             @foreach($cancelledEvents as $event)
-              @php emCard($event,'cancelled'); @endphp
+              {!! emCard($event,'cancelled') !!}
             @endforeach
+
           </div>
 
           <div class="em-empty" data-empty hidden>

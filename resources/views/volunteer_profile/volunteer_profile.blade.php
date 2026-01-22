@@ -149,11 +149,20 @@
                                         <p>{{ $volunteer->year_level ?? '—' }}</p>
                                     </div>
                                 </td>
+
+                                <td>
+                                    <div class="detail-card">
+                                        <h6><i class="fas fa-id-card"></i> School ID</h6>
+                                        <p>{{ $volunteer->id_number ?? '—' }}</p>
+                                    </div>
+                                </td>
+
                                 <td>
                                     <div class="detail-card">
                                         <h6><i class="fas fa-user-graduate"></i> Batch</h6>
-                                        <p>{{ $volunteer->batch_year ?? '—' }}</p>
+                                        <p>{{ $volunteer->batch_number ?? '—' }}</p>
                                     </div>
+
                                 </td>
                                 <td>
                                     <div class="detail-card">
@@ -214,7 +223,9 @@
 
                         <h4 class="text-center mb-3">Weekly Class Schedule</h4>
 
-                        <table class="table table-bordered text-center mb-0">
+                        <div class="schedule-scroll-wrapper">
+                            <table class="table table-bordered text-center mb-0">
+
                             <thead class="table-light">
                             <tr>
                                 <th>MON</th><th>TUE</th><th>WED</th><th>THU</th><th>FRI</th><th>SAT</th>
@@ -247,9 +258,8 @@
                             </tr>
                             </tbody>
                         </table>
-
+                        </div>
                     </div>
-
                 </div>
             </div>
 

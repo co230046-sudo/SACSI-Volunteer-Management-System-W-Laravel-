@@ -1,4 +1,9 @@
 <?php $pageTitle = 'Event Summary Report'; ?>
+@php
+/** @var \App\Models\Event $event */
+/** @var \Illuminate\Support\Collection|\App\Models\EventFeedback[] $feedbacks */
+@endphp
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -27,7 +32,16 @@
 
     $expectedCount  = (int)($expectedCount ?? 0);
     $attendedCount  = (int)($attendedCount ?? 0);
-    $attendanceRate = (int)($attendanceRate ?? 0);
+
+    $maxVolunteers = (int)($event->max_volunteers ?? 0);
+
+    $attendeesDenominator = $maxVolunteers > 0
+        ? $maxVolunteers
+        : $expectedCount;
+
+    $attendanceRate = $attendeesDenominator > 0
+    ? round(($attendedCount / $attendeesDenominator) * 100)
+    : 0;
 
     $mode = ($chartMode ?? 'actual');
     $mode = in_array($mode, ['expected','actual'], true) ? $mode : 'actual';
@@ -37,24 +51,28 @@
     $importedTotal = $attendanceImportedTotal ?? null;
 
     // ✅ Attendees tile denominator: attended / expected (no capacity anymore)
-    $attendeesDenominator = $expectedCount;
-    $attendeesSubtitle = 'present / expected list';
+
+    $attendeesSubtitle = $maxVolunteers > 0
+    ? 'present / max capacity'
+    : 'present / expected list';
+
     $attendeesTitle = 'Attendees';
 
     // ✅ Controller provides arrays: ['label' => ?, 'count' => ?, 'pct' => ?]
     $topYearLevel = is_array($topYearLevel ?? null) ? $topYearLevel : ['label' => null, 'count' => 0, 'pct' => 0];
-    $topBatchYear = is_array($topBatchYear ?? null) ? $topBatchYear : ['label' => null, 'count' => 0, 'pct' => 0];
+    $topBatchNumber = is_array($topBatchNumber ?? null) ? $topBatchNumber : ['label' => null, 'count' => 0, 'pct' => 0];
 
     $topYearLevelLabel = $topYearLevel['label'] ?? null;
-    $topBatchYearLabel = $topBatchYear['label'] ?? null;
+    $topBatchNumberLabel = $topBatchNumber['label'] ?? null;
 
     $topYearLevelSub = ($topYearLevelLabel && (int)($topYearLevel['count'] ?? 0) > 0)
       ? ((int)($topYearLevel['count'] ?? 0) . ' • ' . (float)($topYearLevel['pct'] ?? 0) . '% of attendees')
       : null;
 
-    $topBatchYearSub = ($topBatchYearLabel && (int)($topBatchYear['count'] ?? 0) > 0)
-      ? ((int)($topBatchYear['count'] ?? 0) . ' • ' . (float)($topBatchYear['pct'] ?? 0) . '% of attendees')
+    $topBatchNumberSub = ($topBatchNumberLabel && (int)($topBatchNumber['count'] ?? 0) > 0)
+      ? ((int)($topBatchNumber['count'] ?? 0) . ' • ' . (float)($topBatchNumber['pct'] ?? 0) . '% of attendees')
       : null;
+
 
     $eventSummaryMeta = [
       'title' => $event->title ?? '',
@@ -213,7 +231,7 @@
                     <div class="chart-note text-muted small" id="chartNote">
                       <div class="note-row">
                         <strong>Roster:</strong>
-                        <span>{{ $expectedCount }} expected • {{ $attendedCount }} attended • {{ $attendanceRate }}%</span>
+                        <span>{{ $expectedCount }} expected volunteers • {{ $attendedCount }} attended • {{ $attendanceRate }}%</span>
                       </div>
                     </div>
                   </div>
@@ -247,11 +265,11 @@
                         </div>
                       @endif
 
-                      @if(!empty($topBatchYearLabel))
+                      @if(!empty($topBatchNumberLabel))
                         <div class="stat-box stat-box--tight">
-                          <div class="stat-top"><i class="fa-solid fa-layer-group"></i> Most Batch Attended</div>
-                          <div class="stat-value">{{ $topBatchYearLabel }}</div>
-                          <div class="stat-sub text-muted small">{{ $topBatchYearSub ?? 'highest frequency' }}</div>
+                          <div class="stat-top"><i class="fa-solid fa-layer-group"></i> Top Batch Attendees</div>
+                          <div class="stat-value">{{ $topBatchNumberLabel }}</div>
+                          <div class="stat-sub text-muted small">{{ $topBatchNumberSub ?? 'highest frequency' }}</div>
                         </div>
                       @endif
                     </div>

@@ -626,7 +626,7 @@
       <!-- Filter by Batch (Year) -->
       <div class="custom-select" data-field="batch">
         <div class="custom-select-trigger" data-original-text="<i class='fa-solid fa-layer-group'></i> Filter by Batch (Year)">
-          <i class="fa-solid fa-layer-group"></i> Filter by Batch (Year)
+          <i class="fa-solid fa-layer-group"></i> Filter by Batch Number
         </div>
         <div class="custom-options">
           <span class="custom-option" data-value="remove"><i class="fa-solid fa-ban"></i> Remove Filter</span>
@@ -1035,17 +1035,13 @@
     }
 
     // ----------------------------
-    // Batch year helpers (✅ NEW)
+    // Batch number helpers
     // ----------------------------
-    function extractYears(text) {
-      const s = (text || "").toString();
-      const matches = s.match(/\b(19|20)\d{2}\b/g) || [];
-      const years = matches
-        .map(y => parseInt(y, 10))
-        .filter(y => !isNaN(y) && y >= 2000 && y <= 2100);
-      // unique
-      return Array.from(new Set(years));
+    function extractBatchNumbers(text) {
+      const matches = (text || "").match(/\b\d+\b/g) || [];
+      return Array.from(new Set(matches.map(n => parseInt(n,10)).filter(n => !isNaN(n))));
     }
+
 
     function isBatchField(field) {
       return field === "batch" || field === "batch_number";
@@ -1057,15 +1053,13 @@
       return (batchCol != null && colIdx === batchCol) || (batchNumCol != null && colIdx === batchNumCol);
     }
 
-    function batchCellMatchesYear(cellText, selectedYear) {
-      const y = parseInt(selectedYear, 10);
-      if (isNaN(y)) return false;
-      const yearsInCell = extractYears(cellText);
-      if (yearsInCell.includes(y)) return true;
-
-      // fallback: whole-word contains (handles "Batch 2024")
-      return new RegExp(`\\b${y}\\b`).test((cellText || "").toString());
+    function batchCellMatchesNumber(cellText, selected) {
+      const n = parseInt(selected,10);
+      if (isNaN(n)) return false;
+      const nums = extractBatchNumbers(cellText);
+      return nums.includes(n);
     }
+
 
     // ----------------------------
     // Course smart synonyms
@@ -1270,28 +1264,28 @@
       const optionsWrap = select.querySelector(".custom-options");
       if (!optionsWrap) return;
 
-      const years = new Set();
+      const numbers = new Set();
+
       getAllRows().forEach(row => {
         const cell = row.children[colIndex];
         const raw = getCellText(cell);
-        extractYears(raw).forEach(y => years.add(y));
+        extractBatchNumbers(raw).forEach(n => numbers.add(n));
       });
 
-      if (!years.size) return;
+      if (!numbers.size) return;
 
-      const sorted = Array.from(years).sort((a,b) => a - b);
+      const sorted = Array.from(numbers).sort((a,b) => a - b);
 
-      // remove previously injected
       Array.from(optionsWrap.querySelectorAll('.custom-option[data-batch="1"]')).forEach(el => el.remove());
 
       const removeOpt = optionsWrap.querySelector('.custom-option[data-value="remove"]');
 
-      sorted.forEach(y => {
+      sorted.forEach(n => {
         const opt = document.createElement("span");
         opt.className = "custom-option";
-        opt.dataset.value = String(y);
+        opt.dataset.value = String(n);
         opt.dataset.batch = "1";
-        opt.innerHTML = `<i class="fa-solid fa-calendar"></i> ${y}`;
+        opt.innerHTML = `<i class="fa-solid fa-hashtag"></i> ${n}`;
         if (removeOpt && removeOpt.parentNode === optionsWrap) {
           optionsWrap.insertBefore(opt, removeOpt.nextSibling);
         } else {
@@ -1299,6 +1293,7 @@
         }
       });
     }
+
 
     function ensureDropdownSearch(select) {
       const field = select.dataset.field;
@@ -1397,9 +1392,10 @@
           const cellVal = getCellText(row.children[colIdx]);
 
           // ✅ PATCH: batch filter must match year reliably
-          if (isBatchCol(colIdx) && /^\d{4}$/.test(String(filterVal))) {
-            return batchCellMatchesYear(cellVal, filterVal);
+          if (isBatchCol(colIdx) && /^\d+$/.test(String(filterVal))) {
+            return batchCellMatchesNumber(cellVal, filterVal);
           }
+
 
           // course filter: supports BSIT/BS IT/full name
           const isCourseCol = (tableId !== "import-logs-table") && (colIdx === FIELD_TO_COL.course);

@@ -431,15 +431,21 @@
                 <div class="col-md-4">
                   <label class="form-label vlAdd-label">Batch <span class="req">*</span></label>
                   <input name="batch_number"
-                         id="vlBatch"
-                         class="form-control vlAdd-input @error('batch_number') is-invalid @enderror"
-                         value="{{ old('batch_number') }}"
-                         required inputmode="numeric" autocomplete="off"
-                         pattern="^\d{4}$" maxlength="4"
-                         placeholder="e.g., 2025">
+                        id="vlBatch"
+                        class="form-control vlAdd-input @error('batch_number') is-invalid @enderror"
+                        value="{{ old('batch_number') }}"
+                        required
+                        inputmode="numeric"
+                        autocomplete="off"
+                        pattern="^[1-9]\d*$"
+                        placeholder="e.g., 1, 2, 3">
+
                   @unless($errors->has('batch_number'))
-                    <div class="invalid-feedback">Batch must be a 4-digit year (e.g., 2025).</div>
+                    <div class="invalid-feedback">
+                      Batch number must be a positive number greater than 0.
+                    </div>
                   @endunless
+
                   @error('batch_number')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
 
@@ -823,7 +829,9 @@
 
     const emailEl = formEl.querySelector('input[name="email"]');
 
-    const schModalEl = document.getElementById('vlScheduleModal');
+    const batchEl = document.getElementById('vlBatch');
+
+    const schModalEl = document.getElementById('classScheduleModal');
 
     const DEFAULT_AVATAR =
       (document.getElementById('vlRoot')?.getAttribute('data-default-avatar') || '').trim()
@@ -1006,6 +1014,36 @@
     });
 
     /* ============================================================
+      ✅ Batch number validation (number > 0 only)
+    ============================================================ */
+    function validateBatch(forceShow=false){
+      if (!batchEl) return true;
+
+      if (isLockedServerInvalid(batchEl)) return false;
+
+      const raw = String(batchEl.value || '').trim();
+
+      if (!raw) {
+        if (forceShow || saveAttempted) setValidState(batchEl, false);
+        else batchEl.classList.remove('is-valid','is-invalid');
+        return false;
+      }
+
+      if (!/^\d+$/.test(raw)) {
+        setValidState(batchEl, false);
+        return false;
+      }
+
+      const num = parseInt(raw, 10);
+      const ok = num > 0;
+
+      if (forceShow || saveAttempted) setValidState(batchEl, ok);
+      else if (ok) setValidState(batchEl, true);
+
+      return ok;
+    }
+
+    /* ============================================================
        ✅ Email validation
     ============================================================ */
     function validateEmail(forceShow=false){
@@ -1038,6 +1076,17 @@
 
       emailEl.classList.remove('is-invalid','is-valid');
       emailEl.setCustomValidity('');
+    });
+
+    batchEl?.addEventListener('input', () => {
+      markTouched(batchEl);
+      delete batchEl.dataset.vlServerInvalid;
+      batchEl.classList.remove('is-invalid','is-valid');
+    });
+
+    batchEl?.addEventListener('blur', () => {
+      markTouched(batchEl);
+      validateBatch(false);
     });
 
     emailEl?.addEventListener('blur', () => {
@@ -1599,12 +1648,14 @@
       const scheduleOk = refreshScheduleBtn(true);
       const combosOk   = validateCombosStrict(true);
 
+      const batchOk = validateBatch(true);
       const fbOk    = validateFb(true);
       const emailOk = validateEmail(true);
 
+
       const nativeOk = formEl.checkValidity();
 
-      if (!scheduleOk || !combosOk || !fbOk || !emailOk || !nativeOk) {
+      if (!scheduleOk || !combosOk || !batchOk || !fbOk || !emailOk || !nativeOk) {
         formEl.classList.add('was-validated');
 
         const firstBad =
@@ -1628,12 +1679,14 @@
       const scheduleOk = refreshScheduleBtn(true);
       const combosOk   = validateCombosStrict(true);
 
+      const batchOk = validateBatch(true);
       const fbOk    = validateFb(true);
       const emailOk = validateEmail(true);
 
+
       const nativeOk = formEl.checkValidity();
 
-      if (!scheduleOk || !combosOk || !fbOk || !emailOk || !nativeOk) return;
+      if (!scheduleOk || !combosOk || !batchOk || !fbOk || !emailOk || !nativeOk) return;
 
       try { confirmModal?.hide(); } catch {}
       setTimeout(() => submitFormNow(), 0);
@@ -1680,6 +1733,14 @@
         emailEl.setCustomValidity('');
         emailEl.classList.remove('is-valid','is-invalid');
       }
+
+      // ✅ batch reset
+      if (batchEl) {
+        batchEl.value = '';
+        batchEl.setCustomValidity('');
+        batchEl.classList.remove('is-valid','is-invalid');
+      }
+
 
       // ✅ combo invalid blocks reset (ONLY the ones we control)
       [
@@ -1731,9 +1792,11 @@
       refreshScheduleBtn(true);
       refreshYearInvalid(true);
 
+      validateBatch(true);
       validateFb(true);
       validateEmail(true);
       validateCombosStrict(true);
+
       refreshPhotoFileState();
 
       setTimeout(() => {

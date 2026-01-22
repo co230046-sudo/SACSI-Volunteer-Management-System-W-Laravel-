@@ -16,16 +16,20 @@ class EventOrganizer extends Model
         'contact',
     ];
 
+    // Optional: route model binding key
     public function getRouteKeyName()
     {
         return 'organizer_id';
     }
 
-    // ✅ reusable directory: many events via pivot
+    /**
+     * Many organizers can belong to many events
+     * Pivot table: event_event_organizer
+     */
     public function events()
     {
         return $this->belongsToMany(
-            \App\Models\Event::class,
+            Event::class,
             'event_event_organizer',
             'organizer_id',
             'event_id'

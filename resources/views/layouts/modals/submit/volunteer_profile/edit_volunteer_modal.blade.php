@@ -387,20 +387,20 @@
 
                 <div class="col-md-4 vpEdit-fieldWrap">
                   <label class="form-label vpEdit-label">Batch <span class="req">*</span></label>
-                  <input name="batch_year"
-                         id="vpBatch"
-                         class="form-control vpEdit-input @error('batch_year') is-invalid @enderror"
-                         value="{{ old('batch_year', $volunteer->batch_year ?? '') }}"
-                         required inputmode="numeric" autocomplete="off"
-                         pattern="^\d{4}$" maxlength="4"
-                         placeholder="e.g., 2025">
-                  @unless($errors->has('batch_year'))
-                    <div class="invalid-feedback">Batch must be a 4-digit year (e.g., 2025).</div>
+                  <input name="batch_number"
+                        id="vpBatch"
+                        class="form-control vpEdit-input @error('batch_number') is-invalid @enderror"
+                        value="{{ old('batch_number', $volunteer->batch_number ?? '') }}"
+                        required inputmode="numeric" autocomplete="off"
+                        pattern="^[1-9]\d*$"
+                        placeholder="e.g., 1">
+                  @unless($errors->has('batch_number'))
+                    <div class="invalid-feedback">Batch number must be greater than 0.</div>
                   @endunless
-                  @error('batch_year')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                  @error('batch_number')<div class="invalid-feedback">{{ $message }}</div>@enderror
                   <div class="vpEdit-tooltip"></div>
                 </div>
-
+                
                 {{-- COURSE (combo) --}}
                 <div class="col-md-8 vpEdit-fieldWrap">
                   <label class="form-label vpEdit-label">Course <span class="req">*</span></label>

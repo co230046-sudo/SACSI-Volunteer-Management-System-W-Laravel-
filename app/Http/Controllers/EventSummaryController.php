@@ -47,7 +47,15 @@ class EventSummaryController extends Controller
 
         // Expected roster
         $expectedRows  = $event->expectedVolunteers ?? collect();
-        $expectedCount = (int) $expectedRows->count();
+        $expectedVolunteerIds = $expectedRows
+            ->pluck('volunteer_id')
+            ->filter()
+            ->map(fn($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $expectedCount = $expectedVolunteerIds->count();
+
 
         // Actual attendance
         $attendanceRows = collect();
@@ -64,20 +72,19 @@ class EventSummaryController extends Controller
             return in_array($s, ['present', 'late', ''], true);
         });
 
-        $attendedCount = (int) $attendedRows->count();
+        $attendedCount = $attendedRows
+        ->whereNotNull('volunteer_id')
+        ->pluck('volunteer_id')
+        ->map(fn($id) => (int) $id)
+        ->unique()
+        ->count();
+
         $walkInCount   = (int) $attendanceRows->where('walk_in', 1)->count();
 
         // Absent = expected - attended (by volunteer_id overlap)
         $attendedVolunteerIds = $attendedRows
             ->whereNotNull('volunteer_id')
             ->pluck('volunteer_id')
-            ->map(fn($id) => (int) $id)
-            ->unique()
-            ->values();
-
-        $expectedVolunteerIds = $expectedRows
-            ->pluck('volunteer_id')
-            ->filter()
             ->map(fn($id) => (int) $id)
             ->unique()
             ->values();
@@ -98,9 +105,9 @@ class EventSummaryController extends Controller
             true
         );
 
-        $topBatchYear = $this->topGroupStat(
+        $topBatchNumber = $this->topGroupStat(
             $attendedRows,
-            fn($att) => $att->volunteer?->batch_year,
+            fn($att) => $att->volunteer?->batch_number,
             fn($val) => $val ? "Batch {$val}" : null,
             true
         );
@@ -190,7 +197,7 @@ class EventSummaryController extends Controller
             'absentCount' => $absentCount,
 
             'topYearLevel' => $topYearLevel,
-            'topBatchYear' => $topBatchYear,
+            'topBatchNumber' => $topBatchNumber,
 
             'chartMode' => $chartMode,
             'chartHint' => $chartHint,

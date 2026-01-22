@@ -16,7 +16,8 @@ body {
   justify-content: flex-start; /* align content at top */
   align-items: center;           /* keep content centered horizontally */
   min-height: 100vh;
-  overflow: hidden;              /* prevent scroll */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 section {

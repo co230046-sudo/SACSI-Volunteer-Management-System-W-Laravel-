@@ -90,9 +90,9 @@
       .map(v => String(v ?? "").trim())
       .filter(v => v !== "")
       .map(v => Number(v))
-      .filter(n => Number.isFinite(n) && n >= 1900 && n <= 2100);
+      .filter(n => Number.isFinite(n) && n > 0);
 
-    nums.sort((a, b) => b - a);
+    nums.sort((a, b) => a - b);
 
     return [
       { value: "", label: "All Batches" },
@@ -108,7 +108,7 @@
     barangay: "",
     district: "",
     year_level: "",
-    batch_year: "",
+    batch_number: "",
     day: "",
     schedule_day: "",
     status: ""
@@ -170,7 +170,13 @@
 
   async function fetchSuggest(qRaw) {
     const q = normalizeQ(qRaw);
-    if (!q || q.length < 2) { hideSuggest(); return; }
+    if (!q) { hideSuggest(); return; }
+
+    if (q.length < 2 && !/^\d$/.test(q)) {
+      hideSuggest();
+      return;
+    }
+
     if (!suggestEl) return;
 
     const cacheKey = JSON.stringify({
@@ -179,7 +185,7 @@
       barangay: applied.barangay || "",
       district: applied.district || "",
       year_level: applied.year_level || "",
-      batch_year: applied.batch_year || "",
+      batch_number: applied.batch_number || "",
       day: applied.day || "",
       schedule_day: applied.schedule_day || "",
       status: applied.status || "",
@@ -206,7 +212,7 @@
       barangay: applied.barangay || "",
       district: applied.district || "",
       year_level: applied.year_level || "",
-      batch_year: applied.batch_year || "",
+      batch_number: applied.batch_number || "",
       day: applied.day || "",
       schedule_day: applied.schedule_day || "",
       status: applied.status || ""
@@ -255,7 +261,7 @@
     if (v?.year_level) parts.push(formatYearLevel(v.year_level));
     if (v?.barangay) parts.push(v.barangay);
     if (v?.district) parts.push(`District ${v.district}`);
-    if (v?.batch_year) parts.push(`Batch ${v.batch_year}`);
+    if (v?.batch_number) parts.push(`Batch ${v.batch_number}`);
 
     const status = (v?.status || "active") === "active" ? "Active" : "Inactive";
     parts.push(status);
@@ -275,6 +281,21 @@
         <span>Search for <strong>${escapeHtml(q)}</strong></span>
       </button>
     `);
+
+    // ✅ Batch filter suggestion
+    const qNum = Number(q);
+    if (Number.isFinite(qNum) && qNum > 0) {
+      parts.push(`
+        <button type="button"
+                class="vl-suggestItem"
+                data-suggest-action="batch"
+                data-batch="${escapeHtml(q)}">
+          <i class="fa-solid fa-layer-group me-2"></i>
+          <span>Filter Batch <strong>${escapeHtml(q)}</strong></span>
+        </button>
+      `);
+    }
+
 
     if (!list.length) {
       parts.push(`
@@ -476,7 +497,7 @@
       barangay:     applied.barangay     ?? "",
       district:     applied.district     ?? "",
       year_level:   applied.year_level   ?? "",
-      batch_year:   applied.batch_year   ?? "",
+      batch_number: applied.batch_number ?? "",
       day:          applied.day          ?? "",
       schedule_day: applied.schedule_day ?? "",
       status:       applied.status       ?? ""
@@ -810,9 +831,13 @@
   });
 
   wireDropdown(ddBatch, batchItems, (value, label) => {
-    pending.batch_year = value || "";
-    setDropdownValue(ddBatch, pending.batch_year, label || "All Batches");
+    pending.batch_number = value || "";
+
+    setDropdownValue(ddBatch, pending.batch_number, label || "All Batches");
   }, { search: true });
+
+
+
 
   wireDropdown(ddDay, dayItems, (value, label) => {
     pending.day = value || "";
@@ -882,6 +907,21 @@
     if (!btn) return;
 
     const action = btn.getAttribute("data-suggest-action");
+
+    if (action === "batch") {
+      const b = btn.getAttribute("data-batch") || "";
+
+      pending.batch_number = b;
+      pending.search = "";
+
+      if (searchInput) searchInput.value = "";
+
+      setDropdownValue(ddBatch, b, "Batch " + b);
+
+      hideSuggest();
+      return;
+    }
+
     if (action === "search") {
       const q = btn.getAttribute("data-q") || (searchInput?.value || "");
       applySearch(q);
@@ -929,10 +969,21 @@
 
   /* ---------------- apply / reset ---------------- */
   applyBtn?.addEventListener("click", () => {
-    Object.assign(applied, pending);
+    applied.search = pending.search;
+    applied.sort = pending.sort;
+    applied.course_id = pending.course_id;
+    applied.barangay = pending.barangay;
+    applied.district = pending.district;
+    applied.year_level = pending.year_level;
+    applied.batch_number = pending.batch_number;
+    applied.day = pending.day;
+    applied.schedule_day = pending.schedule_day;
+    applied.status = pending.status;
+
     applied.page = 1;
     fetchPage({ page: 1 });
   });
+
 
   resetBtn?.addEventListener("click", () => {
     pending.page         = 1;
@@ -942,7 +993,7 @@
     pending.barangay     = "";
     pending.district     = "";
     pending.year_level   = "";
-    pending.batch_year   = "";
+    pending.batch_number   = "";
     pending.day          = "";
     pending.schedule_day = "";
     pending.status       = "";

@@ -21,7 +21,7 @@ class VolunteerProfile extends Model
         'full_name',
         'id_number',
         'year_level',
-        'batch_year',   
+        'batch_number',
         'email',
         'contact_number',
         'emergency_contact',
@@ -39,12 +39,9 @@ class VolunteerProfile extends Model
     ];
 
     protected $casts = [
-        'batch_year' => 'integer',
+        'batch_number' => 'integer',
     ];
 
-    /**
-     * Make avatar_url show in JSON responses automatically
-     */
     protected $appends = ['avatar_url'];
 
     /**
@@ -52,21 +49,16 @@ class VolunteerProfile extends Model
      */
     public function getAvatarUrlAttribute()
     {
-        // 1. Prefer LOCAL PATH (if file exists)
         if (!empty($this->profile_picture_path)) {
             return asset('storage/' . ltrim($this->profile_picture_path, '/'));
         }
 
-        // 2. Otherwise use STORED URL
         if (!empty($this->profile_picture_url)) {
             return $this->profile_picture_url;
         }
 
-        // 3. Default
         return asset('storage/defaults/default_user.png');
     }
-
-
 
     public function importLog()
     {

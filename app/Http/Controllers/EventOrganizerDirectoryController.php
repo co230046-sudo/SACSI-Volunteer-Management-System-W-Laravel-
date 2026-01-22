@@ -51,7 +51,27 @@ class EventOrganizerDirectoryController extends Controller
 
         $before = $organizer->only(['organizer_id', 'name', 'email', 'contact']);
 
+        $normalizedName  = strtolower(trim($data['name']));
+        $normalizedEmail = $data['email'] ? strtolower(trim($data['email'])) : null;
+
+        $duplicate = EventOrganizer::where(function ($q) use ($normalizedName, $normalizedEmail) {
+                if ($normalizedEmail) {
+                    $q->whereRaw('LOWER(TRIM(email)) = ?', [$normalizedEmail]);
+                } else {
+                    $q->whereRaw('LOWER(TRIM(name)) = ?', [$normalizedName]);
+                }
+            })
+            ->where('organizer_id', '!=', $organizer->organizer_id)
+            ->exists();
+
+        if ($duplicate) {
+            return response()->json([
+                'message' => 'Another organizer with the same name or email already exists.'
+            ], 422);
+        }
+
         $organizer->update($data);
+
 
         $after = $organizer->only(['organizer_id', 'name', 'email', 'contact']);
 
@@ -68,7 +88,7 @@ class EventOrganizerDirectoryController extends Controller
             entity: $organizer,
             entityId: $organizer->organizer_id,
             details: [
-                'summary' => 'Edited Event Type - "' . ($after['name'] ?? 'Unknown') . '"',
+                'summary' => 'Edited Event Organizer - "' . ($after['name'] ?? 'Unknown') . '"',
                 'data' => [
                     'before' => $before,
                     'after'  => $after,
@@ -91,7 +111,14 @@ class EventOrganizerDirectoryController extends Controller
         $organizerId   = $organizer->organizer_id;
         $organizerName = $organizer->name;
 
+        if ($organizer->events()->exists()) {
+            return response()->json([
+                'message' => 'Cannot delete organizer. It is still linked to events.'
+            ], 422);
+        }
+
         $organizer->delete();
+
 
         EventLog::create([
             'event_id' => null,
@@ -106,7 +133,7 @@ class EventOrganizerDirectoryController extends Controller
             entity: 'EventOrganizer',
             entityId: $organizerId,
             details: [
-                'summary' => 'Deleted Event Type - "' . ($organizerName ?? 'Unknown') . '"',
+                'summary' => 'Deleted Event Organizer - "' . ($organizerName ?? 'Unknown') . '"',
                 'data' => [
                     'deleted' => $before,
                 ],

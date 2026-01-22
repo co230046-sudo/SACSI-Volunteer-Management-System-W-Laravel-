@@ -1170,8 +1170,9 @@
     const btnSummary = document.getElementById("btnSummary");
     if (btnSummary) {
       btnSummary.addEventListener("click", (e) => {
+        e.preventDefault(); // ALWAYS stop auto navigation
+
         if (EVENT_STATUS !== "completed") {
-          e.preventDefault();
           openResultModal(
             "Summary unavailable",
             "Event Summary can only be viewed once the event is completed.",
@@ -1181,15 +1182,19 @@
         }
 
         if (!HAS_ATTENDANCE_IMPORT) {
-          e.preventDefault();
           openResultModal(
             "Summary locked",
             "Event Summary is locked until attendance is imported for this event.",
             "error"
           );
+          return;
         }
+
+        // ✅ Only redirect when fully allowed
+        window.location.href = btnSummary.getAttribute("href");
       });
     }
+
 
     // list search + auto-suggest
     const listSearch = q("#list-search");
@@ -1238,66 +1243,6 @@
     qa(".ra-tab").forEach((btn) =>
       btn.addEventListener("click", () => setTab(btn.dataset.tab))
     );
-
-    // ✅ Organizer modals: populate fields + server-result modals (MOVED INSIDE DOMContentLoaded)
-    (function initOrganizerModals() {
-      const editModalEl = document.getElementById("editOrganizerModal");
-      const delModalEl = document.getElementById("deleteOrganizerModal");
-
-      if (editModalEl) {
-        editModalEl.addEventListener("show.bs.modal", (ev) => {
-          const btn = ev.relatedTarget;
-          if (!btn) return;
-
-          document.getElementById("edit_org_id").value =
-            btn.getAttribute("data-org-id") || "";
-          document.getElementById("edit_org_name").value =
-            btn.getAttribute("data-org-name") || "";
-          document.getElementById("edit_org_email").value =
-            btn.getAttribute("data-org-email") || "";
-          document.getElementById("edit_org_contact").value =
-            btn.getAttribute("data-org-contact") || "";
-        });
-
-        editModalEl.addEventListener("hidden.bs.modal", () => {
-          const idEl = document.getElementById("edit_org_id");
-          const nameEl = document.getElementById("edit_org_name");
-          const emailEl = document.getElementById("edit_org_email");
-          const contactEl = document.getElementById("edit_org_contact");
-          if (idEl) idEl.value = "";
-          if (nameEl) nameEl.value = "";
-          if (emailEl) emailEl.value = "";
-          if (contactEl) contactEl.value = "";
-        });
-      }
-
-      if (delModalEl) {
-        delModalEl.addEventListener("show.bs.modal", (ev) => {
-          const btn = ev.relatedTarget;
-          if (!btn) return;
-
-          const id = btn.getAttribute("data-org-id") || "";
-          const name = btn.getAttribute("data-org-name") || "this organizer";
-
-          const idEl = document.getElementById("del_org_id");
-          const labelEl = document.getElementById("del_org_label");
-
-          if (idEl) idEl.value = id;
-          if (labelEl)
-            labelEl.textContent = `Delete “${name}”? This cannot be undone.`;
-        });
-      }
-
-      // Server flash → reuse result modal (requires Blade BOOT fields)
-      if (BOOT.organizerSuccess)
-        openResultModal("Saved", BOOT.organizerSuccess, "success");
-      if (BOOT.organizerDeleted)
-        openResultModal("Deleted", BOOT.organizerDeleted, "success");
-      if (BOOT.organizerWarning)
-        openResultModal("Warning", BOOT.organizerWarning, "error");
-      if (BOOT.organizerError)
-        openResultModal("Error", BOOT.organizerError, "error");
-    })();
   });
 
   // Global document click: close suggestions + dropdowns (does NOT close filter panel)

@@ -8,15 +8,18 @@
 
   $DEFAULT_AVATAR = asset('storage/defaults/default_user.png');
 
-  // ✅ PATCH: provide distinct batches for the dropdown
-  // NOTE: Ideally this is computed in controller, but this works immediately.
   $batches = \App\Models\VolunteerProfile::query()
-    ->whereNotNull('batch_year')
-    ->where('batch_year', '!=', '')
+    ->whereNotNull('batch_number')
+    ->where('batch_number','!=','')
     ->distinct()
-    ->orderBy('batch_year', 'desc')
-    ->pluck('batch_year')
+    ->pluck('batch_number')
+    ->map(fn($b) => trim((string)$b))
+    ->filter()
+    ->map(fn($b) => (int)$b)
+    ->sort()
     ->values();
+
+
 @endphp
 
 <!DOCTYPE html>
@@ -282,7 +285,7 @@
             </div>
 
             <div class="vl-field">
-              <label>Batch Year</label>
+              <label>Batch Number</label>
               <div class="vl-dd" data-dd="batch">
                 <button class="vl-ddBtn" type="button">
                   <span data-dd-text>All Batches</span>
@@ -321,6 +324,7 @@
                   <span data-dd-text>All Status</span>
                   <i class="fa-solid fa-chevron-down"></i>
                 </button>
+                <div class="vl-ddMenu" data-dd-menu></div>
               </div>
             </div>
           </div>

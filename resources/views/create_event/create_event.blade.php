@@ -389,30 +389,32 @@
     <div class="modal-content modal-soft">
       <div class="modal-header modal-soft-header modal-soft-header--danger">
         <h5 class="modal-title">
-          <i class="fa-solid fa-circle-xmark"></i> Form Incomplete
+          <i class="fa-solid fa-circle-xmark"></i> Please fix the form
         </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
 
       <div class="modal-body">
         @if(count($missingRequired))
           <div class="soft-alert soft-alert-danger">
             <div class="soft-alert-title">
-              <i class="fa-solid fa-triangle-exclamation"></i> Missing required fields
+              <i class="fa-solid fa-triangle-exclamation"></i> Missing required information
             </div>
             <ul class="soft-checklist">
               @foreach($missingRequired as $item)
                 <li><i class="fa-solid fa-circle"></i> {{ $item }}</li>
               @endforeach
             </ul>
-            <div class="soft-alert-sub">Fill in the missing fields, then try again.</div>
+            <div class="soft-alert-sub">
+              These fields must be completed before you can continue.
+            </div>
           </div>
         @endif
 
         @if(count($fixThese))
           <div class="soft-block">
             <div class="soft-block-title">
-              <i class="fa-solid fa-screwdriver-wrench"></i> Please review these
+              <i class="fa-solid fa-screwdriver-wrench"></i> Please review
             </div>
             <ul class="soft-list">
               @foreach ($fixThese as $msg)
@@ -425,7 +427,7 @@
         @if(count($optionalNotes))
           <div class="soft-note">
             <div class="soft-note-title">
-              <i class="fa-solid fa-circle-info"></i> Quick notes
+              <i class="fa-solid fa-circle-info"></i> Helpful reminders
             </div>
             <ul class="soft-list">
               @foreach($optionalNotes as $n)
@@ -438,49 +440,55 @@
 
       <div class="modal-footer modal-soft-footer">
         <button type="button" class="btn modal-soft-btn modal-soft-btn--danger" data-bs-dismiss="modal">
-          <i class="fa-solid fa-check"></i> Got it
+          <i class="fa-solid fa-check"></i> Understood
         </button>
       </div>
     </div>
   </div>
 </div>
 
-{{-- Duplicate Warning (create only) --}}
-<div class="modal fade" id="duplicateModal" tabindex="-1" aria-hidden="true">
+{{-- Duplicate Event --}}
+<div class="modal fade" id="duplicateModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content modal-soft">
       <div class="modal-header modal-soft-header modal-soft-header--warning">
         <h5 class="modal-title">
-          <i class="fa-solid fa-circle-exclamation"></i> Possible duplicate event
+          <i class="fa-solid fa-circle-exclamation"></i> Possible duplicate event detected
         </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
 
       <div class="modal-body">
-        <p class="soft-lead">We found an existing event with the same <b>Title</b>, <b>Barangay</b>, and <b>Start Date &amp; Time</b>.</p>
+        <p class="soft-lead">
+          An event with the same <b>Title</b>, <b>Barangay</b>, and <b>Start Date & Time</b> already exists.
+        </p>
 
         @if(is_array($dup))
-          <div class="soft-card">
-            <div><span class="soft-k">Existing:</span> {{ $dup['title'] ?? '' }}</div>
-            <div><span class="soft-k">Start:</span> {{ $dup['start'] ?? '' }}</div>
-            <div><span class="soft-k">Barangay:</span> {{ $dup['barangay'] ?? '' }}</div>
-          </div>
+        <div class="soft-card">
+          <div><span class="soft-k">Title:</span> {{ $dup['title'] }}</div>
+          <div><span class="soft-k">Start:</span> {{ $dup['start'] }}</div>
+          <div><span class="soft-k">Barangay:</span> {{ $dup['barangay'] }}</div>
+        </div>
         @endif
 
-        <p class="soft-sub">If this is intentional, you can proceed.</p>
+        <p class="soft-sub">
+          If this is the same event, please cancel and review.  
+          If it is truly different, you may proceed.
+        </p>
       </div>
 
       <div class="modal-footer modal-soft-footer">
-        <button type="button" class="btn modal-soft-btn modal-soft-btn--ghost" data-bs-dismiss="modal">
-          <i class="fa-solid fa-xmark"></i> Review
+        <button class="btn modal-soft-btn modal-soft-btn--ghost" data-bs-dismiss="modal">
+          Review
         </button>
-        <button type="button" class="btn modal-soft-btn modal-soft-btn--danger" id="dup-confirm-btn">
-          <i class="fa-solid fa-check"></i> Create anyway
+        <button class="btn modal-soft-btn modal-soft-btn--danger" id="dup-confirm-btn">
+          Create anyway
         </button>
       </div>
     </div>
   </div>
 </div>
+
 
 {{-- Organizer Details --}}
 <div class="modal fade" id="organizerDetailsModal" tabindex="-1" aria-hidden="true">
@@ -510,21 +518,24 @@
   </div>
 </div>
 
-{{-- ✅ Organizer Duplicate --}}
-<div class="modal fade" id="organizerDuplicateModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" style="max-width: 520px;">
+{{-- Organizer Duplicate --}}
+<div class="modal fade" id="organizerDuplicateModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
     <div class="modal-content modal-soft">
       <div class="modal-header modal-soft-header modal-soft-header--warning">
         <h5 class="modal-title">
-          <i class="fa-solid fa-triangle-exclamation"></i> Duplicate organizer
+          <i class="fa-solid fa-triangle-exclamation"></i> Organizer already exists
         </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body" id="organizerDuplicateMsg">
-        This organizer already exists in this event.
+        This organizer already exists in your organizer directory.  
+        Please select the existing organizer instead of creating a duplicate.
       </div>
       <div class="modal-footer modal-soft-footer">
-        <button type="button" class="btn modal-soft-btn modal-soft-btn--danger" data-bs-dismiss="modal">OK</button>
+        <button class="btn modal-soft-btn modal-soft-btn--danger" data-bs-dismiss="modal">
+          OK
+        </button>
       </div>
     </div>
   </div>
@@ -632,219 +643,207 @@
 </div>
 
 {{-- Event Type Success --}}
-<div class="modal fade" id="eventTypeSuccessModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="eventTypeSuccessModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
     <div class="modal-content modal-soft">
       <div class="modal-header modal-soft-header modal-soft-header--info">
         <h5 class="modal-title">
-          <i class="fa-solid fa-circle-check"></i> Event type saved
+          <i class="fa-solid fa-circle-check"></i> Event type saved successfully
         </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <div class="soft-lead">{{ session('submit_success') }}</div>
-        <div class="soft-sub">You can now select it from the Event Type dropdown.</div>
+        <div class="soft-sub">
+          You can now select this event type from the dropdown.
+        </div>
       </div>
       <div class="modal-footer modal-soft-footer">
-        <button type="button" class="btn modal-soft-btn modal-soft-btn--danger" data-bs-dismiss="modal">
-          <i class="fa-solid fa-check"></i> OK
+        <button class="btn modal-soft-btn modal-soft-btn--danger" data-bs-dismiss="modal">
+          OK
         </button>
       </div>
     </div>
   </div>
 </div>
 
-  {{-- Organizer Updated Success --}}
-  <div class="modal fade" id="organizerSavedModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
-      <div class="modal-content modal-soft">
-        <div class="modal-header modal-soft-header modal-soft-header--info">
-          <h5 class="modal-title">
-            <i class="fa-solid fa-circle-check"></i> Organizer updated
-          </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          Saved organizer details successfully.
-        </div>
-        <div class="modal-footer modal-soft-footer">
-          <button type="button" class="btn modal-soft-btn modal-soft-btn--danger" data-bs-dismiss="modal">
-            <i class="fa-solid fa-check"></i> OK
-          </button>
-        </div>
+{{-- Organizer Saved --}}
+<div class="modal fade" id="organizerSavedModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+    <div class="modal-content modal-soft">
+      <div class="modal-header modal-soft-header modal-soft-header--info">
+        <h5 class="modal-title">
+          <i class="fa-solid fa-circle-check"></i> Organizer updated successfully
+        </h5>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="organizerSavedMsg">
+        Organizer information has been saved successfully.
+      </div>
+      <div class="modal-footer modal-soft-footer">
+        <button class="btn modal-soft-btn modal-soft-btn--danger" data-bs-dismiss="modal">
+          OK
+        </button>
       </div>
     </div>
   </div>
-
-  {{-- Manage Organizers --}}
-  <div class="modal fade" id="manageOrganizersModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width:760px;">
-      <div class="modal-content modal-soft">
-        <div class="modal-header modal-soft-header modal-soft-header--info">
-          <h5 class="modal-title">
-            <i class="fa-solid fa-users-gear"></i> Manage Organizers
-          </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-        </div>
-
-        <div class="modal-body">
-          <div class="org-manage-top">
-            <div class="org-manage-search" style="flex:1;">
-              <i class="fa-solid fa-magnifying-glass"></i>
-              <input type="text" id="orgManageSearch" placeholder="Search organizer name / email / contact...">
-            </div>
-          </div>
-
-          <!-- Slot selector (Option B) -->
-          <div class="org-slotbar" id="orgSlotBar" style="margin: 14px 0 10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <div style="font-weight:900; opacity:.75;">Assign to:</div>
-
-            <div class="btn-group" role="group" aria-label="Organizer slots">
-              <button type="button" class="btn btn-outline-danger org-slot-btn active" data-slot="0">
-                Organizer 1
-              </button>
-              <button type="button" class="btn btn-outline-danger org-slot-btn" data-slot="1">
-                Organizer 2
-              </button>
-              <button type="button" class="btn btn-outline-danger org-slot-btn" data-slot="2">
-                Organizer 3
-              </button>
-            </div>
-
-            <div class="soft-sub" style="margin-left:auto;">
-              Tip: Select a slot, then click an organizer to assign.
-            </div>
-          </div>
-          
-          <div id="orgManageList" class="org-manage-list"></div>
-        </div>
-
-        <div class="modal-footer modal-soft-footer">
-          <button type="button" class="btn modal-soft-btn modal-soft-btn--ghost" data-bs-dismiss="modal">
-            <i class="fa-solid fa-xmark"></i> Close
-          </button>
-        </div>
+</div>
+{{-- Manage Organizers --}}
+<div class="modal fade" id="manageOrganizersModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width:760px;">
+    <div class="modal-content modal-soft">
+      <div class="modal-header modal-soft-header modal-soft-header--info">
+        <h5 class="modal-title">
+          <i class="fa-solid fa-users-gear"></i> Manage Organizers
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-    </div>
-  </div>
-
-  <div class="modal fade" id="softActionModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
-      <div class="modal-content modal-soft">
-        <div class="modal-header modal-soft-header modal-soft-header--warning" id="softActionHeader">
-          <h5 class="modal-title" id="softActionTitle">
-            <i class="fa-solid fa-triangle-exclamation"></i> Notice
-          </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body" id="softActionBody">
-          Something happened.
-        </div>
-        <div class="modal-footer modal-soft-footer">
-          <button type="button" class="btn modal-soft-btn modal-soft-btn--danger" data-bs-dismiss="modal">
-            <i class="fa-solid fa-check"></i> Ok
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal fade" id="softConfirmModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
-      <div class="modal-content modal-soft">
-        <div class="modal-header modal-soft-header modal-soft-header--warning" id="softConfirmHeader">
-          <h5 class="modal-title" id="softConfirmTitle">
-            <i class="fa-solid fa-triangle-exclamation"></i> Confirm
-          </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body" id="softConfirmBody">Are you sure?</div>
-        <div class="modal-footer modal-soft-footer">
-          <button type="button" class="btn modal-soft-btn modal-soft-btn--ghost" id="softConfirmCancel" data-bs-dismiss="modal">
-            Cancel
-          </button>
-          <button type="button" class="btn modal-soft-btn modal-soft-btn--danger" id="softConfirmOk">
-            Yes
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal fade" id="eventTypeAddModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
-      <div class="modal-content modal-soft">
-        <div class="modal-header modal-soft-header modal-soft-header--info">
-          <h5 class="modal-title">
-            <i class="fa-solid fa-plus"></i> Add Event Type
-          </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-        </div>
-
-        <div class="modal-body">
-          <div class="soft-sub mb-2">Enter a label for the new event type.</div>
-
-          <input type="text"
-                id="eventTypeAddLabel"
-                class="form-control"
-                placeholder="e.g., Coastal Cleanup, Seminar, Tree Planting"
-                autocomplete="off">
-
-          <div class="soft-sub mt-2" style="opacity:.8;">
-            Tip: Keep it short and consistent (Title Case).
+      <div class="modal-body">
+        <div class="org-manage-top">
+          <div class="org-manage-search" style="flex:1;">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="orgManageSearch" placeholder="Search organizer name / email / contact...">
           </div>
         </div>
-
-        <div class="modal-footer modal-soft-footer">
-          <button type="button" class="btn modal-soft-btn modal-soft-btn--ghost" data-bs-dismiss="modal">
-            <i class="fa-solid fa-xmark"></i> Cancel
-          </button>
-          <button type="button" class="btn modal-soft-btn modal-soft-btn--danger" id="eventTypeAddSaveBtn">
-            <i class="fa-solid fa-check"></i> Save
-          </button>
+        <!-- Slot selector (Option B) -->
+        <div class="org-slotbar" id="orgSlotBar" style="margin: 14px 0 10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <div style="font-weight:900; opacity:.75;">Assign to:</div>
+          <div class="btn-group" role="group" aria-label="Organizer slots">
+            <button type="button" class="btn btn-outline-danger org-slot-btn active" data-slot="0">
+              Organizer 1
+            </button>
+            <button type="button" class="btn btn-outline-danger org-slot-btn" data-slot="1">
+              Organizer 2
+            </button>
+            <button type="button" class="btn btn-outline-danger org-slot-btn" data-slot="2">
+              Organizer 3
+            </button>
+          </div>
+          <div class="soft-sub" style="margin-left:auto;">
+            Tip: Select a slot, then click an organizer to assign.
+          </div>
         </div>
+        
+        <div id="orgManageList" class="org-manage-list"></div>
+      </div>
+      <div class="modal-footer modal-soft-footer">
+        <button type="button" class="btn modal-soft-btn modal-soft-btn--ghost" data-bs-dismiss="modal">
+          <i class="fa-solid fa-xmark"></i> Close
+        </button>
       </div>
     </div>
   </div>
-  {{--  Auto-open modals --}}
-  @if ($errors->any())
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const m = new bootstrap.Modal(document.getElementById('validationModal'));
-      m.show();
-    });
-  </script>
-  @endif
+</div>
+<div class="modal fade" id="softActionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+    <div class="modal-content modal-soft">
+      <div class="modal-header modal-soft-header modal-soft-header--warning" id="softActionHeader">
+        <h5 class="modal-title" id="softActionTitle">
+          <i class="fa-solid fa-triangle-exclamation"></i> Notice
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="softActionBody">
+        Something happened.
+      </div>
+      <div class="modal-footer modal-soft-footer">
+        <button type="button" class="btn modal-soft-btn modal-soft-btn--danger" data-bs-dismiss="modal">
+          <i class="fa-solid fa-check"></i> Ok
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
-  @if (session()->has('duplicate_event') && !($isEdit ?? false))
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const m = new bootstrap.Modal(document.getElementById('duplicateModal'));
-      m.show();
-    });
-  </script>
-  @endif
+<div class="modal fade" id="softConfirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+    <div class="modal-content modal-soft">
+      <div class="modal-header modal-soft-header modal-soft-header--warning" id="softConfirmHeader">
+        <h5 class="modal-title" id="softConfirmTitle">
+          <i class="fa-solid fa-triangle-exclamation"></i> Confirm
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="softConfirmBody">Are you sure?</div>
+      <div class="modal-footer modal-soft-footer">
+        <button type="button" class="btn modal-soft-btn modal-soft-btn--ghost" id="softConfirmCancel" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn modal-soft-btn modal-soft-btn--danger" id="softConfirmOk">
+          Yes
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="eventTypeAddModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+    <div class="modal-content modal-soft">
+      <div class="modal-header modal-soft-header modal-soft-header--info">
+        <h5 class="modal-title">
+          <i class="fa-solid fa-plus"></i> Add Event Type
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="soft-sub mb-2">Enter a label for the new event type.</div>
+        <input type="text"
+              id="eventTypeAddLabel"
+              class="form-control"
+              placeholder="e.g., Coastal Cleanup, Seminar, Tree Planting"
+              autocomplete="off">
+        <div class="soft-sub mt-2" style="opacity:.8;">
+          Tip: Keep it short and consistent (Title Case).
+        </div>
+      </div>
+      <div class="modal-footer modal-soft-footer">
+        <button type="button" class="btn modal-soft-btn modal-soft-btn--ghost" data-bs-dismiss="modal">
+          <i class="fa-solid fa-xmark"></i> Cancel
+        </button>
+        <button type="button" class="btn modal-soft-btn modal-soft-btn--danger" id="eventTypeAddSaveBtn">
+          <i class="fa-solid fa-check"></i> Save
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
-  @if(session('submit_success'))
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const m = new bootstrap.Modal(document.getElementById('eventTypeSuccessModal'));
-      m.show();
-    });
-  </script>
-  @endif
+{{--  Auto-open modals --}}
+@if ($errors->any())
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const m = new bootstrap.Modal(document.getElementById('validationModal'));
+    m.show();
+  });
+</script>
+@endif
+@if (session()->has('duplicate_event') && !($isEdit ?? false))
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const m = new bootstrap.Modal(document.getElementById('duplicateModal'));
+    m.show();
+  });
+</script>
+@endif
+@if(session('submit_success'))
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const m = new bootstrap.Modal(document.getElementById('eventTypeSuccessModal'));
+    m.show();
+  });
+</script>
+@endif
 
-
-  <script>
-    window.ORGANIZERS_API_URL = "{{ route('organizers.index') }}";            // /events/organizers
-    window.ORGANIZER_UPDATE_URL = "{{ url('/events/organizers') }}"; // PUT /events/organizers/{id}
-    window.ORGANIZER_DELETE_URL = "{{ url('/events/organizers') }}"; // DELETE /events/organizers/{id}
-    window.EVENT_TYPES_API_URL = "{{ route('event-types.json') }}";           // /events/event-types/json
-    window.EVENT_TYPE_UPDATE_URL = "{{ url('/events/event-types') }}";        // /events/event-types/{id}
-    window.EVENT_TYPE_DELETE_URL = "{{ url('/events/event-types') }}";        // /events/event-types/{id}
-    window.EVENT_TYPE_STORE_URL  = "{{ route('event-types.store') }}";        // /events/event-types
-    window.CSRF_TOKEN = "{{ csrf_token() }}";
-  </script>
+<script>
+window.ORGANIZERS_API_URL = "{{ route('organizers.index') }}";
+window.ORGANIZER_UPDATE_URL = "{{ url('/events/organizers') }}";
+window.ORGANIZER_DELETE_URL = "{{ url('/events/organizers') }}";
+window.EVENT_TYPES_API_URL = "{{ route('event-types.json') }}";
+window.EVENT_TYPE_UPDATE_URL = "{{ url('/events/event-types') }}";
+window.EVENT_TYPE_DELETE_URL = "{{ url('/events/event-types') }}";
+window.EVENT_TYPE_STORE_URL  = "{{ route('event-types.store') }}";
+window.CSRF_TOKEN = "{{ csrf_token() }}";
+</script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ asset('assets/create_event/js/script.js') }}"></script>

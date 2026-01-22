@@ -125,149 +125,168 @@ class AttendanceImportController extends Controller
 
     // Upload CSV and build preview buckets
     public function preview(Request $request, Event $event)
-    {
-        $derivedStatus = $this->deriveStatus(
-            $event->status,
-            $event->start_datetime ? Carbon::parse($event->start_datetime) : null,
-            $event->end_datetime ? Carbon::parse($event->end_datetime) : null,
-            Carbon::now()
-        );
+{
+    $derivedStatus = $this->deriveStatus(
+        $event->status,
+        $event->start_datetime ? Carbon::parse($event->start_datetime) : null,
+        $event->end_datetime ? Carbon::parse($event->end_datetime) : null,
+        Carbon::now()
+    );
 
-        if ($derivedStatus !== self::STATUS_COMPLETED) {
-            $this->logAttendanceFact(
-                type: 'attendance.preview.blocked',
-                action: 'Blocked Attendance Preview',
-                event: $event,
-                data: [
-                    'derived_status' => $derivedStatus,
-                ]
-            );
-
-            return redirect()->route('attendance.import.index', $event->event_id)
-                ->with('error', "Attendance import is only allowed when event status is COMPLETED. Current status: " . strtoupper($derivedStatus));
-        }
-
-        $request->validate([
-            'csv_file' => ['required', 'file', 'mimes:csv,txt'],
-        ]);
-
-        $file = $request->file('csv_file');
-        if (!$file || !$file->isValid()) {
-            $this->logAttendanceFact(
-                type: 'attendance.preview.failed',
-                action: 'Failed Attendance Preview',
-                event: $event,
-                data: [
-                    'reason' => 'invalid_upload_or_missing',
-                ]
-            );
-
-            return redirect()->route('attendance.import.index', $event->event_id)
-                ->with('error', 'Invalid file upload. Please try again.');
-        }
-
-        $path = $file->getRealPath();
-        $filename = $file->getClientOriginalName();
-
-        try {
-            [$rows, $header, $normalizedHeader] = $this->readCsv($path);
-        } catch (\Throwable $e) {
-            $this->logAttendanceFact(
-                type: 'attendance.preview.failed',
-                action: 'Failed Attendance Preview',
-                event: $event,
-                data: [
-                    'filename' => $filename,
-                    'reason'   => 'csv_read_failed',
-                    'error'    => $e->getMessage(),
-                ]
-            );
-
-            return redirect()->route('attendance.import.index', $event->event_id)
-                ->with('error', 'Could not read the CSV. Make sure it is a valid export from Google Forms.');
-        }
-
-        if (count($rows) === 0) {
-            $this->logAttendanceFact(
-                type: 'attendance.preview.failed',
-                action: 'Failed Attendance Preview',
-                event: $event,
-                data: [
-                    'filename' => $filename,
-                    'reason'   => 'empty_csv',
-                ]
-            );
-
-            return redirect()->route('attendance.import.index', $event->event_id)
-                ->with('error', 'The uploaded CSV has no rows.');
-        }
-
-        $requiredKeys = [
-            'event_code',
-            'full_name',
-            'school_id',
-            'school_email',
-            'attendance_confirmation',
-        ];
-
-        $missing = [];
-        foreach ($requiredKeys as $k) {
-            if (!in_array($k, $normalizedHeader, true)) $missing[] = $k;
-        }
-
-        if (!empty($missing)) {
-            $this->logAttendanceFact(
-                type: 'attendance.preview.failed',
-                action: 'Failed Attendance Preview',
-                event: $event,
-                data: [
-                    'filename' => $filename,
-                    'reason'   => 'missing_headers',
-                    'missing'  => $missing,
-                    'header'   => $header,
-                ]
-            );
-
-            $nice = implode(', ', array_map(fn($m) => strtoupper(str_replace('_', ' ', $m)), $missing));
-
-            return redirect()->route('attendance.import.index', $event->event_id)
-                ->with('error', "CSV header mismatch. Missing required columns: {$nice}. Please use the Google Forms CSV template/export.");
-        }
-
-        $batch = 'ATT-' . now()->format('YmdHis') . '-' . Str::upper(Str::random(6));
-        $result = $this->validateRows($event, $rows);
-
-        session([
-            $this->previewSessionKey($event) => [
-                'batch' => $batch,
-                'filename' => $filename,
-                'header' => $header,
-                'normalized_header' => $normalizedHeader,
-                'total' => count($rows),
-
-                'valid' => $result['valid'],
-                'invalid' => $result['invalid'],
-                'duplicate' => $result['duplicate'],
-                'already_imported' => $result['already_imported'],
-
-                'counts' => $result['counts'],
-            ],
-        ]);
+    // RULE 1: Status must be completed
+    if ($derivedStatus !== self::STATUS_COMPLETED) {
 
         $this->logAttendanceFact(
-            type: 'attendance.preview',
-            action: 'Previewed',
+            type: 'attendance.preview.blocked',
+            action: 'Blocked Attendance Preview',
             event: $event,
             data: [
-                'filename' => $filename,
-                'batch'    => $batch,
-                'counts'   => $result['counts'],
+                'derived_status' => $derivedStatus,
             ]
         );
 
         return redirect()->route('attendance.import.index', $event->event_id)
-            ->with('success', 'Preview ready. Review rows, edit/delete if needed, then Save Import.');
+            ->with('error', "Attendance import is only allowed when event status is COMPLETED. Current status: " . strtoupper($derivedStatus));
     }
+
+    // RULE 2: Roster must exist
+    if ($event->expectedVolunteers()->count() <= 0) {
+
+        $this->logAttendanceFact(
+            type: 'attendance.preview.blocked',
+            action: 'Blocked Attendance Preview',
+            event: $event,
+            data: [
+                'reason' => 'no_expected_volunteers',
+            ]
+        );
+
+        return redirect()->route('attendance.import.index', $event->event_id)
+            ->with('error', 'Attendance import is not allowed because this event has no expected volunteers in the roster.');
+    }
+
+    // RULE 3: File validation
+    $request->validate([
+        'csv_file' => ['required', 'file', 'mimes:csv,txt'],
+    ]);
+
+    $file = $request->file('csv_file');
+    if (!$file || !$file->isValid()) {
+        $this->logAttendanceFact(
+            type: 'attendance.preview.failed',
+            action: 'Failed Attendance Preview',
+            event: $event,
+            data: [
+                'reason' => 'invalid_upload_or_missing',
+            ]
+        );
+
+        return redirect()->route('attendance.import.index', $event->event_id)
+            ->with('error', 'Invalid file upload. Please try again.');
+    }
+
+    $path = $file->getRealPath();
+    $filename = $file->getClientOriginalName();
+
+    try {
+        [$rows, $header, $normalizedHeader] = $this->readCsv($path);
+    } catch (\Throwable $e) {
+        $this->logAttendanceFact(
+            type: 'attendance.preview.failed',
+            action: 'Failed Attendance Preview',
+            event: $event,
+            data: [
+                'filename' => $filename,
+                'reason'   => 'csv_read_failed',
+                'error'    => $e->getMessage(),
+            ]
+        );
+
+        return redirect()->route('attendance.import.index', $event->event_id)
+            ->with('error', 'Could not read the CSV. Make sure it is a valid export from Google Forms.');
+    }
+
+    if (count($rows) === 0) {
+        $this->logAttendanceFact(
+            type: 'attendance.preview.failed',
+            action: 'Failed Attendance Preview',
+            event: $event,
+            data: [
+                'filename' => $filename,
+                'reason'   => 'empty_csv',
+            ]
+        );
+
+        return redirect()->route('attendance.import.index', $event->event_id)
+            ->with('error', 'The uploaded CSV has no rows.');
+    }
+
+    $requiredKeys = [
+        'event_code',
+        'full_name',
+        'school_id',
+        'school_email',
+        'attendance_confirmation',
+    ];
+
+    $missing = [];
+    foreach ($requiredKeys as $k) {
+        if (!in_array($k, $normalizedHeader, true)) $missing[] = $k;
+    }
+
+    if (!empty($missing)) {
+        $this->logAttendanceFact(
+            type: 'attendance.preview.failed',
+            action: 'Failed Attendance Preview',
+            event: $event,
+            data: [
+                'filename' => $filename,
+                'reason'   => 'missing_headers',
+                'missing'  => $missing,
+                'header'   => $header,
+            ]
+        );
+
+        $nice = implode(', ', array_map(fn($m) => strtoupper(str_replace('_', ' ', $m)), $missing));
+
+        return redirect()->route('attendance.import.index', $event->event_id)
+            ->with('error', "CSV header mismatch. Missing required columns: {$nice}. Please use the Google Forms CSV template/export.");
+    }
+
+    $batch = 'ATT-' . now()->format('YmdHis') . '-' . Str::upper(Str::random(6));
+    $result = $this->validateRows($event, $rows);
+
+    session([
+        $this->previewSessionKey($event) => [
+            'batch' => $batch,
+            'filename' => $filename,
+            'header' => $header,
+            'normalized_header' => $normalizedHeader,
+            'total' => count($rows),
+
+            'valid' => $result['valid'],
+            'invalid' => $result['invalid'],
+            'duplicate' => $result['duplicate'],
+            'already_imported' => $result['already_imported'],
+
+            'counts' => $result['counts'],
+        ],
+    ]);
+
+    $this->logAttendanceFact(
+        type: 'attendance.preview',
+        action: 'Previewed',
+        event: $event,
+        data: [
+            'filename' => $filename,
+            'batch'    => $batch,
+            'counts'   => $result['counts'],
+        ]
+    );
+
+    return redirect()->route('attendance.import.index', $event->event_id)
+        ->with('success', 'Preview ready. Review rows, edit/delete if needed, then Save Import.');
+}
 
     // Update a row inside the preview session
     public function updatePreviewRow(Request $request, Event $event)
@@ -429,6 +448,23 @@ class AttendanceImportController extends Controller
             return redirect()->route('attendance.import.index', $event->event_id)
                 ->with('error', "Attendance import is only allowed when event status is COMPLETED. Current status: " . strtoupper($derivedStatus));
         }
+
+        // RULE 2: Roster must exist
+        if ($event->expectedVolunteers()->count() <= 0) {
+
+            $this->logAttendanceFact(
+                type: 'attendance.commit.blocked',
+                action: 'Blocked Attendance Save',
+                event: $event,
+                data: [
+                    'reason' => 'no_expected_volunteers',
+                ]
+            );
+
+            return redirect()->route('attendance.import.index', $event->event_id)
+                ->with('error', 'Cannot save attendance because this event has no expected volunteers in the roster.');
+        }
+
 
         $previewKey = $this->previewSessionKey($event);
         $preview = session($previewKey);

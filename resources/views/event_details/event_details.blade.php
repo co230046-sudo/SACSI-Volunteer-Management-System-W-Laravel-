@@ -149,18 +149,21 @@
                             </a>
 
                             @if(Route::has('events.summary'))
-                                <a href="{{ route('events.summary', $event->event_id) }}"
-                                class="btn btn-action soft"
-                                id="btnSummary"
-                                data-event-status="{{ strtolower($event->status) }}"
-                                data-has-attendance="{{ ($actualCount ?? 0) > 0 ? 1 : 0 }}">
-                                    <i class="fa-solid fa-file-lines"></i> Summary
-                                </a>
-                            @else
-                                <button type="button" class="btn btn-action soft" disabled>
-                                    <i class="fa-solid fa-file-lines"></i> Summary
-                                </button>
+                                @if($event->status === 'completed' && ($actualCount ?? 0) > 0)
+                                    <a href="{{ route('events.summary', $event->event_id) }}"
+                                    class="btn btn-action soft"
+                                    id="btnSummary">
+                                        <i class="fa-solid fa-file-lines"></i> Summary
+                                    </a>
+                                @else
+                                    <button type="button"
+                                            class="btn btn-action soft disabled"
+                                            style="pointer-events:none; opacity:.6; cursor:not-allowed;">
+                                        <i class="fa-solid fa-file-lines"></i> Summary
+                                    </button>
+                                @endif
                             @endif
+
 
                             @if(Route::has('attendance.import.index'))
                                 <a href="{{ route('attendance.import.index', $event->event_id) }}" class="btn btn-action soft">
@@ -246,27 +249,6 @@
                                             </div>
                                         </div>
 
-                                        <div class="organizer-actions">
-                                            <button type="button"
-                                                    class="btn btn-sm btn-outline-brand btn-pill"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#editOrganizerModal"
-                                                    data-org-id="{{ $org->organizer_id ?? $org->id }}"
-                                                    data-org-name="{{ e($org->name) }}"
-                                                    data-org-email="{{ e($org->email ?? '') }}"
-                                                    data-org-contact="{{ e($org->contact ?? '') }}">
-                                                <i class="fa-solid fa-pen"></i>
-                                            </button>
-
-                                            <button type="button"
-                                                    class="btn btn-sm btn-light btn-pill"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#deleteOrganizerModal"
-                                                    data-org-id="{{ $org->organizer_id ?? $org->id }}"
-                                                    data-org-name="{{ e($org->name) }}">
-                                                <i class="fa-solid fa-trash-can"></i>
-                                            </button>
-                                        </div>
                                     </div>
                                 </div>
                             @empty
@@ -542,83 +524,6 @@
     </div>
     @endif
 
-    {{-- EDIT ORGANIZER MODAL --}}
-    <div class="modal fade" id="editOrganizerModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <form method="POST" action="{{ route('events.organizers.update', $event->event_id) }}" class="modal-content modal-soft">
-                @csrf
-                @method('PUT')
-                <input type="hidden" name="organizer_id" id="edit_org_id">
-
-                <div class="modal-header modal-soft-header">
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="modal-icon"><i class="fa-solid fa-user-pen"></i></div>
-                        <div>
-                            <h5 class="modal-title mb-0">Edit Organizer</h5>
-                            <div class="small text-muted">Update organizer details.</div>
-                        </div>
-                    </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-
-                <div class="modal-body modal-soft-body">
-                    <div class="mb-2">
-                        <label class="form-label fw-semibold">Name</label>
-                        <input class="form-control" name="name" id="edit_org_name" required maxlength="120">
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label fw-semibold">Email</label>
-                        <input class="form-control" name="email" id="edit_org_email" maxlength="190">
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label fw-semibold">Contact</label>
-                        <input class="form-control" name="contact" id="edit_org_contact" maxlength="60">
-                    </div>
-                </div>
-
-                <div class="modal-footer border-0 pt-0 px-3 pb-3 d-flex justify-content-end gap-2">
-                    <button type="button" class="btn btn-light btn-pill" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-brand btn-pill">
-                        <i class="fa-solid fa-floppy-disk me-1"></i> Save
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    {{-- DELETE ORGANIZER MODAL --}}
-    <div class="modal fade" id="deleteOrganizerModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <form method="POST" action="{{ route('events.organizers.destroy', $event->event_id) }}" class="modal-content modal-soft">
-                @csrf
-                @method('DELETE')
-                <input type="hidden" name="organizer_id" id="del_org_id">
-
-                <div class="modal-header modal-soft-header">
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="modal-icon"><i class="fa-solid fa-trash-can"></i></div>
-                        <div>
-                            <h5 class="modal-title mb-0">Delete Organizer</h5>
-                            <div class="small text-muted" id="del_org_label">This cannot be undone.</div>
-                        </div>
-                    </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-
-                <div class="modal-body modal-soft-body">
-                    <p class="mb-0">Remove this organizer from the event?</p>
-                </div>
-
-                <div class="modal-footer border-0 pt-0 px-3 pb-3 d-flex justify-content-end gap-2">
-                    <button type="button" class="btn btn-light btn-pill" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-danger btn-pill">
-                        <i class="fa-solid fa-trash-can me-1"></i> Delete
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     {{-- ADD VOLUNTEERS MODAL --}}
     <div class="modal fade" id="addStudentModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-xl">
@@ -722,11 +627,6 @@
         lateCount: @json($lateCount),
         walkInCount: @json($walkInCount),
         maxVolunteers: @json($maxVolunteers),
-
-        organizerSuccess: @json(session('organizer_success')),
-        organizerDeleted: @json(session('organizer_deleted')),
-        organizerWarning: @json(session('organizer_warning')),
-        organizerError:   @json(session('organizer_error')),
 
         addVolUrl: @json(route('events.expectedVolunteers.add', $event->event_id)),
         volDataUrl: @json(route('volunteers.data')),

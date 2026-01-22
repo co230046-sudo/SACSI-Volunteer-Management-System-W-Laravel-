@@ -95,9 +95,13 @@ class Event extends Model
 
     public function organizers()
     {
-        return $this->hasMany(\App\Models\EventOrganizer::class, 'event_id', 'event_id');
+        return $this->belongsToMany(
+            EventOrganizer::class,
+            'event_event_organizer',
+            'event_id',
+            'organizer_id'
+        )->withTimestamps();
     }
-
 
     public function expectedVolunteers()
     {

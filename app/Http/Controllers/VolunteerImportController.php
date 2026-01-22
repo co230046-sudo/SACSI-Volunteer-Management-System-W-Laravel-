@@ -524,10 +524,11 @@ class VolunteerImportController extends Controller
             'year' => 'year_level', 'year level' => 'year_level', 'yearlevel' => 'year_level',
             'year_level' => 'year_level',
 
-            'batch' => 'batch_year',
-            'batch number' => 'batch_year',
-            'batch no' => 'batch_year',
-            'cohort' => 'batch_year',
+            'batch' => 'batch_number',
+            'batch number' => 'batch_number',
+            'batch no' => 'batch_number',
+            'cohort' => 'batch_number',
+
 
             'monday schedule' => 'monday', 'monday' => 'monday',
             'tuesday schedule' => 'tuesday', 'tuesday' => 'tuesday',
@@ -654,40 +655,10 @@ class VolunteerImportController extends Controller
             }
         }
 
-        /**
-         * Derive batch_year if missing or messy
-         * Accepts: 2023, 23, 23-24, Batch 23-24, etc.
-         * Rule: if it's a range like 23-24 => use starting year (2023)
-         */
-        if (!empty($normalized['batch_year'])) {
-
-            $raw = (string) $normalized['batch_year'];
-
-            // ✅ detect range like 23-24 (or 23/24, 23 24)
-            if (preg_match('/\b(\d{2})\D+(\d{2})\b/', $raw, $m)) {
-                $normalized['batch_year'] = 2000 + (int)$m[1]; // 23-24 => 2023
-            } else {
-
-                $digits = preg_replace('/\D+/', '', $raw);
-
-                if (preg_match('/^20\d{2}$/', $digits)) {
-                    $normalized['batch_year'] = (int)$digits;        // 2023
-                } elseif (preg_match('/^(\d{2})$/', $digits, $m)) {
-                    $normalized['batch_year'] = 2000 + (int)$m[1];    // 23 => 2023
-                } else {
-                    $normalized['batch_year'] = null; // weird input
-                }
-            }
+        if (isset($normalized['batch_number'])) {
+            $normalized['batch_number'] = preg_replace('/\D+/', '', (string)$normalized['batch_number']);
         }
 
-        if (empty($normalized['batch_year']) && !empty($normalized['id_number'])) {
-            $id = preg_replace('/\D+/', '', (string)$normalized['id_number']);
-
-            if (preg_match('/^(\d{2})\d{4,5}$/', $id, $m)) {
-                $yy = (int)$m[1];
-                $normalized['batch_year'] = 2000 + $yy;
-            }
-        }
 
         $out = [];
         foreach (['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as $day) {
@@ -699,7 +670,7 @@ class VolunteerImportController extends Controller
         foreach ([
             'full_name','id_number','email','contact_number','emergency_contact',
             'fb_messenger','barangay','district','course','year_level',
-            'batch_year',
+            'batch_number',
             'class_schedule','certificates','profile_picture','profile_picture_local'
         ] as $k) {
             if (!array_key_exists($k, $normalized)) {
@@ -725,11 +696,25 @@ class VolunteerImportController extends Controller
             $errors['full_name'] = 'Full Name is required and only letters allowed.';
         }
 
-        if (empty($data['batch_year'])) {
-            $errors['batch_year'] = 'Batch year is required.';
-        } elseif (!preg_match('/^20\d{2}$/', (string)$data['batch_year'])) {
-            $errors['batch_year'] = 'Batch year must be a 4-digit year like 2023.';
+        $bn = trim((string)($data['batch_number'] ?? ''));
+
+        if ($bn === '') {
+            $errors['batch_number'] = 'Batch number is required.';
         }
+        elseif (!ctype_digit($bn)) {
+            $errors['batch_number'] = 'Batch number must be numeric.';
+        }
+        else {
+            $n = (int)$bn;
+
+            if ($n <= 0) {
+                $errors['batch_number'] = 'Batch number must be greater than 0.';
+            }
+            elseif ($n >= 1900) {
+                $errors['batch_number'] = 'Batch number must not be a year.';
+            }
+        }
+
 
         if (empty($data['id_number']) ||
             !preg_match('/^\d{6,7}$/', (string)$data['id_number'])) {
@@ -866,36 +851,8 @@ class VolunteerImportController extends Controller
             $input['id_number'] = strtoupper($input['id_number']);
         }
 
-        if (!empty($input['batch_year'])) {
-
-            $raw = (string) $input['batch_year'];
-
-            if (preg_match('/\b(\d{2})\D+(\d{2})\b/', $raw, $m)) {
-                $input['batch_year'] = 2000 + (int)$m[1]; // 23-24 => 2023
-            } else {
-
-                $digits = preg_replace('/\D+/', '', $raw);
-
-                if (preg_match('/^20\d{2}$/', $digits)) {
-                    $input['batch_year'] = (int)$digits;
-                } elseif (preg_match('/^(\d{2})$/', $digits, $m)) {
-                    $input['batch_year'] = 2000 + (int)$m[1];
-                } else {
-                    $input['batch_year'] = null; // let validator complain
-                }
-            }
-        }
-
-        if (!empty($input['batch_year'])) {
-            $digits = preg_replace('/\D+/', '', (string) $input['batch_year']);
-
-            if (strlen($digits) === 4) {
-                $input['batch_year'] = (int) $digits;
-            } elseif (strlen($digits) === 2) {
-                $input['batch_year'] = 2000 + (int) $digits;
-            } else {
-                $input['batch_year'] = null;
-            }
+        if (array_key_exists('batch_number', $input)) {
+            $input['batch_number'] = preg_replace('/\D+/', '', (string)$input['batch_number']);
         }
 
         $validator = \Validator::make($input, [
@@ -910,16 +867,15 @@ class VolunteerImportController extends Controller
             'barangay'          => ['required'],
             'district'          => ['required'],
             'class_schedule'    => ['required','string','regex:/^[\w\s,:()\.\-\/]+$/'],
-            'batch_year'        => ['nullable','digits:4','integer','min:2000','max:2100'],
+            'batch_number' => ['required','integer','min:1','max:100'],
         ],[
             'year_level.in'           => 'Year must be 1, 2, 3, or 4.',
             'district.required'       => 'No district selected.',
             'barangay.required'       => 'No barangay selected.',
             'class_schedule.required' => 'Class schedule is required.',
             'class_schedule.regex'    => 'Class schedule contains invalid characters.',
-            'batch_year.digits'       => 'Batch year must be a 4-digit year like 2023.',
-            'batch_year.min'          => 'Batch year is too early.',
-            'batch_year.max'          => 'Batch year is too far in the future.',
+            'batch_number.min' => 'Batch number must be at least 1.',
+            'batch_number.max' => 'Batch number is too large.',
         ]);
 
         $errors = $validator->fails() ? $validator->errors()->toArray() : [];
@@ -975,7 +931,7 @@ class VolunteerImportController extends Controller
             'id_number',
             'course',
             'year_level',
-            'batch_year',
+            'batch_number',
             'contact_number',
             'emergency_contact',
             'email',
@@ -992,7 +948,7 @@ class VolunteerImportController extends Controller
             'id_number',
             'course',
             'year_level',
-            'batch_year',
+            'batch_number',
             'contact_number',
             'emergency_contact',
             'email',
@@ -1019,7 +975,7 @@ class VolunteerImportController extends Controller
                 $new = preg_replace('/\s+/', ' ', trim((string)$new));
             }
 
-            if ($f === 'batch_year') {
+            if ($f === 'batch_number') {
                 $old = ($old === '' || $old === null) ? null : (int)$old;
                 $new = ($new === '' || $new === null) ? null : (int)$new;
             } else {
@@ -1073,7 +1029,7 @@ class VolunteerImportController extends Controller
             'id_number'         => 'School ID',
             'course'            => 'Course',
             'year_level'        => 'Year Level',
-            'batch_year'        => 'Batch Year',
+            'batch_number' => 'Batch Number',
             'contact_number'    => 'Contact #',
             'emergency_contact' => 'Emergency #',
             'email'             => 'Email',
@@ -2011,8 +1967,9 @@ class VolunteerImportController extends Controller
                     ])->value('course_id');
 
                     $barangay    = $entry['barangay'] ?? null;
-                    $locationId  = $barangay ? Location::where('barangay', $barangay)->value('location_id') : null;
-                    $location    = $locationId ? Location::find($locationId) : null;
+                    $location = $barangay ? Location::where('barangay', $barangay)->first() : null;
+                    $locationId = $location->location_id ?? null;
+
 
                     $driveUrl   = $entry['profile_picture'] ?? null;
                     $converted  = $this->convertDriveLinkToDownloadUrl($driveUrl);
@@ -2024,7 +1981,7 @@ class VolunteerImportController extends Controller
                         'id_number'           => $entry['id_number'] ?? "TEMP-" . uniqid(),
                         'course_id'           => $courseId,
                         'year_level'          => $entry['year_level'],
-                        'batch_year'          => !empty($entry['batch_year']) ? (int)$entry['batch_year'] : null,
+                        'batch_number' => $entry['batch_number'] !== '' ? (int)$entry['batch_number'] : null,
                         'contact_number'      => $entry['contact_number'],
                         'emergency_contact'   => $entry['emergency_contact'],
                         'email'               => $entry['email'],

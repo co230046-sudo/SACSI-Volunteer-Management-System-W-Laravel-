@@ -1,3 +1,4 @@
+Okay, check this new revision to see if it aligns with the controller and that it is correct:
 {{-- ===========================================================
    ✅ EDIT VOLUNTEER MODAL — FULL CODE (MATCHES CS + PP STYLE)
    - All CSS scoped to #editVolunteerModal (no global collisions)
@@ -197,7 +198,6 @@
 #editVolunteerModal #barangay.valid,
 #editVolunteerModal #course.valid,
 #editVolunteerModal #district.valid,
-#editVolunteerModal #batch_year.valid,
 #editVolunteerModal #year_level.valid{
   border-color:#28a745 !important;
   background:#e6f9ea !important;
@@ -205,7 +205,6 @@
 #editVolunteerModal #barangay.invalid,
 #editVolunteerModal #course.invalid,
 #editVolunteerModal #district.invalid,
-#editVolunteerModal #batch_year.invalid,
 #editVolunteerModal #year_level.invalid{
   border-color:#dc3545 !important;
   background:#ffe6e6 !important;
@@ -316,10 +315,6 @@
   padding:0;
   margin:0;
 }
-#editVolunteerModal .select-search[data-target="batch_year"] .select-search-toggle .label-text,
-#editVolunteerModal .select-search[data-target="batch_year"] .select-search-toggle .label-text .placeholder{
-  background:transparent !important;
-}
 
 #editVolunteerModal .select-search-toggle{
   width:100%;
@@ -421,9 +416,6 @@
 }
 #editVolunteerModal .select-search-empty{ font-size:0.8rem; color:#999; padding:0.25rem 0.5rem 0.3rem; }
 
-#editVolunteerModal .select-search[data-target="batch_year"] .select-search-input{ display:none; margin:0; padding:0; border:0; }
-#editVolunteerModal .select-search[data-target="batch_year"] .select-search-panel{ padding-top:0.35rem; }
-
 #editVolunteerModal .select-search[data-target="year_level"] .select-search-input{ display:none; margin:0; padding:0; border:0; }
 #editVolunteerModal .select-search[data-target="year_level"] .select-search-panel{ padding-top:0.35rem; }
 
@@ -486,7 +478,7 @@
                 'id_number'         => ['label' => 'School ID',         'icon' => 'fa-id-card',          'type' => 'text',   'required' => true],
                 'course'            => ['label' => 'Course',            'icon' => 'fa-graduation-cap',   'type' => 'select', 'required' => true],
                 'year_level'        => ['label' => 'Year Level',        'icon' => 'fa-calendar',         'type' => 'select', 'required' => true],
-                'batch_year'        => ['label' => 'Batch Year',        'icon' => 'fa-calendar-days',    'type' => 'select', 'required' => false],
+                'batch_number' => ['label' => 'Batch Number', 'icon' => 'fa-hashtag', 'type' => 'number', 'required' => false],
                 'contact_number'    => ['label' => 'Contact Number',    'icon' => 'fa-phone',            'type' => 'text',   'required' => true],
                 'emergency_contact' => ['label' => 'Emergency Contact', 'icon' => 'fa-phone-volume',     'type' => 'text',   'required' => true],
                 'email'             => ['label' => 'Email',             'icon' => 'fa-envelope',         'type' => 'text',   'required' => true],
@@ -564,32 +556,15 @@
                       </select>
                     </div>
 
-                  @elseif($key === 'batch_year')
-                    <div class="select-search hidden-native" data-target="batch_year">
-                      <button type="button" class="select-search-toggle" data-role="toggle">
-                        <span class="label-text"><span class="placeholder">-- Select Batch Year (optional) --</span></span>
-                        <span class="chevron"><i class="fa-solid fa-chevron-down"></i></span>
-                      </button>
-
-                      <div class="select-search-panel">
-                        <input type="text" class="select-search-input select-search-input-batch" placeholder="Search batch year...">
-                        <ul class="select-search-list">
-                          @for($y = $currentYear + 1; $y >= $currentYear - 10; $y--)
-                            <li class="select-search-option" data-value="{{ $y }}" data-label="{{ $y }}">
-                              <span>{{ $y }}</span>
-                            </li>
-                          @endfor
-                        </ul>
-                        <div class="select-search-empty d-none">No years found</div>
-                      </div>
-
-                      <select id="batch_year" name="batch_year">
-                        <option value="">-- Select Batch Year (optional) --</option>
-                        @for($y = $currentYear + 1; $y >= $currentYear - 10; $y--)
-                          <option value="{{ $y }}">{{ $y }}</option>
-                        @endfor
-                      </select>
-                    </div>
+                    @elseif($key === 'batch_number')
+                    <input
+                      type="number"
+                      id="batch_number"
+                      name="batch_number"
+                      placeholder="Batch Number"
+                      min="1"
+                      step="1"
+                    >
 
                   @elseif($key === 'barangay')
                     <div class="select-search hidden-native" data-target="barangay">
@@ -838,7 +813,7 @@
   const collegeInput    = document.getElementById('college');
 
   const yearLevelSelect = document.getElementById('year_level');
-  const batchYearSelect = document.getElementById('batch_year');
+  const batchNumberInput = document.getElementById('batch_number');
 
   let __initialStateJson = '';
   let __openedType = null;
@@ -878,15 +853,25 @@
     id_number: v => /^\d{6,7}$/.test(v.trim()) ? true : 'ID must be 6-7 digits',
     course: v => v !== '' ? true : 'Please select a course',
     year_level: v => /^[1-4]$/.test(v.trim()) ? true : 'Year must be 1-4',
-    batch_year: v => {
+    batch_number: v => {
       const value = v.trim();
-      if (!value) return true;
-      if (!/^\d{4}$/.test(value)) return 'Batch year must be 4 digits';
-      const year = parseInt(value, 10);
-      const nowY = (new Date()).getFullYear();
-      if (year < 2000 || year > nowY + 1) return 'Batch year looks invalid';
+
+      if (!value) return 'Batch number is required';
+      if (!/^\d+$/.test(value)) return 'Batch number must be numeric';
+
+      const num = parseInt(value, 10);
+
+      if (num <= 0) return 'Batch number must be greater than 0';
+
+      if (num >= 1900 && num <= 2100)
+        return 'Batch number must not be a year';
+
       return true;
     },
+
+
+
+
     contact_number: v => {
       const value = v.trim();
       if (!/^(09|\+639)\d{9}$/.test(value)) return 'Invalid PH number';
@@ -963,9 +948,10 @@
       if (errorSpan) { errorSpan.textContent = ''; errorSpan.style.display = 'none'; }
     }
 
-    if (['course', 'barangay', 'batch_year', 'year_level'].includes(input.id)) {
+    if (['course', 'barangay', 'year_level'].includes(input.id)) {
       syncSelectSearchValidity(input, !hasError, hasError);
     }
+
 
     return !hasError;
   }
@@ -976,7 +962,7 @@
 
   function getFormState() {
     const keys = [
-      'full_name','id_number','course','college','year_level','batch_year',
+      'full_name','id_number','course','college','year_level','batch_number',
       'contact_number','emergency_contact','email','fb_messenger',
       'barangay','district','district_id','class_schedule'
     ];
@@ -1020,7 +1006,7 @@
   });
 
   yearLevelSelect?.addEventListener('change', validateAll);
-  batchYearSelect?.addEventListener('change', validateAll);
+  batchNumberInput?.addEventListener('change', validateAll);
 
   function syncSelectSearchFromSelect(targetId) {
     const wrapper = document.querySelector('#editVolunteerModal .select-search[data-target="' + targetId + '"]');
@@ -1141,6 +1127,11 @@
       if (input) input.value = volunteer[key] || '';
     });
 
+    if (batchNumberInput) {
+      batchNumberInput.value = volunteer.batch_number ? String(volunteer.batch_number) : '';
+    }
+
+
     if (courseSelect) {
       courseSelect.value = volunteer.course ? String(volunteer.course) : '';
       const courseOpt = courseSelect.options[courseSelect.selectedIndex];
@@ -1151,11 +1142,6 @@
     if (yearLevelSelect) {
       yearLevelSelect.value = volunteer.year_level ? String(volunteer.year_level) : '';
       syncSelectSearchFromSelect('year_level');
-    }
-
-    if (batchYearSelect) {
-      batchYearSelect.value = volunteer.batch_year ? String(volunteer.batch_year) : '';
-      syncSelectSearchFromSelect('batch_year');
     }
 
     if (barangaySelect) {

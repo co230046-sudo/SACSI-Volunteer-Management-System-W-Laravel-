@@ -72,25 +72,19 @@
 ================================ -->
 <script>
 (function () {
-  // 👉 Adjust if you prefer: const HOME_URL = "{{ route('home') }}";
-  const HOME_URL = "/home";
-  const STORAGE_KEY = "pageHistory_v3";
+
+  const HOME_URL = "{{ route('home') }}";
+  const STORAGE_KEY = "pageHistory_v4";
   const MAX_STACK = 20;
 
-  function normalize(urlOrPath) {
-    if (!urlOrPath) return null;
-
+  function normalize(url) {
     try {
-      const u = new URL(urlOrPath, window.location.origin);
-      let path = u.pathname;
-      path = path.replace(/\/+$/, "") || "/";
-      return path;
-    } catch (e) {
-      // Fallback for simple paths like "/home"
-      let path = ("" + urlOrPath).split("#")[0].split("?")[0];
-      if (!path.startsWith("/")) path = "/" + path;
-      path = path.replace(/\/+$/, "") || "/";
-      return path;
+      const u = new URL(url, window.location.origin);
+      return u.pathname.replace(/\/+$/, "") || "/";
+    } catch {
+      let p = (""+url).split("#")[0].split("?")[0];
+      if (!p.startsWith("/")) p = "/" + p;
+      return p.replace(/\/+$/, "") || "/";
     }
   }
 
@@ -98,11 +92,8 @@
 
   function loadStack() {
     try {
-      const raw = sessionStorage.getItem(STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
+      return JSON.parse(sessionStorage.getItem(STORAGE_KEY)) || [];
+    } catch {
       return [];
     }
   }
@@ -110,74 +101,65 @@
   function saveStack(stack) {
     try {
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(stack));
-    } catch (e) {
-      // ignore storage errors
-    }
+    } catch {}
   }
 
   const currentPath = normalize(window.location.href);
-  let historyStack = loadStack();
+  let stack = loadStack();
 
-  // ================================
-  // 🔄 BUILD / UPDATE STACK ON LOAD
-  // ================================
+  // ==========================
+  // BUILD STACK SAFELY
+  // ==========================
   if (currentPath === HOME_PATH) {
-    // Visiting home ALWAYS resets history:
-    // older pages like /volunteer-import are forgotten.
-    historyStack = [HOME_PATH];
-    saveStack(historyStack);
+    stack = [HOME_PATH];
   } else {
-    if (!historyStack.length) {
-      // First non-home page in this tab:
-      // treat /home as logical root then this page.
-      historyStack = [HOME_PATH, currentPath];
+    if (!stack.length) {
+      stack = [HOME_PATH, currentPath];
     } else {
-      const last = normalize(historyStack[historyStack.length - 1]);
+      const last = normalize(stack[stack.length - 1]);
       if (last !== currentPath) {
-        historyStack.push(currentPath);
-        if (historyStack.length > MAX_STACK) {
-          historyStack = historyStack.slice(-MAX_STACK);
-        }
+        stack.push(currentPath);
+        if (stack.length > MAX_STACK) stack.shift();
       }
     }
-    saveStack(historyStack);
   }
 
-  // ================================
-  // ⬅️ BACK BUTTON HANDLER
-  // ================================
+  saveStack(stack);
+
+  // ==========================
+  // BACK BUTTON FUNCTION
+  // ==========================
   window.goBack = function () {
+
     let stack = loadStack();
     const cur = normalize(window.location.href);
 
-    // Nothing stored? Go straight to home.
-    if (!stack || !stack.length) {
-      saveStack([HOME_PATH]);
-      window.location.href = HOME_URL;
-      return;
-    }
-
-    // Drop any trailing occurrences of the current page
-    // (guards against weird duplicates).
+    // Remove current page duplicates
     while (stack.length && normalize(stack[stack.length - 1]) === cur) {
       stack.pop();
     }
 
-    // If there's nothing (or only home) behind us, go to home and stop.
-    if (!stack.length || stack.length === 1) {
+    // Nothing usable → home
+    if (!stack.length) {
       saveStack([HOME_PATH]);
       window.location.href = HOME_URL;
       return;
     }
 
-    // Previous logical page is now the last element.
-    const targetPath = stack[stack.length - 1];
+    const target = stack.pop();
 
-    // Keep the truncated stack (current page already removed).
+    // If invalid → home
+    if (!target || target === cur) {
+      saveStack([HOME_PATH]);
+      window.location.href = HOME_URL;
+      return;
+    }
+
     saveStack(stack);
 
-    // Navigate to previous logical page.
-    window.location.href = targetPath;
+    // Navigate
+    window.location.href = target;
   };
+
 })();
 </script>

@@ -8,13 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('event_organizers', function (Blueprint $table) {
-            // Prevent duplicate email per event (email can still be null)
-            $table->unique(['event_id', 'email'], 'event_organizers_event_email_unique');
-
-            // Prevent duplicate name per event (case sensitivity depends on collation; usually case-insensitive in MySQL)
-            $table->unique(['event_id', 'name'], 'event_organizers_event_name_unique');
+       Schema::table('event_organizers', function (Blueprint $table) {
+            $table->unique(['email']);
+            $table->unique(['name']);
         });
+
     }
 
     public function down(): void

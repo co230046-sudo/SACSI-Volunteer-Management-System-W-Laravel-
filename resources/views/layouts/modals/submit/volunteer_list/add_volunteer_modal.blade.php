@@ -361,6 +361,13 @@
                   <input id="vlPhotoInput" type="file" name="profile_picture"
                          class="form-control vlAdd-input @error('profile_picture') is-invalid @enderror"
                          accept="image/*" />
+
+                  <div id="vlPhotoReuploadWarning"
+                      class="text-danger small mt-1 fw-bold"
+                      style="display:none;">
+                    Please add the photo again.
+                  </div>
+
                   <div class="vlAdd-miniHint mt-1">
                     Optional. JPG/PNG. If not provided, default photo will be used.
                   </div>
@@ -803,9 +810,11 @@
      ✅ Main bootstrap init
   ============================================================ */
   whenBootstrapReady(() => {
+    
     const formEl = document.getElementById('vlAddVolunteerForm');
     if (!formEl) return;
 
+    let photoDataUrl = null;
     const openConfirmBtn   = document.getElementById('vlAddOpenConfirm');
     const resetBtn         = document.getElementById('vlAddResetBtn');
     const confirmModalEl   = document.getElementById('vlAddConfirmModal');
@@ -813,6 +822,8 @@
 
     const photoInput   = document.getElementById('vlPhotoInput');
     const photoPreview = document.getElementById('vlPhotoPreview');
+
+    const photoWarnEl  = document.getElementById('vlPhotoReuploadWarning');
 
     const yearSel      = document.getElementById('vlYearSelect');
     const districtSel  = document.getElementById('vlDistrictSelect');
@@ -906,6 +917,11 @@
       el.style.display = on ? 'block' : 'none';
     }
 
+    function showPhotoWarning(on){
+      if (!photoWarnEl) return;
+      photoWarnEl.style.display = on ? 'block' : 'none';
+    }
+
     function markTouched(el){
       if (!el) return;
       el.dataset.vlTouched = '1';
@@ -986,8 +1002,12 @@
     }
 
     function resetPhoto(){
+      photoDataUrl = null;
+
       if (photoPreview) photoPreview.src = DEFAULT_AVATAR;
-      window.syncZoomImg();
+
+      const zoomImg = document.getElementById('vlPhotoZoomImg');
+      if (zoomImg) zoomImg.src = DEFAULT_AVATAR;
 
       if (photoInput) {
         photoInput.value = '';
@@ -995,22 +1015,40 @@
       }
     }
 
+
     photoInput?.addEventListener('change', () => {
+      showPhotoWarning(false);
+
       const file = photoInput.files?.[0];
       if (!file) {
         resetPhoto();
         refreshPhotoFileState();
+        photoDataUrl = null;
         return;
       }
 
-      const url = URL.createObjectURL(file);
-      if (photoPreview) photoPreview.src = url;
+      const reader = new FileReader();
 
-      window.syncZoomImg();
-      const zoomImg = document.getElementById('vlPhotoZoomImg');
-      if (zoomImg) zoomImg.src = url;
+      reader.onload = () => {
+        photoDataUrl = reader.result;
 
+        if (photoPreview) photoPreview.src = photoDataUrl;
+
+        const zoomImg = document.getElementById('vlPhotoZoomImg');
+        if (zoomImg) zoomImg.src = photoDataUrl;
+      };
+
+      reader.readAsDataURL(file);
       refreshPhotoFileState();
+    });
+
+    modalEl.addEventListener('shown.bs.modal', () => {
+      if (photoDataUrl && photoPreview) {
+        photoPreview.src = photoDataUrl;
+
+        const zoomImg = document.getElementById('vlPhotoZoomImg');
+        if (zoomImg) zoomImg.src = photoDataUrl;
+      }
     });
 
     /* ============================================================
@@ -1640,6 +1678,13 @@
       e.preventDefault();
       closePortal();
 
+      // 🚨 PHOTO RE-UPLOAD REQUIRED AFTER SERVER ERROR
+      if (HAS_SERVER_ERRORS && (!photoInput || !photoInput.files || !photoInput.files.length)) {
+        showPhotoWarning(true);
+        photoInput?.focus?.();
+        return;
+      }
+
       saveAttempted = true;
       markAllForce();
 
@@ -1671,6 +1716,13 @@
     });
 
     confirmSubmitBtn?.addEventListener('click', () => {
+      // 🚨 PHOTO RE-UPLOAD REQUIRED AFTER SERVER ERROR
+      if (HAS_SERVER_ERRORS && (!photoInput || !photoInput.files || !photoInput.files.length)) {
+        showPhotoWarning(true);
+        photoInput?.focus?.();
+        return;
+      }
+
       saveAttempted = true;
       markAllForce();
 
@@ -1696,6 +1748,7 @@
        ✅ Reset button
     ============================================================ */
     function resetFormState(){
+      showPhotoWarning(false);
       formEl.reset();
       saveAttempted = false;
 
@@ -1769,23 +1822,13 @@
     });
 
     /* ============================================================
-       ✅ Prevent reset during schedule or photo modal switching
-    ============================================================ */
-    modalEl.addEventListener('hidden.bs.modal', () => {
-      if (isPhotoZooming) return;
-      if (window.__vlScheduleOpening === true) return;
-      if (window.__vlScheduleSwitching === true) return;
-      if (scheduleModalIsShowing()) return;
-      resetFormState();
-    });
-
-    /* ============================================================
        ✅ Restore server error states on refresh
     ============================================================ */
     if (HAS_SERVER_ERRORS && addModal) {
       try { addModal.show(); } catch {}
 
       lockServerInvalidInputs();
+      showPhotoWarning(true);
 
       saveAttempted = false;
 
@@ -1799,16 +1842,20 @@
 
       refreshPhotoFileState();
 
+      // ✅ FIX: force green outlines for valid inputs after refresh
       setTimeout(() => {
         watchEls.forEach(el => updateOutline(el, true));
-      }, 50);
+      }, 0);
     }
+
   });
 
   /* ============================================================
    ✅ Success modal handler (ENHANCED)
   ============================================================ */
   whenBootstrapReady(() => {
+    let photoDataUrl = null;
+
     if (!SHOULD_SHOW_SUCCESS) return;
 
     const successEl = document.getElementById('vlAddSuccessModal');
@@ -1852,6 +1899,7 @@
 
     try { bootstrap.Modal.getOrCreateInstance(successEl).show(); }
     catch { try { new bootstrap.Modal(successEl).show(); } catch {} }
+    
   });
 
 

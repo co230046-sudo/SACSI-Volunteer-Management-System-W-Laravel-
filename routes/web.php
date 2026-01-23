@@ -143,7 +143,7 @@ Route::middleware(['auth:admin'])->group(function () {
 
     Route::get('/volunteers/locations', [VolunteerListController::class, 'locations'])
         ->name('volunteers.locations');
-
+    
     /* ------------------ VOLUNTEER PROFILE ------------------ */
     Route::get('/volunteer-profile/{id}', [VolunteerProfileController::class, 'show'])
         ->name('volunteers.show');

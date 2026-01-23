@@ -404,4 +404,5 @@ class VolunteerProfileController extends Controller
         return redirect()->route('volunteers.list')
             ->with('success', 'Volunteer profile deleted.');
     }
+    
 }

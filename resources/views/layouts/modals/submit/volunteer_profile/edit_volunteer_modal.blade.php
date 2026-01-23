@@ -15,8 +15,9 @@
       ? route('volunteers.destroy', $volunteer->volunteer_id)
       : url('/volunteer-profile/' . $volunteer->volunteer_id);
 
-  $vpExistingAvatar = old('profile_picture_url') ?: ($volunteer->profile_picture_url ?? null);
-  $vpAvatar = !empty($vpExistingAvatar) ? $vpExistingAvatar : $DEFAULT_AVATAR;
+  $vpAvatar = old('avatar_url')
+    ?? ($volunteer->avatar_url ?? $DEFAULT_AVATAR);
+
 
   $vpExistingSchedule = old('class_schedule', $volunteer->class_schedule ?? '');
 

@@ -162,6 +162,8 @@ class VolunteerProfileController extends Controller
     public function update(Request $request, $id)
     {
         $request->validate([
+            'profile_picture' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+
             'full_name' => [
                 'required',
                 'string',
@@ -208,6 +210,32 @@ class VolunteerProfileController extends Controller
 
         $volunteer = VolunteerProfile::findOrFail($id);
 
+        $photoChanged = false;
+
+        // ✅ Handle profile picture upload
+        if ($request->hasFile('profile_picture')) {
+
+            $photoChanged = true;
+
+            // Delete old local image if it exists
+            if (
+                $volunteer->profile_picture_path &&
+                \Storage::disk('public')->exists($volunteer->profile_picture_path)
+            ) {
+                \Storage::disk('public')->delete($volunteer->profile_picture_path);
+            }
+
+            // Store new image
+            $path = $request->file('profile_picture')
+                ->store('volunteer_profiles', 'public');
+
+            // Save new path
+            $volunteer->profile_picture_path = $path;
+
+            // Clear external URL
+            $volunteer->profile_picture_url = null;
+        }
+
         $before = $volunteer->only([
             'full_name',
             'id_number',
@@ -240,7 +268,9 @@ class VolunteerProfileController extends Controller
             'class_schedule',
         ]);
 
-        $volunteer->update($payload);
+        $volunteer->fill($payload);
+        $volunteer->save();
+
 
         $after = $volunteer->only(array_keys($before));
 
@@ -277,6 +307,15 @@ class VolunteerProfileController extends Controller
                 ];
             }
         }
+
+        if ($photoChanged) {
+            $changed['profile_picture'] = [
+                'label' => 'Profile Picture',
+                'from'  => 'Previous photo',
+                'to'    => 'Updated photo',
+            ];
+        }
+
 
         $adminId = Auth::guard('admin')->id();
         $nameForLog = $after['full_name'] ?? $before['full_name'] ?? 'Unknown';

@@ -19,13 +19,14 @@ use App\Http\Controllers\EventSummaryController;
 use App\Http\Controllers\SystemLogsController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\ApiDashboardController;
-
+    
 Route::get('/', function () {
     return redirect()->route('auth.login');
 });
 
 /* ------------------ AUTH ROUTES ------------------ */
-Route::get('/login', [AuthController::class, 'showLogin'])->name('auth.login');
+Route::get('/login', [AuthController::class, 'showLogin'])
+    ->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('auth.login.submit');
 Route::get('/register', [AuthController::class, 'showRegister'])->name('auth.register');
 Route::post('/register', [AuthController::class, 'register'])->name('auth.register.submit');

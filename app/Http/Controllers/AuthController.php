@@ -298,7 +298,7 @@ public function register(Request $request)
             'lastUsedTable'
         ]);
 
-        return redirect()->route('auth.login')
+        return redirect()->route('login')
             ->with('success', 'You have been logged out.');
     }
 }

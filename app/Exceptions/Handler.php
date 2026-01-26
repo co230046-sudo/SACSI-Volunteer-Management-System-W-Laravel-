@@ -44,7 +44,7 @@ class Handler extends ExceptionHandler
             Auth::guard('admin')->logout();
 
             return redirect()
-                ->route('auth.login')
+                ->route('login')
                 ->with('success', 'Session expired. Please login again.');
         }
 
@@ -53,7 +53,7 @@ class Handler extends ExceptionHandler
     protected function unauthenticated($request, AuthenticationException $exception)
     {
         return redirect()
-            ->route('auth.login')
+            ->route('login')
             ->with('success', 'Session expired. Please login again.');
     }
 
